@@ -61,6 +61,9 @@ var sounds: DdSounds = null
 
 ## The player's own settings: the field of view and the volume. See [DdSettings].
 var settings: DdSettings = null
+
+## The player's console. See [method DotConsoleKit.build].
+var console: DotConsoleController = null
 var net: DotNetManager = null
 var bridge: DdNetBridge = null
 var link: Node = null
@@ -333,6 +336,10 @@ func _build_settings() -> void:
 		# Escape is the garage's; the menu still closes on it.
 		settings.menu.open_on_escape = false
 		settings.menu.busy = func() -> bool: return chat != null and chat.is_typing()
+		# The console (the key under Escape): net_stat and every other setting by name, and
+		# the server's console when one runs in this process. One of the menu's overlays, so
+		# opening it stops the player and frees the pointer exactly as the menu does.
+		console = DotConsoleKit.build(self, settings.settings, settings.menu)
 
 	if settings.menu != null and garage != null:
 		# [b]The lot steps aside while the settings are up.[/b] The menu's panel sits over the
