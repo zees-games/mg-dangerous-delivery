@@ -8,7 +8,7 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 
 const SECTIONS := 6
-const CHECKS := 19
+const CHECKS := 22
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -192,6 +192,28 @@ func _test_stand_ins() -> void:
 	var driver: DdGame.Driver = game.drivers[key]
 	_check(truck.global_position.distance_to(start) > 5.0, "and a stand-in drives",
 		"%.1f m, %s, throttle %.2f" % [truck.global_position.distance_to(start), (driver.trip as RefCounted).call("describe"), driver.command.throttle])
+	# [b]A person takes a stand-in's place, and leaving gives it back[/b]: DotBotQuota's fill
+	# mode, the family's default, with `dd_bots` forwarding to `bot_quota`. The roster check is
+	# called rather than waited for, and the person is added through the bridge with peer
+	# zero, so the count is exact and nothing else moves under it.
+	var quota := server.console.find_cvar("bot_quota")
+	var _three := _run_command("dd_bots 3")
+	_check(quota != null and quota.get_int() == 3, "the old dd_bots sets the shared bot_quota",
+		quota.get_string() if quota != null else "missing")
+	var _two := _run_command("dd_bots 2")
+	var bridge: Object = module.get("bridge")
+	module.call("_keep_bots")
+	var bots_before: int = (module.get("_bot_keys") as Array).size()
+	var joined: DotResult = bridge.call("add_player", 0, 9001, "Person")
+	module.call("_keep_bots")
+	var bots_with: int = (module.get("_bot_keys") as Array).size()
+	_check(joined.ok and bots_before == 2 and bots_with == 1, "a person joining takes a stand-in's place",
+		"%d -> %d" % [bots_before, bots_with])
+	bridge.call("remove_peer", 0)
+	module.call("_keep_bots")
+	var bots_after: int = (module.get("_bot_keys") as Array).size()
+	_check(bots_after == bots_before, "and a stand-in comes back when they leave",
+		"%d -> %d" % [bots_with, bots_after])
 	var _none := _run_command("dd_bots 0")
 	await _seconds(2.5)
 	_check(game.drivers.is_empty(), "dd_bots 0 takes them away")

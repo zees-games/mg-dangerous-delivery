@@ -153,8 +153,13 @@ extends DotConfig
 ## Whether trucks that come with a trailer (the Semi) pull one. Off turns every truck rigid.
 @export var trailers: bool = true
 
-## Stand-in drivers, so a server is not an empty mountain. People replace them.
-@export_range(0, 16, 1) var bots: int = 0
+## Stand-in drivers, so a server is not an empty mountain. People replace them. This is the
+## default for the server's `bot_quota` (fill mode: stand-ins plus people make this many).
+##
+## Two, which is what every shipped server config set `dd_bots` to: one person alone on a
+## mountain road has somebody to pass and to race to the depot. Zero made a server with no
+## config an empty mountain.
+@export_range(0, 16, 1) var bots: int = 2
 
 @export_group("Progress")
 

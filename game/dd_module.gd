@@ -27,7 +27,10 @@ static var bank_file: String = "user://delivery_accounts.json"
 ## Drivers' numbers and achievements, or null when the server keeps none.
 var progress: DdProgress = null
 
+## `dd_bots`, the old count, kept only as an alias that sets `bot_quota`. See [method _game_load].
 var _bots: DotConVar = null
+## How many stand-ins, from how many people: dot-server's one rule for every game.
+var _quota: DotBotQuota = null
 var _bot_keys: Array[StringName] = []
 var _since_roster := 0.0
 
@@ -120,7 +123,23 @@ func _game_load() -> DotResult:
 	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, wind, or off", DotAdminFlags.CHANGEMAP)
 	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
 
-	_bots = add_cvar("dd_bots", str(world.config.bots), "Stand-in drivers on the mountain. People take their places.")
+	# [b]How many stand-ins is dot-server's [DotBotQuota], so `bot_quota` and `bot_quota_mode`
+	# mean the same thing on every server in the family.[/b] This game already ran the fill
+	# rule under its own name — `dd_bots` stand-ins less one per person — so the default is
+	# its number (`bots`, from the config file) in fill mode and an unchanged server drives
+	# the same mountain.
+	_quota = DotBotQuota.install(self, world.config.bots)
+
+	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
+	# rather than removed because every shipped config sets it; left as its own number it
+	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.
+	_bots = add_cvar("dd_bots", str(world.config.bots), "Deprecated, sets bot_quota. Stand-in drivers on the mountain; people take their places.")
+
+	if _bots != null:
+		_bots.changed.connect(func(_old: String, _new: String) -> void:
+			if _quota != null and _quota.quota_cvar != null:
+				var _set := _quota.quota_cvar.set_value(str(maxi(_bots.get_int(), 0))))
+
 	_tunable_bool("dd_solo", world.config.allow_solo, "Whether players may drive solo (B)", func(v: bool) -> void: world.config.allow_solo = v)
 	_tunable_bool("dd_skip", world.config.allow_skip, "Whether players may skip a stage (N)", func(v: bool) -> void: world.config.allow_skip = v)
 	_tunable_bool("dd_rocks", world.config.boulders_enabled, "Whether rock falls", func(v: bool) -> void: world.config.boulders_enabled = v)
@@ -191,14 +210,17 @@ func _game_tick(_tick: int, delta: float) -> void:
 	_keep_bots()
 
 
-## Stand-ins up to `dd_bots`, less one for each person: they are there so the mountain is not
-## empty, and a person who arrives takes one's place.
+## Stand-ins by [DotBotQuota]: in its default fill mode, `bot_quota` less one for each person.
+## They are there so the mountain is not empty, and a person who arrives takes one's place.
 func _keep_bots() -> void:
 	var world := game as DdGame
 
-	if world == null or bridge == null or _bots == null:
+	if world == null or bridge == null or _quota == null:
 		return
 
+	# People only. A stand-in put in by hand through the bridge is never in `_bot_keys`, so it
+	# is left alone and outside the count. A leaver is gone from `drivers` the moment the
+	# bridge lets them go, so nobody half-disconnected is counted.
 	var humans := 0
 
 	for key: StringName in world.drivers:
@@ -209,11 +231,13 @@ func _keep_bots() -> void:
 		if not world.drivers.has(_bot_keys[i]):
 			_bot_keys.remove_at(i)
 
-	var wanted := maxi(_bots.get_int() - humans, 0)
+	var slots: int = server.config.max_players if server != null and server.config != null else -1
+	var wanted := _quota.wanted(humans, slots)
 
 	while _bot_keys.size() < wanted:
 		_bot_keys.append(bridge.call("add_bot", "Hauler %d" % (_bot_keys.size() + 1)))
 
+	# Newest first, so the stand-ins that have been driving longest keep driving.
 	while _bot_keys.size() > wanted:
 		bridge.call("remove_bot", _bot_keys.pop_back())
 

@@ -71,7 +71,7 @@ Console commands:
 | `dd_weather clear\|rain\|snow\|wind\|off` | Force the weather |
 | `dd_give <name> <amount>` | Give somebody money |
 
-The quick switches are cvars: `dd_bots`, `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`.
+The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
 
 Everything else is a setting. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
 

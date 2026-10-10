@@ -29,7 +29,7 @@ game/
   dd_garage.gd     the lot: routes, trucks, upgrades; asks through a callable and is told
   dd_settings.gd   the player's field of view and volume, and their screen (the lot's SETTINGS button, O)
   dd_client.gd     one player: offline it owns the world, connected it mirrors one; camera, controls, particles, visibility
-  dd_module.gd     the DotGameModule: netcode numbers, cvars (dd_bots, dd_solo, dd_skip, dd_rocks, dd_collide), dd_status/dd_bank/dd_weather/dd_give, stand-ins, the bank's store
+  dd_module.gd     the DotGameModule: netcode numbers, cvars (bot_quota via DotBotQuota with dd_bots as its deprecated alias, dd_solo, dd_skip, dd_rocks, dd_collide), dd_status/dd_bank/dd_weather/dd_give, stand-ins, the bank's store
   dd_services.gd   chat (all, admin, whisper), push-to-talk voice, moderation, over dot-game's base
   dd_client_chat.gd  the chat box (Y) and push-to-talk (V); a truck idles while its driver types
   dd_sounds.gd     synthesised: a diesel whose pitch follows speed, brake hiss, rain, wind, rock, the depot chime; a positional engine on every other truck (heard to 60 m, silent when that truck is hidden)
