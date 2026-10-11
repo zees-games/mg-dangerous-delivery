@@ -63,6 +63,12 @@ var ballot_fn: Callable = Callable()
 ## [code]func(voter: StringName) -> Dictionary[/code]: a voter's name and avatar, for the ballot.
 var people_fn: Callable = Callable()
 
+## [code]func() -> bool[/code]: whether a person is mid-haul — the "round" a
+## [code]time_up: finish_round[/code] change waits for. Handed to dot-vote, so a road with
+## nobody on it lets the change through at once rather than on the next tick's
+## [method note_road_clear]. The host's, because only the world knows who is driving.
+var round_in_progress_fn: Callable = Callable()
+
 var director: DotVoteDirector = null
 var source: DotVoteListSource = null
 var commands: DotVoteCommands = null
@@ -92,6 +98,14 @@ func setup() -> DotResult:
 	# Reports a "round end" (the road clear of people) so FINISH_ROUND has something to wait
 	# for; this game has no other rounds, and no round limit is set.
 	director.round_based = true
+	# [b]Set by name, and only where it exists.[/b] A delivered pack runs on the shell's
+	# dot-vote, and one older than API 3 has no `round_in_progress_fn`: naming it would fail
+	# the pack's parse. There, the module's tick still releases the change with
+	# note_road_clear, one tick later. Read through this node's own field, so the order the host
+	# sets it in does not matter.
+	if "round_in_progress_fn" in director:
+		director.set(&"round_in_progress_fn", func() -> bool:
+			return not round_in_progress_fn.is_valid() or bool(round_in_progress_fn.call()))
 	# Not the registry's `dot_vote_director`: one ballot per screen is the host's to arrange,
 	# and nothing here is looked up by name.
 	director.register_service = false

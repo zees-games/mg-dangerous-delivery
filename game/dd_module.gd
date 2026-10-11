@@ -252,6 +252,9 @@ func _build_vote(world: DdGame) -> void:
 		var avatar: Variant = session.identity.get("avatar_url") if session.identity != null else ""
 		return {"name": session.display_name, "avatar": avatar if avatar is String else ""}
 
+	# The haul is this game's round: a road with no person on it has nothing to wait for.
+	vote.round_in_progress_fn = _anyone_hauling
+
 	add_child(vote)
 	var made := vote.setup()
 

@@ -7,8 +7,8 @@ extends Node
 
 const DdGame := preload("../game/dd_game.gd")
 
-const SECTIONS := 7
-const CHECKS := 42
+const SECTIONS := 8
+const CHECKS := 46
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -43,6 +43,7 @@ func _run() -> void:
 		_test_the_console()
 		await _test_stand_ins()
 		_test_the_mountain_vote()
+		_test_finish_round_waits_for_a_haul()
 		await _test_it_unloads()
 
 	_test_no_message_preloads_itself()
@@ -321,6 +322,89 @@ func _test_the_mountain_vote() -> void:
 
 	game.leave(hauler)
 	_finished_section()
+
+## [b]`time_up: finish_round` waits for a person mid-haul, never for an empty road.[/b] The
+## game hands dot-vote its own answer (`round_in_progress_fn` is `_anyone_hauling`). Run on a
+## director of its own carrying the game's hook, so the real vote's clock is untouched.
+func _test_finish_round_waits_for_a_haul() -> void:
+	_section("finish_round waits for a haul, not an empty road")
+	var module := _module()
+	var vote: Node = module.get("vote") if module != null else null
+	var director: DotVoteDirector = vote.get("director") if vote != null else null
+	var hook: Variant = director.get("round_in_progress_fn") if director != null else null
+	_check(hook is Callable and (hook as Callable).is_valid(), "the game tells its vote whether anyone is hauling")
+
+	if not (hook is Callable and (hook as Callable).is_valid()):
+		_finished_section()
+		return
+
+	var idle_applied := []
+	var idle := _finish_round_probe(hook, idle_applied)
+	_check(not bool((hook as Callable).call()) and idle_applied == [&"b"] and not idle.is_finishing_round(),
+		"with nobody on the road a time limit with finish_round changes at once", str(idle_applied))
+
+	var hauler := &"uid:round-hook"
+	var _joined := game.join(hauler, "Hauler")
+	var started := game.start_trip(hauler, game.route_order[0]) if not game.route_order.is_empty() else null
+	var haul_applied := []
+	var haul := _finish_round_probe(hook, haul_applied)
+	_check(bool((hook as Callable).call()) and haul_applied.is_empty() and haul.is_finishing_round(),
+		"while a person is hauling it waits for them", "%s, %s" % [str(started), str(haul_applied)])
+
+	game.leave(hauler)
+	haul.advance(0.1)
+	_check(haul_applied == [&"b"], "and the road clearing is the change", str(haul_applied))
+
+	idle.queue_free()
+	haul.queue_free()
+	_finished_section()
+
+
+## A director under `time_up: finish_round` carrying [param hook], its clock run out with a
+## winner already decided: what dot-vote's own suite builds, with the game's answer in it.
+func _finish_round_probe(hook: Callable, applied: Array) -> DotVoteDirector:
+	var source := DotVoteListSource.new()
+	var _a := source.add(DotVoteChoice.of(&"a", "A"))
+	var _b := source.add(DotVoteChoice.of(&"b", "B"))
+	source.apply_fn = func(id: StringName) -> DotResult:
+		applied.append(id)
+		return DotResult.success(id)
+
+	var rules := DotVoteRules.new()
+	rules.apply_delay_sec = 0.0
+	rules.duration_sec = 100.0
+	rules.vote_lead_sec = 40.0
+	rules.vote_duration_sec = 5.0
+	rules.include_extend = false
+	rules.apply = DotVoteRules.Apply.END_OF_TIME
+	rules.cooldown = 0
+	rules.time_up = DotVoteRules.TimeUp.FINISH_ROUND
+	# For ever: only the hook may release it.
+	rules.finish_round_max_sec = 0.0
+
+	var probe := DotVoteDirector.new()
+	probe.rules = rules
+	probe.source = source
+	probe.register_service = false
+	probe.self_advance = false
+	probe.round_based = true
+	probe.player_count_fn = func() -> int: return 4
+	probe.set(&"round_in_progress_fn", hook)
+	add_child(probe)
+	probe.begin(&"a")
+	source.current = &"a"
+
+	for i in range(61):
+		probe.advance(1.0)
+
+	probe.cast_one(&"p1", &"b")
+
+	# The ballot closes, then the limit (100 s) runs out with the winner decided.
+	for i in range(46):
+		probe.advance(1.0)
+
+	return probe
+
 
 
 func _test_it_unloads() -> void:
