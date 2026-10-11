@@ -74,7 +74,6 @@ func _make_services() -> Node:
 	return DdServices.new()
 
 
-## No platform identity layer yet: names come from the session. See CLAUDE.md.
 ## Profiles and names: dot-platform's identity, with no avatar schema, because nobody in this
 ## game is drawn — a player is their truck. What it gives is the site's name over the
 ## session's, and admission; authentication is the host's, as for every game.
