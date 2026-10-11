@@ -19,8 +19,8 @@ const DdProgress := preload("res://game/dd_progress.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
-const SECTIONS := 19
-const CHECKS := 106
+const SECTIONS := 20
+const CHECKS := 110
 
 var _passed := 0
 var _failed := 0
@@ -64,6 +64,7 @@ func _ready() -> void:
 	_test_ice_and_debris()
 	await _test_a_trailer()
 	await _test_the_client_settings()
+	_test_the_lot_makes_room()
 	await _test_sound_and_effects()
 
 	print("")
@@ -675,6 +676,53 @@ func _test_the_client_settings() -> void:
 	remove_child(client)
 	client.free()
 	await get_tree().process_frame
+	_finished_section()
+
+
+## The lot under a ballot: something in dot-ui's `dot_hud_cover` group over it moves the lot to
+## its left, and the lot goes back when it goes. What it looks like is `tools/shot.sh --ballot`'s.
+func _test_the_lot_makes_room() -> void:
+	_section("the lot makes room for a ballot")
+	var lot: Control = (load("res://game/dd_garage.gd") as GDScript).new()
+	add_child(lot)
+	# 1280 x 720 in a 64 x 64 headless window: the lot anchors itself full-rect.
+	lot.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	lot.position = Vector2.ZERO
+	lot.size = Vector2(1280.0, 720.0)
+
+	lot.call("make_room")
+	_check(lot.call("room_target") == Vector2(80.0, 1200.0), "with nothing over it the lot is centred", str(lot.call("room_target")))
+
+	# Where the client shell puts a ballot at 1280 wide, on a layer of its own.
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var ballot := Control.new()
+	ballot.add_to_group(&"dot_hud_cover")
+	ballot.position = Vector2(904.0, 110.0)
+	ballot.size = Vector2(360.0, 180.0)
+	layer.add_child(ballot)
+
+	lot.call("make_room")
+	var frame := lot.find_child("Lot", true, false) as Control
+	_check(lot.call("room_target") == Vector2(16.0, 888.0) and frame != null
+			and is_equal_approx(frame.offset_right, 888.0 - 640.0),
+		"a ballot over it moves it left of the ballot, and narrows it to fit", str(lot.call("room_target")))
+
+	ballot.visible = false
+	lot.call("make_room")
+	_check(lot.call("room_target") == Vector2(80.0, 1200.0), "and it goes back when the ballot does")
+
+	# A phone: the ballot leaves less than the narrowest lot, which stays where it is.
+	ballot.visible = true
+	lot.size = Vector2(900.0, 720.0)
+	ballot.position = Vector2(900.0 - 16.0 - 306.0, 110.0)
+	lot.call("make_room")
+	_check(lot.call("room_target") == Vector2(-110.0, 1010.0),
+		"a frame too narrow for a three-column lot beside the ballot leaves it centred", str(lot.call("room_target")))
+
+	layer.queue_free()
+	lot.queue_free()
 	_finished_section()
 
 

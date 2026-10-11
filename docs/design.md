@@ -46,6 +46,15 @@ Any truck with `"trailer": {length, mass}` in `DdTrucks` pulls a `DdTrailer`: a 
 
 `DdTrucks` is the catalogue and the upgrades as data; `tunables_for()` is what a truck drives with. `DdTruck` builds a `VehicleBody3D` from a Kenney model: hull from its bounds, wheels from its wheel nodes. Harder trucks and worse weather pay more (`DdTrip`'s pay formula). Money is keyed by the session's account uid (`uid:…`), which dot-server has at connect; the platform's profile arrives after seating, too late to key by. The bank's store is `DdModule.bank_file` (JSON) unless a host sets `DdModule.bank_driver` to a dot-moderation-shaped SQL driver.
 
+## The lot makes room for a ballot
+
+The client shell draws every ballot (the server's game vote and this game's mountain vote) as a `DotBallotPanel` in a column down the right-hand side, over whatever the game drew, and the lot's third column (upgrades) read through the translucent panel. The shell cannot reach into a delivered game, so the lot looks: `DdGarage.make_room()` runs every frame the lot is up, reads every visible Control in dot-ui's `dot_hud_cover` group (by that string, so the pack still loads on a shell whose dot-ui predates the group), and when one overlaps the lot the lot eases left and narrows to end 16 px short of it (16..888 at 1280 wide), then eases back when the panel goes. Every button wraps, so the three columns reflow rather than push the lot back under the panel.
+
+- **Not a column cut**: the upgrades are a third of what the lot is for, and a player waiting out a vote is a player at the lot.
+- **Not shrunk in place**: a centred lot narrow enough to clear the column wastes the left margin for nothing.
+- **Narrower than 720 px it stays centred**, under the panel: three columns a word wide are worse. That is a phone in landscape, where the column is a third of the frame.
+- `tools/shot.sh --ballot` renders it; `headless_run` checks where the lot goes.
+
 ## Settings, behind a button
 
 `DdSettings` is dot-menu's `DotMenuSettings` with this game's schema: field of view (SERVER_CLAMPED, default 70), master and effects volume (bound to `DdAudio`'s mixer) and shake (bound to the client's `DotFxManager`). The stock keys nothing here reads are listed in `NOT_APPLIED` (there is no sensitivity: the mouse turns nothing). **The lot's SETTINGS button and O open it, never Escape**, because Escape is how a driver gets back to the lot. The lot hides while the screen is up, because the panel is translucent and the route list printed through it.

@@ -24,6 +24,35 @@ var _notice: Label = null
 var _picked_route: StringName = &""
 var _view: Dictionary = {}
 
+## The lot's panel. Moved and narrowed by [method make_room].
+var _frame: PanelContainer = null
+
+## [b]The lot makes room for a ballot.[/b] The client shell draws every ballot (the server's
+## game vote, this game's mountain vote) as a panel in a column down the right-hand side, over
+## whatever the game drew, and the lot's third column read through it. The shell cannot reach
+## into the game, so the game looks: every visible Control in dot-ui's
+## [code]dot_hud_cover[/code] group is something on top of it. While one overlaps the lot, the
+## lot slides left and narrows to end [constant ROOM_GAP] px short of it, and slides back when
+## it goes. [b]Not a lot with a column cut[/b]: the upgrades are a third of what the lot is
+## for, and a player waiting out a vote is a player at the lot. [b]Not shrunk in place[/b]:
+## the lot is centred, and a centred lot narrow enough to clear the column is 64 px narrower
+## again for nothing.
+const COVER_GROUP := &"dot_hud_cover"
+
+## The lot's size when nothing covers it, and the margin it keeps from the frame's edge.
+const LOT_SIZE := Vector2(1120.0, 600.0)
+const ROOM_GAP := 16.0
+
+## Narrowest the lot goes. Below this its three columns are a word wide, and a lot under a
+## panel is the lesser harm: a frame this narrow is a phone, where the ballot is a third of it.
+const LOT_MIN_WIDTH := 720.0
+
+## How fast the lot slides out of the way and back, per second; it eases either way.
+const ROOM_SPEED := 14.0
+
+## Where the lot's left and right edges are going, in this Control's coordinates.
+var _room_target := Vector2.ZERO
+
 
 func _ready() -> void:
 	# With offsets: under a CanvasLayer there is no parent Control, and anchors alone left this
@@ -36,11 +65,13 @@ func _ready() -> void:
 	add_child(shade)
 
 	var frame := PanelContainer.new()
+	_frame = frame
+	frame.name = "Lot"
 	frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	frame.offset_left = -560.0
-	frame.offset_right = 560.0
-	frame.offset_top = -300.0
-	frame.offset_bottom = 300.0
+	frame.offset_left = -LOT_SIZE.x * 0.5
+	frame.offset_right = LOT_SIZE.x * 0.5
+	frame.offset_top = -LOT_SIZE.y * 0.5
+	frame.offset_bottom = LOT_SIZE.y * 0.5
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.11, 0.13, 0.94)
 	style.set_corner_radius_all(10)
@@ -181,8 +212,72 @@ func refresh(view: Dictionary) -> void:
 		var maxed := int(u["cost"]) < 0
 		button.text = "%s  %d/%d  %s" % [u["name"], int(u["level"]), int(u["levels"]), "MAX" if maxed else "$%d" % int(u["cost"])]
 		button.disabled = maxed
+		# Wrapped like the other two columns: a button that cannot wrap is as wide as its text,
+		# and the lot narrowed for a ballot (see [method make_room]) was pushed back under it.
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.pressed.connect(func() -> void: _do("upgrade", {"kind": kind}))
 		_upgrades.add_child(button)
+
+
+func _process(delta: float) -> void:
+	if visible:
+		make_room(delta)
+
+
+## Everything drawn over the lot by somebody else (the shell's ballot panels) as one rect in
+## this Control's coordinates, or an empty rect. Through the canvas transforms both ways: the
+## panel is on the shell's canvas layer.
+func covered_rect() -> Rect2:
+	if not is_inside_tree():
+		return Rect2()
+
+	var to_me := get_global_transform_with_canvas().affine_inverse()
+	var out := Rect2()
+
+	for node in get_tree().get_nodes_in_group(COVER_GROUP):
+		var other := node as Control
+
+		if other == null or not other.is_visible_in_tree() or is_ancestor_of(other):
+			continue
+
+		var rect := to_me * (other.get_global_transform_with_canvas() * Rect2(Vector2.ZERO, other.size))
+
+		if rect.has_area():
+			out = rect if not out.has_area() else out.merge(rect)
+
+	return out
+
+
+## Where the lot's left and right edges belong, in this Control's coordinates: centred, or left
+## of whatever covers it. See [constant COVER_GROUP]. [param delta] 0 snaps there.
+func make_room(delta: float = 0.0) -> void:
+	if _frame == null or size.x <= 0.0:
+		return
+
+	var width := LOT_SIZE.x
+	var home := Rect2((size - Vector2(width, LOT_SIZE.y)) * 0.5, Vector2(width, LOT_SIZE.y))
+	var target := Vector2(home.position.x, home.end.x)
+	var cover := covered_rect()
+
+	if cover.has_area() and cover.intersects(home):
+		var right := cover.position.x - ROOM_GAP
+		var left := maxf(ROOM_GAP, minf(home.position.x, right - width))
+
+		if right - left >= LOT_MIN_WIDTH:
+			target = Vector2(left, right)
+
+	_room_target = target
+	var half := size.x * 0.5
+	var want := Vector2(target.x - half, target.y - half)
+	var have := Vector2(_frame.offset_left, _frame.offset_right)
+	var now := want if delta <= 0.0 or have.distance_to(want) < 0.5 else have.lerp(want, 1.0 - exp(-ROOM_SPEED * delta))
+	_frame.offset_left = now.x
+	_frame.offset_right = now.y
+
+
+## The lot's left and right edges where they are going: for a check and a bug report.
+func room_target() -> Vector2:
+	return _room_target
 
 
 func notice(text: String) -> void:
