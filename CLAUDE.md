@@ -9,7 +9,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/design.md](docs/design.md) | routes and levels, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings |
+| [docs/design.md](docs/design.md) | routes and levels, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound and the rockfall's shake |
 | [docs/terrain.md](docs/terrain.md) | `dd_route.gd`'s meshes or `dd_terrain.gd` |
 | [docs/netcode.md](docs/netcode.md) | `game/net/`, the module, anything sent, names |
 | [docs/testing.md](docs/testing.md) | adding a check, believing a green run, rendering |
@@ -25,7 +25,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_trucks.gd`, `dd_truck.gd`, `dd_trailer.gd` | catalogue and upgrades as data; a `VehicleBody3D` from a Kenney model; the Semi's trailer on a joint |
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
-| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_client_chat.gd`, `dd_sounds.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; synthesised sound; stats |
+| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_client_chat.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
+| `game/dd_audio.gd`, `dd_audio_sink.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame; the sink subclass that can change a playing voice's volume and pitch |
 | `routes/` | the route documents, written by `tools/build_routes.py` |
 | `assets/kenney/trucks/` | four Car Kit trucks and their atlas, CC0 |
 | `examples/` | `headless_run`, `headless_net`, `dedicated` |
@@ -52,6 +53,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Every garage button and key is one ACT through `DdBridgeActs.run`, which offline calls directly; never a second code path.
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
+- Every sound is a `DdAudio` catalogue id; a loop is shaped through `dd_audio_sink.gd`, never by restarting it. Sound is proven only under xvfb (`tools/audio_probe`). [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
 - No `class_name`; every own `res://` path through `DdPaths.rebase()` where defined (see [mg-buses-from-hell's delivery.md](../mg-buses-from-hell/docs/delivery.md)).
 
 ## Not yet done

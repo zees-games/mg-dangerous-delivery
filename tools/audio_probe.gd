@@ -2,8 +2,12 @@ extends Node
 
 ## Under xvfb-run (never --headless, whose audio driver is Dummy): does a truck make a noise?
 ##   xvfb-run -a godot --path . res://tools/audio_probe.tscn
+##
+## Asks the engine's own players through the sink (`voice()`), not dot-audio's book-keeping:
+## a handle is the pool handing over a player, which says nothing about a speaker.
 
 const DdClient := preload("res://game/dd_client.gd")
+const DdAudio := preload("res://game/dd_audio.gd")
 
 
 func _ready() -> void:
@@ -20,11 +24,26 @@ func _ready() -> void:
 	for _i in 240:
 		await get_tree().process_frame
 
-	var engine: AudioStreamPlayer = client.sounds._engine
+	var audio: DdAudio = client.audio
+	var sink: Object = audio.manager.sink
+	var own := audio.loop_state(&"own")
+	var own_voice: Dictionary = sink.call("voice", int(own.get("handle", 0))) if sink.has_method("voice") else {}
 	var bot_truck: Node = (client.game.drivers[&"bot"] as Object).get("truck")
-	var other: AudioStreamPlayer3D = bot_truck.get_node_or_null("Engine3D") if bot_truck != null else null
-	print("driver=%s engine_playing=%s engine_db=%.1f pitch=%.2f" % [AudioServer.get_driver_name(), engine.playing, engine.volume_db, engine.pitch_scale])
-	print("other truck: engine=%s playing=%s db=%.1f pitch=%.2f" % [other != null, other.playing if other else false,
-		other.volume_db if other else -999.0, other.pitch_scale if other else 0.0])
-	var ok := engine.playing and engine.volume_db > -40.0 and other != null and other.playing and other.volume_db > -40.0
+	var other := audio.loop_state(DdAudio.loop_key(bot_truck)) if bot_truck != null else {}
+	var other_voice: Dictionary = sink.call("voice", int(other.get("handle", 0))) if sink.has_method("voice") and not other.is_empty() else {}
+	var chimed := audio.delivered()
+	var chime_playing := false
+
+	for p in audio.manager.get_children():
+		if p is AudioStreamPlayer and (p as AudioStreamPlayer).playing and (p as AudioStreamPlayer).stream != null \
+				and (p as AudioStreamPlayer).stream.get_length() > 0.8 and (p as AudioStreamPlayer).stream.get_length() < 1.0:
+			chime_playing = true
+
+	print("driver=%s sink=%s" % [AudioServer.get_driver_name(), audio.manager.sink.sink_name()])
+	print("engine: %s" % own_voice)
+	print("other truck: %s" % other_voice)
+	print("chime: asked=%s playing=%s" % [chimed, chime_playing])
+	var ok := bool(own_voice.get("playing", false)) and float(own_voice.get("volume_db", -80.0)) > -40.0 \
+		and bool(other_voice.get("playing", false)) and float(other_voice.get("volume_db", -80.0)) > -40.0 \
+		and chime_playing
 	get_tree().quit(0 if ok else 1)

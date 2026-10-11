@@ -18,7 +18,7 @@ const DdWeather := preload("dd_weather.gd")
 const DdNetBridge := preload("net/dd_net_bridge.gd")
 const DdTruckNet := preload("net/dd_truck_net.gd")
 const DdClientChat := preload("dd_client_chat.gd")
-const DdSounds := preload("dd_sounds.gd")
+const DdAudio := preload("dd_audio.gd")
 const DdSettings := preload("dd_settings.gd")
 
 ## Where dot-server's client publishes its link before the game scene loads. Present: this
@@ -26,6 +26,10 @@ const DdSettings := preload("dd_settings.gd")
 const LINK_SERVICE := &"dot_client_link"
 
 const CHANNEL := "delivery.client"
+
+## How far from a rockfall its shake reaches nothing, in metres. The sound carries to 120 m
+## (the boulder signal's own test); the jolt is felt nearer.
+const ROCK_SHAKE_FALLOFF := 70.0
 
 ## Who this player is in [member game].
 @export var local_key: StringName = &"you"
@@ -57,7 +61,14 @@ var _env: Environment = null
 var _look := Vector3.ZERO
 
 var chat: DdClientChat = null
-var sounds: DdSounds = null
+## The truck's and the mountain's sounds, through dot-audio. See [DdAudio].
+var audio: DdAudio = null
+## Rock coming down near you, felt as well as heard: a dot-fx shake, so the settings' shake
+## slider reaches it. See [method _build_effects].
+var effects: DotFxManager = null
+## The shake added to the camera last frame, taken off again before the chase camera eases,
+## so the jolt never feeds into where the camera is heading.
+var _shaken := Vector3.ZERO
 
 ## The player's own settings: the field of view and the volume. See [DdSettings].
 var settings: DdSettings = null
@@ -119,9 +130,8 @@ func _ready() -> void:
 	chat = DdClientChat.new()
 	chat.name = "Chat"
 	add_child(chat)
-	sounds = DdSounds.new()
-	sounds.name = "Sounds"
-	add_child(sounds)
+	_build_audio()
+	_build_effects()
 
 	_build_settings()
 
@@ -142,10 +152,12 @@ func _ready() -> void:
 	game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
 		var me := _driver()
 		if me != null and me.truck != null and (me.truck as Node3D).global_position.distance_to(at) < 120.0:
-			sounds.rock())
+			var _heard := audio.rock() if audio != null else false
+			if effects != null:
+				effects.shake_at(&"rock", at, ROCK_SHAKE_FALLOFF))
 	game.delivered.connect(func(key: StringName, _route: StringName, pay: int) -> void:
 		if key == local_key:
-			sounds.delivered()
+			var _heard := audio.delivered() if audio != null else false
 			hud.say("DELIVERED  +$%d" % pay, 4.0, Color(0.55, 0.95, 0.5))
 			hud.show_money(game.bank.money(local_key)))
 	game.bank.account_changed.connect(func(key: StringName) -> void:
@@ -163,6 +175,58 @@ func _ready() -> void:
 
 	if auto_route != &"":
 		_act("start", {"route": String(auto_route)})
+
+
+## The sounds. Without them (a broken catalogue) the game is silent, which is all.
+func _build_audio() -> void:
+	audio = DdAudio.new()
+	audio.name = "Sound"
+	add_child(audio)
+	var ready_now := audio.setup()
+
+	if not ready_now.ok:
+		DotLog.warn(CHANNEL, "no sound", {"why": ready_now.error.message})
+		remove_child(audio)
+		audio.free()
+		audio = null
+
+
+## Rock coming down near you is a jolt as well as a rumble. An effect, so dot-fx's: its manager
+## is where the shake slider (down to exactly zero) is applied.
+func _build_effects() -> void:
+	var catalogue := DotFxCatalogue.new()
+	var rock := DotFxDef.new()
+	rock.id = &"rock"
+	rock.kind = DotFxDef.Kind.SHAKE
+	rock.shake_trauma = 0.45
+	catalogue.add(rock)
+
+	effects = DotFxManager.new()
+	effects.name = "Effects"
+	effects.catalogue = catalogue
+	effects.config = DotFxConfig.new()
+	effects.register_as_service = false
+	add_child(effects)
+	var built := effects.setup()
+
+	if not built.ok:
+		DotLog.warn(CHANNEL, "no effects", {"why": built.error.message})
+		remove_child(effects)
+		effects.free()
+		effects = null
+
+
+## Once a frame, after the camera has followed the truck: dot-fx computes the jolt and touches
+## no camera, so it is added here and taken off before the next follow.
+func _present_effects(delta: float) -> void:
+	if effects == null:
+		return
+
+	effects.viewer_position = camera.global_position
+	effects.viewer_forward = -camera.global_basis.z
+	effects.advance(delta)
+	_shaken = camera.global_basis * effects.shake.offset()
+	camera.global_position += _shaken
 
 
 func _driver() -> DdGame.Driver:
@@ -223,8 +287,8 @@ func _build_netcode() -> DotResult:
 		if chat != null:
 			chat.notice(text))
 	bridge.said.connect(func(text: String, tone: String) -> void:
-		if tone == "money":
-			sounds.delivered()
+		if tone == "money" and audio != null:
+			var _heard := audio.delivered()
 		var colour: Color = {"good": Color(1.0, 0.85, 0.3), "bad": Color(1.0, 0.4, 0.35), "money": Color(0.55, 0.95, 0.5)}.get(tone, Color(1.0, 0.7, 0.4))
 
 		if garage.visible:
@@ -328,6 +392,12 @@ func _build_settings() -> void:
 		return
 
 	settings.bind_camera(camera)
+
+	if audio != null:
+		settings.bind_audio(audio.manager)
+
+	if effects != null:
+		settings.bind_fx(effects)
 
 	if garage != null:
 		garage.settings_requested.connect(settings.open)
@@ -504,15 +574,10 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 	return out
 
 
-## Another truck's engine, hung on it the first time it is drawn and fed every frame.
+## Another truck's engine, where it is, fed every frame.
 func _feed_engine(other: DdGame.Driver, seen: bool, delta: float) -> void:
-	var engine := other.truck.get_node_or_null("Engine3D") as AudioStreamPlayer3D
-
-	if engine == null:
-		engine = DdSounds.engine_3d()
-		other.truck.add_child(engine)
-
-	DdSounds.feed_engine_3d(engine, _speed_of(other), seen and other.on_road(), delta)
+	if audio != null:
+		audio.feed_other(other.truck as Node3D, _speed_of(other), seen and other.on_road(), delta)
 
 
 ## Forward speed: the body's own offline, the replicated one on a mirror (a frozen body has none).
@@ -546,23 +611,36 @@ func _process(delta: float) -> void:
 				_feed_engine(other, seen, delta)
 
 	var facts := _trip_facts(me)
-	sounds.driving = not facts.is_empty()
 
-	if not facts.is_empty():
-		sounds.speed = float(facts.get("speed", 0.0))
-		sounds.throttle = absf(command.throttle) if command != null else 0.0
-		sounds.braking = command != null and command.brake > 0.1
-		sounds.weather = facts.get("weather", {})
+	if audio != null:
+		audio.driving = not facts.is_empty()
+		audio.listen_from(camera.global_position)
+
+		if not facts.is_empty():
+			audio.speed = float(facts.get("speed", 0.0))
+			audio.throttle = absf(command.throttle) if command != null else 0.0
+			audio.braking = command != null and command.brake > 0.1
+			audio.weather = facts.get("weather", {})
 
 	if facts.is_empty():
 		_set_weather({"sky": DdWeather.CLEAR, "wind": false})
+
+		# Back at the lot: a jolt from the road does not follow you in.
+		if effects != null:
+			effects.shake.reset()
+
+		_shaken = Vector3.ZERO
 		return
 
 	hud.show_trip(facts)
 	_set_weather(facts["weather"])
 
 	if me != null and me.truck != null:
+		camera.global_position -= _shaken
+		_shaken = Vector3.ZERO
 		_follow(me.truck as DdTruck, delta)
+
+	_present_effects(delta)
 
 
 ## What the HUD shows: from the trip this client holds offline, from the server's TRIP online.

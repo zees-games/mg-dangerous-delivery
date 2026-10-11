@@ -18,8 +18,8 @@ const DdTrip := preload("res://game/dd_trip.gd")
 const DdProgress := preload("res://game/dd_progress.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
 
-const SECTIONS := 17
-const CHECKS := 95
+const SECTIONS := 18
+const CHECKS := 102
 
 var _passed := 0
 var _failed := 0
@@ -62,6 +62,7 @@ func _ready() -> void:
 	_test_ice_and_debris()
 	await _test_a_trailer()
 	await _test_the_client_settings()
+	await _test_sound_and_effects()
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -629,6 +630,90 @@ func _test_the_client_settings() -> void:
 	tab.pressed = false
 	client.call("_unhandled_input", tab)
 	_check(board != null and not board.is_open(), "and letting go puts it away")
+
+	remove_child(client)
+	client.free()
+	await get_tree().process_frame
+	_finished_section()
+
+
+## The client's sounds and a rockfall's jolt, through dot-audio and dot-fx. Headless has no
+## sound device, so the manager runs its null sink: the real catalogue and limits with a log in
+## place of a speaker. tools/audio_probe (xvfb) is what says a sound is heard.
+func _test_sound_and_effects() -> void:
+	_section("the truck's sounds and a rockfall's jolt, through dot-audio and dot-fx")
+	var DdAudio: GDScript = load("res://game/dd_audio.gd")
+	var catalogue: DotAudioCatalogue = DdAudio.call("sound_catalogue")
+	var stand_ins: Dictionary = DdAudio.call("stand_ins")
+	var ids: Array = DdAudio.call("ids")
+	_check(
+		catalogue.validate().ok and ids.all(func(id: StringName) -> bool:
+			return catalogue.find(id) != null and stand_ins.has(id)),
+		"every sound the game names is in its catalogue, with a stand-in", str(ids))
+
+	# The world the sections above drove is in the same physics space, with its trucks and
+	# rock on the same road: this client's truck sat against them. Last section, so it goes.
+	progress.queue_free()
+	game.queue_free()
+	await get_tree().physics_frame
+
+	var client: Node = (load("res://game/dd_client.gd") as GDScript).new()
+	client.set("auto_route", &"dd_foothills")
+	client.set("autopilot", true)
+	add_child(client)
+	await get_tree().process_frame
+	var world: DdGame = client.get("game")
+	var _bot := world.join(&"bot", "Stand-in", true)
+	var _started := world.start_trip(&"bot", &"dd_foothills")
+
+	# Physics seconds, not frames: headless draws frames far faster than the trucks move, and
+	# a trip holds at the start for three.
+	await _seconds(6.0)
+
+	var audio: Node = client.get("audio")
+	var effects: DotFxManager = client.get("effects")
+	var settings: Variant = client.get("settings")
+	var sink := audio.get("manager").get("sink") as DotAudioSinkNull if audio != null else null
+	_check(
+		sink != null and effects != null and settings != null \
+			and bool(settings.describe().get("audio_bound", false)) \
+			and int(settings.applier.describe().get("fx", 0)) > 0,
+		"the sounds are dot-audio's and the jolt dot-fx's, and the settings reach both",
+		str(settings.describe()) if settings != null else "no settings")
+
+	var own: Dictionary = audio.call("loop_state", &"own")
+	_check(bool(own.get("playing", false)) and float(own.get("pitch", 0.0)) > 0.6,
+		"the engine runs while driving, its pitch up with the speed", str(own))
+	var bot_truck: Node = (world.drivers[&"bot"] as Object).get("truck")
+	var other: Dictionary = audio.call("loop_state", DdAudio.call("loop_key", bot_truck)) if bot_truck != null else {}
+	_check(bool(other.get("playing", false)), "the truck behind is heard where it is", str(other))
+
+	var me: Object = world.drivers[client.get("local_key")]
+	var at: Vector3 = (me.get("truck") as Node3D).global_position
+	world.boulder_dropped.emit(&"dd_foothills", at + Vector3(5.0, 0.0, 0.0))
+	_check(sink != null and sink.count_of(&"rockfall") == 1 and effects.shake.trauma() > 0.0,
+		"rock coming down nearby is heard and felt",
+		"%s trauma %.2f" % [sink.played_ids() if sink != null else [], effects.shake.trauma()])
+	var _zero: DotResult = settings.settings.set_value(&"shake_scale", 0.0)
+	# Two frames: process_frame is emitted before the nodes' _process, so one is not a frame
+	# of the client.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(is_zero_approx(effects.config.shake_scale) and effects.shake.offset().is_zero_approx(),
+		"and a shake slider at zero is no jolt at all",
+		"scale %.2f offset %s" % [effects.config.shake_scale, effects.shake.offset()])
+	var _back: DotResult = settings.settings.set_value(&"shake_scale", 1.0)
+
+	var _chimed: bool = audio.call("delivered")
+	var unknown := PackedStringArray()
+
+	if sink != null:
+		for id in sink.played_ids():
+			if catalogue.find(StringName(id)) == null:
+				unknown.append(id)
+
+	_check(sink != null and sink.count_of(&"delivered") == 1 and unknown.is_empty(),
+		"every id the client played is in the catalogue", "%s unknown %s" % [sink.played_ids() if sink != null else [], unknown])
 
 	remove_child(client)
 	client.free()
