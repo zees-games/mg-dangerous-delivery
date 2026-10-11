@@ -178,9 +178,11 @@ func _on_mountain_changed(_id: StringName) -> void:
 
 ## The world outlives the module (`module reload`), so what this module connected to it goes.
 func _game_unload() -> void:
-	var world := game as DdGame
+	# Checked before the cast: on a game change the server frees the world before it unloads
+	# the module, and casting a freed object is a script error that skipped the rest of this.
+	var world: DdGame = game as DdGame if is_instance_valid(game) else null
 
-	if world != null and is_instance_valid(world) and world.mountain_changed.is_connected(_on_mountain_changed):
+	if world != null and world.mountain_changed.is_connected(_on_mountain_changed):
 		world.mountain_changed.disconnect(_on_mountain_changed)
 
 	if vote != null:
