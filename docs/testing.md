@@ -9,9 +9,9 @@
 
 | Suite | What it covers |
 | --- | --- |
-| `examples/headless_run` | the world offline: routes, weather, trips and pay, falls, rock, solo, trailers, the bank, the mountain's band against every road, the client's settings button, every sound id the client plays in the catalogue, the engine and the truck behind heard, a rockfall's shake and the slider that zeroes it |
-| `examples/headless_net` | server and client over a loopback: every zone's weather agreeing, trucks and bodies crossing, ACTs |
-| `examples/dedicated` | a real `DotServer` with the module loaded by path, stand-ins on one start line |
+| `examples/headless_run` | the world offline: routes, weather, trips and pay, falls, rock, solo, trailers, the bank, every mountain on the ballot built (and none offered twice under two names), the mountain's band against every road, the client's settings button, every sound id the client plays in the catalogue, the engine and the truck behind heard, a rockfall's shake and the slider that zeroes it |
+| `examples/headless_net` | server and client over a loopback: every zone's weather agreeing, trucks and bodies crossing, ACTs, another mountain's roads rebuilt on the client |
+| `examples/dedicated` | a real `DotServer` with the module loaded by path, stand-ins on one start line, the mountain vote through the console (nominate, the ballot on the clock, the change held for a person mid-haul, rtv, `dd_vote_minutes`, `dd_mountain`) |
 
 ## Rules
 

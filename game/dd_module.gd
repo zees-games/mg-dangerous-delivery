@@ -12,6 +12,12 @@ const DdServices := preload("dd_services.gd")
 const DdGame := preload("dd_game.gd")
 const DdBank := preload("dd_bank.gd")
 const DdProgress := preload("dd_progress.gd")
+const DdMountains := preload("dd_mountains.gd")
+const DdVote := preload("dd_vote.gd")
+const DdTrip := preload("dd_trip.gd")
+
+## The drawn ballot's notice topic. The client shell draws one menu per topic.
+const MOUNTAIN_BALLOT_TOPIC := &"map_ballot"
 
 ## Seconds between checks of how many stand-ins there should be.
 const ROSTER_INTERVAL := 2.0
@@ -26,6 +32,9 @@ static var bank_file: String = "user://delivery_accounts.json"
 
 ## Drivers' numbers and achievements, or null when the server keeps none.
 var progress: DdProgress = null
+
+## The players' vote for the next mountain; null when it could not be built or is off.
+var vote: DdVote = null
 
 ## `dd_bots`, the old count, kept only as an alias that sets `bot_quota`. See [method _game_load].
 var _bots: DotConVar = null
@@ -121,6 +130,7 @@ func _game_load() -> DotResult:
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
 	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, wind, or off", DotAdminFlags.CHANGEMAP)
 	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
+	add_command("dd_mountain", _cmd_mountain, "Show the mountains, or move the server to one now: dd_mountain [id]", DotAdminFlags.CHANGEMAP)
 
 	# [b]How many stand-ins is dot-server's [DotBotQuota], so `bot_quota` and `bot_quota_mode`
 	# mean the same thing on every server in the family.[/b] This game already ran the fill
@@ -155,9 +165,151 @@ func _game_load() -> DotResult:
 	hook_post("player_renamed", _on_profile)
 
 	_build_progress(world)
+	_build_vote(world)
 
 	_wire_map(world)
+	world.mountain_changed.connect(_on_mountain_changed)
 	return DotResult.success(null)
+
+
+func _on_mountain_changed(_id: StringName) -> void:
+	_wire_map(game as DdGame)
+
+
+## The world outlives the module (`module reload`), so what this module connected to it goes.
+func _game_unload() -> void:
+	var world := game as DdGame
+
+	if world != null and is_instance_valid(world) and world.mountain_changed.is_connected(_on_mountain_changed):
+		world.mountain_changed.disconnect(_on_mountain_changed)
+
+	if vote != null:
+		vote.queue_free()
+		vote = null
+
+
+## The players' vote for the next mountain, over dot-vote: `!vote`, `!rtv`, `!nominate`.
+##
+## [b]On dot-vote's own clock[/b] (no rounds here): a mountain runs `dd_vote_minutes`, the
+## ballot opens a minute before, and the winner is built once the people on the road have
+## delivered (see [code]game/dd_vote.gd[/code] and [code]game/dd_mountains.gd[/code]). A
+## server owner reshapes it in `user://cfg/delivery_vote.json` or `game.yml`'s
+## `metadata: mountain_vote:`, keyed as dot-vote's [DotVoteRules]. A vote that cannot be built
+## is logged and the server stays on its mountain, never a server that will not start.
+func _build_vote(world: DdGame) -> void:
+	vote = DdVote.new()
+	vote.name = "MountainVote"
+	vote.minutes = world.config.mountain_minutes
+	vote.mountains_fn = func() -> Array:
+		var out: Array = []
+
+		for mountain in DdMountains.allowed(world.library):
+			out.append([mountain["id"], mountain["name"]])
+
+		return out
+	vote.apply_fn = func(id: StringName) -> DotResult:
+		return _change_mountain(id)
+	# People only, by session: a stand-in is not a voter.
+	vote.voters_fn = func() -> Array:
+		var out: Array = []
+
+		if server != null:
+			for session in server.playing_sessions():
+				out.append(StringName(str(session.userid)))
+
+		return out
+	vote.announce_fn = func(line: String) -> void:
+		var chat: Object = services.get("chat") if services != null else null
+
+		if chat != null:
+			var _said: Variant = chat.call("announce", line, DdServices.CH_ALL)
+		elif server != null:
+			server.broadcast_message(line)
+	vote.is_admin_fn = func(voter: StringName) -> bool:
+		var session := server.session_by_userid(String(voter).to_int()) if server != null else null
+		return session != null and session.has_permission(DotAdminFlags.CHANGEMAP)
+	# A votekick on screen: the mountain ballot waits rather than fighting it for the keys.
+	vote.busy_fn = func() -> bool:
+		return server != null and server.votes != null and server.votes.is_active()
+	vote.ballot_fn = func(state: Dictionary) -> void:
+		if server == null:
+			return
+
+		for session in server.playing_sessions():
+			var data := state.duplicate()
+			data["you"] = str(session.userid)
+			server.send_notice(session, DotNotice.make(
+				&"", "", float(state.get("seconds", -1.0)), MOUNTAIN_BALLOT_TOPIC, data
+			))
+	vote.people_fn = func(voter: StringName) -> Dictionary:
+		var session := server.session_by_userid(String(voter).to_int()) if server != null else null
+
+		if session == null:
+			return {}
+
+		var avatar: Variant = session.identity.get("avatar_url") if session.identity != null else ""
+		return {"name": session.display_name, "avatar": avatar if avatar is String else ""}
+
+	add_child(vote)
+	var made := vote.setup()
+
+	if not made.ok:
+		DotLog.result(CHANNEL, "the mountain vote; the server stays on its mountain", made)
+		vote.queue_free()
+		vote = null
+		return
+
+	var commanded := vote.install_commands(self)
+	DotLog.result(CHANNEL, "the mountain vote's commands", commanded)
+
+	# From the next mountain on: the clock running now keeps the limit it started with.
+	var minutes := add_cvar("dd_vote_minutes", str(world.config.mountain_minutes),
+		"Minutes a mountain is played before the vote for the next one (0: rock the vote only). From the next mountain on.")
+
+	if minutes != null:
+		minutes.changed.connect(func(_old: String, _new: String) -> void:
+			world.config.mountain_minutes = maxf(minutes.get_float(), 0.0)
+
+			if vote != null and vote.director != null:
+				vote.minutes = world.config.mountain_minutes
+				vote.director.rules.duration_sec = world.config.mountain_minutes * 60.0)
+
+	vote.note_mountain(world.mountain_id)
+
+	if server != null:
+		server.client_disconnected.connect(func(session: DotClientSession, _reason: String) -> void:
+			if vote != null:
+				vote.forget_voter(StringName(str(session.userid)))
+		)
+
+
+## Builds [param id] and starts the vote's clock over on it. What a vote's winner, an operator's
+## `dd_mountain` and nothing else call, so the clock and the world never disagree.
+func _change_mountain(id: StringName) -> DotResult:
+	var world := game as DdGame
+	var changed := world.set_mountain(id)
+
+	if not changed.ok:
+		return changed
+
+	if vote != null:
+		vote.note_mountain(world.mountain_id)
+
+	return DotResult.success(id)
+
+
+## Whether a person is mid-haul: on a road and not yet delivered. Stand-ins never hold the
+## mountain up.
+func _anyone_hauling() -> bool:
+	var world := game as DdGame
+
+	for key: StringName in world.drivers:
+		var driver := world.drivers[key] as DdGame.Driver
+
+		if not driver.is_bot and driver.on_road() and (driver.trip as DdTrip).state != DdTrip.State.DELIVERED:
+			return true
+
+	return false
 
 
 ## dot-stats and dot-achievements over the world's own signals; told to the driver who earned it.
@@ -192,14 +344,18 @@ func _tunable_bool(cvar_name: String, current: bool, description: String, apply:
 			log_info("a setting changed", {"cvar": cvar_name, "now": cvar.get_string()}))
 
 
-## The browser shows which route somebody is on as the map: the first route's, which is the lot
-## everybody starts in.
+## The browser's map is the mountain the server is on: its id, the name `nominate` takes.
 func _wire_map(world: DdGame) -> void:
-	if not world.route_order.is_empty():
-		var _reported := report_map(String(world.route_order[0]))
+	var _reported := report_map(String(world.mountain_id))
 
 
 func _game_tick(_tick: int, delta: float) -> void:
+	if vote != null:
+		vote.advance(delta)
+
+		if vote.is_waiting_for_road() and not _anyone_hauling():
+			vote.note_road_clear()
+
 	_since_roster += delta
 
 	if _since_roster < ROSTER_INTERVAL:
@@ -273,6 +429,25 @@ func _cmd_weather(ctx: DotCmdContext) -> void:
 
 	bridge.call("broadcast_weather")
 	ctx.reply("The sky is %s." % (sky if sky != "" and sky != "off" else "the mountain's own again"))
+
+
+func _cmd_mountain(ctx: DotCmdContext) -> void:
+	var world := game as DdGame
+	var id := ctx.arg(0)
+
+	if id == "":
+		for mountain in DdMountains.allowed(world.library):
+			ctx.reply("%s %-14s %s" % ["*" if mountain["id"] == world.mountain_id else " ", String(mountain["id"]), mountain["name"]])
+
+		return
+
+	var changed := _change_mountain(StringName(id))
+
+	if not changed.ok:
+		ctx.reply_error(changed)
+		return
+
+	ctx.reply("The mountain is %s." % world.mountain_name())
 
 
 func _cmd_give(ctx: DotCmdContext) -> void:

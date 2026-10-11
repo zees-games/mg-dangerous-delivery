@@ -4,6 +4,8 @@ extends Node
 
 const DdClient := preload("res://game/dd_client.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
+const DdMountains := preload("res://game/dd_mountains.gd")
+const DdVote := preload("res://game/dd_vote.gd")
 
 var _args: Dictionary = {}
 
@@ -22,6 +24,17 @@ func _ready() -> void:
 
 	add_child(client)
 	client.game.config.levels_unlock_in_order = false
+
+	var mountain := str(_args.get("mountain", ""))
+
+	if mountain != "":
+		var moved: DotResult = client.game.set_mountain(StringName(mountain))
+
+		if not moved.ok:
+			push_error("shot: %s" % moved.error.message)
+
+		client._refresh_garage()
+		client._frame_garage_camera()
 
 	var truck := str(_args.get("truck", ""))
 
@@ -85,6 +98,9 @@ func _ready() -> void:
 		# From this high, fog is all there is.
 		client._env.fog_enabled = false
 
+	if str(_args.get("ballot", "0")) == "1":
+		await _show_ballot(client.game)
+
 	for _i in 3:
 		await RenderingServer.frame_post_draw
 
@@ -93,3 +109,57 @@ func _ready() -> void:
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
 	get_tree().quit()
+
+
+## A real ballot from this game's vote: every mountain this world can offer, four voters, three
+## of whom have voted, drawn the way the client shell's notice overlay draws a `map_ballot` — a
+## [DotBallotPanel] down the right-hand side. Waits a second for the voters' discs to slide to
+## the row they chose; a frame too soon catches one between rows.
+func _show_ballot(world: Node) -> void:
+	var list: Array = []
+
+	for m in DdMountains.allowed(world.get("library")):
+		list.append([m["id"], m["name"]])
+
+	var names := {&"1": "you", &"2": "bo", &"3": "quiet_one", &"4": "ana"}
+	var states: Array = []
+	var vote := DdVote.new()
+	vote.config_path = ""
+	vote.mountains_fn = func() -> Array: return list
+	vote.voters_fn = func() -> Array: return names.keys()
+	vote.people_fn = func(voter: StringName) -> Dictionary: return {"name": names.get(voter, "?"), "avatar": ""}
+	vote.ballot_fn = func(state: Dictionary) -> void: states.append(state)
+	add_child(vote)
+	var _set := vote.setup()
+	vote.note_mountain(world.get("mountain_id"))
+	var director: DotVoteDirector = vote.director
+	var _opened := director.open_vote(DotVoteClock.REASON_MANUAL)
+	var options := director.ballot.option_ids()
+	var _a := director.cast_one(&"1", options[0])
+	var _b := director.cast_one(&"2", options[1 % options.size()])
+	var _c := director.cast_one(&"3", options[0])
+	vote.feed.poll()
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var box := VBoxContainer.new()
+	box.anchor_left = 1.0
+	box.anchor_right = 1.0
+	box.anchor_bottom = 1.0
+	box.offset_left = -376.0
+	box.offset_right = -16.0
+	box.offset_top = 110.0
+	box.offset_bottom = -16.0
+	layer.add_child(box)
+	var panel := DotBallotPanel.new()
+	panel.ui_theme = DotUiTheme.space()
+	panel.local_voter = "1"
+	box.add_child(panel)
+	panel.show_state(states.back() if not states.is_empty() else {})
+
+	var waited := 0.0
+
+	while waited < 1.0:
+		waited += get_process_delta_time()
+		await get_tree().process_frame

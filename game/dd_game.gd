@@ -27,6 +27,7 @@ const DdTrip := preload("dd_trip.gd")
 const DdBank := preload("dd_bank.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdPaths := preload("dd_paths.gd")
+const DdMountains := preload("dd_mountains.gd")
 
 const CHANNEL := "delivery.game"
 
@@ -60,6 +61,9 @@ signal boulder_gone(body: RigidBody3D)
 signal weather_changed(route_id: StringName, zone: String, weather: Dictionary)
 signal driver_joined(key: StringName)
 signal driver_left(key: StringName)
+## The world was rebuilt on another mountain (a vote, or an operator). Every trip was ended
+## first; the bridge sends the new routes to every client.
+signal mountain_changed(id: StringName)
 
 ## One person (or stand-in) on the server.
 class Driver:
@@ -99,9 +103,17 @@ var config: DdConfig = null
 var trucks: DdTrucks = null
 var bank: DdBank = null
 
-## route id -> normalised document, and the ones refused with why.
+## route id -> normalised document for the routes the world holds now (the mountain's), and
+## the ones refused with why.
 var documents: Dictionary = {}
 var refused: Dictionary = {}
+
+## route id -> every document accepted, whichever mountain is up. Server side: a client is
+## sent only [member documents]. A mountain is a selection from this (see [method set_mountain]).
+var library: Dictionary = {}
+
+## The mountain the world holds (`DdMountains`). A client learns it from HELLO and MOUNTAIN.
+var mountain_id: StringName = DdMountains.DEFAULT
 
 ## route id -> DdRoute (in the tree, offset).
 var routes: Dictionary = {}
@@ -165,6 +177,8 @@ func _ready() -> void:
 	_apply_gravity()
 
 	if authoritative:
+		var wanted := StringName(config.mountain)
+		mountain_id = wanted if not DdMountains.by_id(wanted).is_empty() else DdMountains.DEFAULT
 		var _read := load_directory(DdPaths.rebase("res://%s" % config.route_directory) if not config.route_directory.begins_with("res://") and not config.route_directory.begins_with("user://") else config.route_directory)
 		build_routes()
 
@@ -217,19 +231,86 @@ func load_directory(directory: String) -> int:
 		if not config.route_ids.is_empty() and not config.route_ids.has(str(doc["id"])):
 			continue
 
-		documents[StringName(str(doc["id"]))] = doc
+		library[StringName(str(doc["id"]))] = doc
 		accepted += 1
 
+	_select_mountain()
 	return accepted
+
+
+## [member documents] from [member library]: the routes [member mountain_id] holds, or every
+## route when it holds none of the ones loaded (a mountain is a choice, never an empty world).
+func _select_mountain() -> void:
+	var ids := DdMountains.routes_of(DdMountains.by_id(mountain_id), library)
+
+	if ids.is_empty():
+		ids = DdMountains.routes_of({}, library)
+
+	documents.clear()
+
+	for id in ids:
+		documents[id] = library[id]
+
+
+## Rebuilds the world on [param id]'s routes. Every trip ends first (the trucks go back to the
+## lot: the road they were on may not exist any more), the rock goes, and
+## [signal mountain_changed] tells the bridge to send the routes on. Already on it is a
+## success that changes nothing. Server side.
+func set_mountain(id: StringName) -> DotResult:
+	var mountain := DdMountains.by_id(id)
+
+	if mountain.is_empty():
+		return DotResult.fail(DotError.CODE_INVALID, "No mountain '%s'." % id)
+
+	if DdMountains.routes_of(mountain, library).is_empty():
+		return DotResult.fail(DotError.CODE_INVALID, "This server has none of %s's routes." % mountain["name"])
+
+	if id == mountain_id and not routes.is_empty():
+		return DotResult.success(false)
+
+	for key: StringName in drivers:
+		var driver: Driver = drivers[key]
+
+		if driver.truck != null:
+			end_trip(key)
+			driver.idle = 1.0
+
+	for body: RigidBody3D in boulders.keys():
+		boulders.erase(body)
+
+		if is_instance_valid(body):
+			boulder_gone.emit(body)
+			body.queue_free()
+
+	_site_falls.clear()
+	_site_cooldown.clear()
+	mountain_id = id
+	_select_mountain()
+	build_routes()
+	DotLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
+	mountain_changed.emit(id)
+	return DotResult.success(true)
+
+
+## The mountain's display name.
+func mountain_name() -> String:
+	return str(DdMountains.by_id(mountain_id).get("name", String(mountain_id)))
 
 
 ## Builds every document as a route, side by side along +X. Rebuilds from scratch.
 func build_routes() -> void:
+	# Out of the tree now, not at the frame's end: the new routes take the same node names,
+	# and a name still held by a node waiting to be freed becomes "@Route_…" on the new one.
 	for id: StringName in routes:
-		(routes[id] as Node).queue_free()
+		var old := routes[id] as Node
+		remove_child(old)
+		old.queue_free()
 
 	routes.clear()
 	route_order.clear()
+	# Every zone is painted again below: a cached sky equal to the new draw would leave a
+	# rebuilt route's snow unpainted.
+	weather.clear()
 
 	var ids: Array = documents.keys()
 	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
@@ -275,8 +356,11 @@ func documents_in_order() -> Array:
 	return out
 
 
-## Builds the routes a server sent. Client side.
-func adopt_documents(docs: Array) -> void:
+## Builds the routes a server sent, on [param mountain] when it names one. Client side.
+func adopt_documents(docs: Array, mountain: StringName = &"") -> void:
+	if mountain != &"":
+		mountain_id = mountain
+
 	documents.clear()
 
 	for doc: Variant in docs:
@@ -557,7 +641,7 @@ func garage_view(key: StringName) -> Dictionary:
 			"levels": int(DdTrucks.UPGRADES[kind]["levels"]), "cost": trucks.upgrade_cost(current, kind, level),
 		})
 
-	return {"money": int(acct["money"]), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades}
+	return {"money": int(acct["money"]), "mountain": mountain_name(), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades}
 
 
 # --- The tick ----------------------------------------------------------------
@@ -1067,7 +1151,7 @@ func describe() -> Dictionary:
 			on_road += 1
 
 	return {
-		"routes": route_order.size(), "drivers": drivers.size(), "on_road": on_road,
+		"mountain": String(mountain_id), "routes": route_order.size(), "drivers": drivers.size(), "on_road": on_road,
 		"boulders": boulders.size(), "tick": tick, "seed": seed_value,
 	}
 

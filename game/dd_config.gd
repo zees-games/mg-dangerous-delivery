@@ -186,6 +186,20 @@ extends DotConfig
 ## A seed for everything drawn per trip. 0 takes one from the clock.
 @export var seed_value: int = 0
 
+# --- The mountain vote -------------------------------------------------------
+
+@export_group("Mountain")
+
+## The mountain the server starts on (`DdMountains`: range, low_country, high_country).
+## An id this game does not have is the whole range.
+@export var mountain: String = "range"
+
+## Minutes a mountain is played before the players' ballot picks the next one (the vote's
+## time limit; the ballot opens a minute before it runs out). 0 turns the clock off: only a
+## rocked vote changes the mountain. The `dd_vote_minutes` cvar changes it from the next
+## mountain on.
+@export_range(0.0, 360.0, 1.0) var mountain_minutes: float = 15.0
+
 
 func env_prefix() -> String:
 	return "DD_"
@@ -212,6 +226,7 @@ func describe() -> Dictionary:
 		"boulders": ("%.0f%% each" % (boulder_chance * 100.0)) if boulders_enabled else "off",
 		"solo": ("allowed" if allow_solo else "off"),
 		"routes": "all" if route_ids.is_empty() else ",".join(route_ids),
+		"mountain": "%s, %s" % [mountain, ("%.0f min" % mountain_minutes) if mountain_minutes > 0.0 else "no clock"],
 	}
 
 

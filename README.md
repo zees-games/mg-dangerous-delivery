@@ -16,6 +16,8 @@ You start in the lot with a box truck and no money. Pick a route, set off, and g
 
 **Pay** starts from the route's pay, goes up with its level and with the truck you drive (harder trucks pay more), and goes up again for every kind of bad weather and every rockfall you actually drove through. It is scaled by how much of the load arrived, with a bonus for a run with no falls and no skips. The HUD shows what the trip pays right now.
 
+**The players vote for the mountain.** A server is on one mountain at a time: the whole range (every route), Low Country (the first three levels) or High Country (the last three). Every 15 minutes a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A change sends every truck back to the lot.
+
 **Money buys trucks and upgrades.** There are five trucks: the Box Truck (free), the Flatbed, the Hauler, the Semi (with an articulated trailer) and the Bulk Carrier. Each one is slower to stop, quicker to slide or longer round a hairpin than the last, and pays more for it. Each has three levels of engine, brakes and tyres.
 
 ## Controls
@@ -70,8 +72,9 @@ Console commands:
 | `dd_bank` | Everybody's money and deliveries |
 | `dd_weather clear\|rain\|snow\|wind\|off` | Force the weather |
 | `dd_give <name> <amount>` | Give somebody money |
+| `dd_mountain [id]` | List the mountains, or move the server to one now |
 
-The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
+The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. `dd_vote_minutes` is how long a mountain is played before the vote for the next one (0 leaves only `!rtv`), from the next mountain on. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
 
 Everything else is a setting. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
 
@@ -89,6 +92,9 @@ Everything else is a setting. Put it in `user://cfg/delivery.json`, or set it wi
 | `allow_skip`, `skip_cost_fraction`, `allow_restart` | true, 0.25, true | The buttons |
 | `levels_unlock_in_order` | true | Routes open level by level |
 | `starting_money` | 0 | |
+| `mountain`, `mountain_minutes` | range, 15 | The mountain a server starts on, and how long each one is played before the vote |
+
+The mountain vote itself (how many options, how votes are counted, rock the vote, nominations) is dot-vote's settings: put them in `user://cfg/delivery_vote.json` or under `metadata: mountain_vote:` in `game.yml`. `{"enabled": false}` turns it off.
 
 To change a truck, put it in `user://cfg/delivery_trucks.json` by id, with the same fields as `game/dd_trucks.gd` (for example `{"hauler": {"price": 5000}}`). A new id adds a new truck.
 
@@ -128,7 +134,7 @@ tools/drive.sh                  # a bot delivers on every route
 | --- | --- |
 | `headless_run` | The game itself: routes, trucks, weather, hazards, pay and the bank |
 | `headless_net` | A server and a client in one process, over the network code |
-| `dedicated` | A real server: boots, loads the game, runs its commands |
+| `dedicated` | A real server: boots, loads the game, runs its commands, and the mountain vote from nomination to the rebuilt world |
 
 [`CLAUDE.md`](CLAUDE.md) has the design decisions and the reasoning behind them.
 

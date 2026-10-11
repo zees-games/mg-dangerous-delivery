@@ -7,8 +7,8 @@ extends Node
 
 const DdGame := preload("../game/dd_game.gd")
 
-const SECTIONS := 6
-const CHECKS := 22
+const SECTIONS := 7
+const CHECKS := 42
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -42,6 +42,7 @@ func _run() -> void:
 		await _test_the_module_loads()
 		_test_the_console()
 		await _test_stand_ins()
+		_test_the_mountain_vote()
 		await _test_it_unloads()
 
 	_test_no_message_preloads_itself()
@@ -217,6 +218,108 @@ func _test_stand_ins() -> void:
 	var _none := _run_command("dd_bots 0")
 	await _seconds(2.5)
 	_check(game.drivers.is_empty(), "dd_bots 0 takes them away")
+	_finished_section()
+
+
+## The players' vote decides the next mountain, end to end through what a player types, on
+## dot-vote's own clock (this game has no rounds): a nomination, the ballot opening a minute
+## before the mountain's time is up with the nomination on it, a vote by number, the time
+## running out while a person is still hauling (the change waits for them), the road clearing
+## and the world REBUILT on the voted mountain; then rock-the-vote opening a ballot early and
+## changing it at once, the cvar that sets the window, and an operator's dd_mountain back.
+##
+## Commands run at the console, which is where a `!vote` typed in chat lands; the console's
+## voter is "console", so the voter list is that one name. Synchronous throughout: the server
+## ticks the module every frame too, and its vote clock must not run between two checks.
+func _test_the_mountain_vote() -> void:
+	_section("the mountain vote")
+	var module := _module()
+	var vote: Node = module.get("vote") if module != null else null
+	_check(vote != null, "the module built a mountain vote")
+
+	if vote == null:
+		_finished_section()
+		return
+
+	var commands_there := true
+
+	for name in ["vote", "rtv", "nominate", "dd_mountain"]:
+		commands_there = commands_there and server.console.find_command(name) != null
+
+	_check(commands_there, "with dot-vote's vote, rtv and nominate, and dd_mountain")
+	var director: DotVoteDirector = vote.get("director")
+	_check(server.hibernation_changed.is_connected(director.set_hibernating),
+		"the vote follows the server's hibernation without a line of this game's")
+
+	var ids: Array = []
+
+	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
+		ids.append(String(choice.id))
+
+	_check(ids == ["range", "low_country", "high_country"], "it offers every mountain", str(ids))
+	_check(_said(_run_command("dd_mountain"), "low_country") and server.games.current_map() == "range",
+		"dd_mountain lists them, and the server reports the one it is on as its map", server.games.current_map())
+	_check(director.current_id() == &"range" and is_equal_approx(director.clock.duration, game.config.mountain_minutes * 60.0) \
+			and director.rules.trigger == DotVoteRules.Trigger.TIME_LIMIT,
+		"on dot-vote's own clock: a time limit of mountain_minutes", "%s, %.0f s" % [director.current_id(), director.clock.duration])
+
+	# A person mid-haul, who must not lose the trip to the clock.
+	var hauler := &"uid:hauler"
+	var _joined := game.join(hauler, "Hauler")
+	var set_off := game.start_trip(hauler, &"dd_foothills")
+	var captured: Array = []
+	vote.set("voters_fn", func() -> Array: return [&"console"])
+	vote.set("ballot_fn", func(state: Dictionary) -> void: captured.append(state))
+
+	_check(_said(_run_command("nominate low_country"), "Nominated"), "a player nominates a mountain")
+	vote.call("advance", director.clock.remaining - director.rules.vote_lead_sec + 0.5)
+	var options: Array[StringName] = director.ballot.option_ids() if director.is_voting() else ([] as Array[StringName])
+	_check(director.is_voting() and options.has(&"low_country"),
+		"the ballot opens a minute before the time is up, with the nomination on it", str(options))
+	(vote.get("feed") as DotVoteBallotFeed).poll()
+	var drawn: Dictionary = captured.back() if not captured.is_empty() else {}
+	_check(bool(drawn.get("open", false)) and str(drawn.get("command", "")) == "vote" and str(drawn.get("title", "")).contains("mountain"),
+		"and the ballot a client draws says so, with the command that votes", str(drawn.get("title", "")))
+	_check(_said(_run_command("vote %d" % (options.find(&"low_country") + 1)), "Voted"), "a vote by the number on the ballot counts")
+	vote.call("advance", 0.05)
+	_check(director.pending_id() == &"low_country" and game.mountain_id == &"range",
+		"and decides it, waiting for the time to run out", str(director.pending_id()))
+
+	module.call("_game_tick", 0, director.rules.vote_lead_sec + 1.0)
+	_check(set_off.ok and director.clock.is_expired() and vote.call("is_waiting_for_road") and game.mountain_id == &"range",
+		"the time runs out while a person is hauling, and the change waits for them", str(game.mountain_id))
+
+	game.end_trip(hauler)
+	module.call("_game_tick", 0, 0.05)
+	module.call("_game_tick", 0, director.rules.apply_delay_sec + 0.5)
+	_check(game.mountain_id == &"low_country" and game.routes.size() == 3 and not game.routes.has(&"dd_devils_spine"),
+		"the road clear, the world is rebuilt on the mountain voted for", "%s, %d routes" % [game.mountain_id, game.routes.size()])
+	_check(director.current_id() == &"low_country" and not director.clock.is_expired() and server.games.current_map() == "low_country",
+		"its clock starts over, and the server reports it", "%s, %s" % [director.current_id(), server.games.current_map()])
+
+	# Rock the vote: two minutes in, the players ask, a ballot opens and the winner is built now.
+	vote.call("advance", director.rules.rtv_delay_sec + 1.0)
+	var _r := _run_command("rtv")
+	options = director.ballot.option_ids() if director.is_voting() else ([] as Array[StringName])
+	_check(director.is_voting() and options.has(&"high_country"), "rock the vote opens a ballot early", str(options))
+	var _v := _run_command("vote %d" % (options.find(&"high_country") + 1))
+	vote.call("advance", 0.05)
+	module.call("_game_tick", 0, director.rules.apply_delay_sec + 0.5)
+	_check(game.mountain_id == &"high_country" and game.routes.size() == 3 and director.current_id() == &"high_country",
+		"and its winner is built without waiting for the clock", "%s, %d routes" % [game.mountain_id, game.routes.size()])
+	_check(game.is_unlocked(hauler, &"dd_snowline") and not game.is_unlocked(hauler, &"dd_wind_ridge"),
+		"its lowest route is open to somebody who has delivered nothing; the next is not")
+
+	var _m := _run_command("dd_vote_minutes 30")
+	_check(is_equal_approx(director.rules.duration_sec, 1800.0) and is_equal_approx(game.config.mountain_minutes, 30.0),
+		"dd_vote_minutes sets the window", "%.0f s" % director.rules.duration_sec)
+	_check(_said(_run_command("dd_mountain range"), "Whole Range") and game.routes.size() == 5 and director.current_id() == &"range" \
+			and is_equal_approx(director.clock.duration, 1800.0),
+		"an operator's dd_mountain moves the server back, on the new window", "%d routes, %.0f s" % [game.routes.size(), director.clock.duration])
+	_check(_said(_run_command("dd_mountain nowhere"), "No mountain") and game.mountain_id == &"range",
+		"and a mountain that does not exist changes nothing")
+
+	game.leave(hauler)
 	_finished_section()
 
 

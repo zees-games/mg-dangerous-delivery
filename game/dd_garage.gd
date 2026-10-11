@@ -16,6 +16,8 @@ var act: Callable = Callable()
 
 var _money: Label = null
 var _routes: VBoxContainer = null
+## The routes column's heading, which names the mountain the server is on.
+var _routes_heading: Label = null
 var _trucks: VBoxContainer = null
 var _upgrades: VBoxContainer = null
 var _notice: Label = null
@@ -70,6 +72,7 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation", 16)
 	column.add_child(body)
 	_routes = _section(body, "ROUTES", 1.3)
+	_routes_heading = _routes.get_parent().get_parent().get_child(0) as Label
 	_trucks = _section(body, "TRUCKS", 1.0)
 	_upgrades = _section(body, "UPGRADES", 0.8)
 
@@ -128,6 +131,8 @@ func _do(action: String, args: Dictionary) -> void:
 func refresh(view: Dictionary) -> void:
 	_view = view
 	_money.text = "$%d" % int(view.get("money", 0))
+	var mountain := str(view.get("mountain", ""))
+	_routes_heading.text = "ROUTES  —  %s" % mountain.to_upper() if mountain != "" else "ROUTES"
 
 	if _picked_route == &"" or not _has_open_route(_picked_route):
 		_picked_route = _first_open_route()

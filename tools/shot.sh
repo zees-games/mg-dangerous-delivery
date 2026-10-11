@@ -7,6 +7,8 @@
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above
 #   tools/shot.sh --view=drive --sky=snow                  # force the weather everywhere
 #   tools/shot.sh --view=drive --route=dd_snowline --at=880 --seconds=4   # put the truck 880 m along first
+#   tools/shot.sh --mountain=low_country                   # the lot on another mountain (DdMountains)
+#   tools/shot.sh --ballot --out=res://screenshots/ballot.png   # the mountain vote's ballot, mid-vote, as the client shell draws it
 #
 # xvfb-run because this needs a rendering context; --headless gives a null renderer and saves
 # a frame of nothing. --fixed-fps so a stand-in forty seconds up a route is forty simulated
@@ -15,7 +17,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"
 for arg in "$@"; do
     case "$arg" in
         --view=*)    view="${arg#*=}" ;;
@@ -25,10 +27,12 @@ for arg in "$@"; do
         --sky=*)     sky="${arg#*=}" ;;
         --at=*)      at="${arg#*=}" ;;
         --truck=*)   truck="${arg#*=}" ;;
+        --mountain=*) mountain="${arg#*=}" ;;
+        --ballot)    ballot="1" ;;
         *)           echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot"

@@ -288,6 +288,13 @@ func _build_netcode() -> DotResult:
 	bridge.hello_received.connect(func(key: StringName) -> void:
 		local_key = key
 		_frame_garage_camera())
+	# The players voted another mountain: the roads were rebuilt under the camera, and the
+	# trip (if any) already ended, so the lot is framed on the new first route.
+	bridge.mountain_received.connect(func(_id: StringName, name_text: String) -> void:
+		_frame_garage_camera()
+
+		if garage.visible:
+			garage.notice("The mountain is %s now." % name_text))
 	bridge.garage_received.connect(func(view: Dictionary) -> void:
 		hud.show_money(int(view.get("money", 0)))
 		garage.refresh(view))

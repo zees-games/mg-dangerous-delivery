@@ -9,7 +9,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/design.md](docs/design.md) | routes and levels, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound and the rockfall's shake |
+| [docs/design.md](docs/design.md) | routes and levels, mountains and the vote, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound and the rockfall's shake |
 | [docs/terrain.md](docs/terrain.md) | `dd_route.gd`'s meshes or `dd_terrain.gd` |
 | [docs/netcode.md](docs/netcode.md) | `game/net/`, the module, anything sent, names |
 | [docs/testing.md](docs/testing.md) | adding a check, believing a green run, rendering |
@@ -24,6 +24,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_weather.gd`, `dd_trip.gd`, `dd_bank.gd` | the sky as a pure function of (seed, zone, tick) and `unit()`; one haul and its pay; accounts with JSON and SQL stores |
 | `game/dd_trucks.gd`, `dd_truck.gd`, `dd_trailer.gd` | catalogue and upgrades as data; a `VehicleBody3D` from a Kenney model; the Semi's trailer on a joint |
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
+| `game/dd_mountains.gd`, `dd_vote.gd` | the mountains (named route sets: this game's maps); the players' vote for the next one over dot-vote, on its own clock |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
 | `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_client_chat.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
 | `game/dd_audio.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame through `DotAudioManager.shape` |
@@ -36,12 +37,13 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - `./game.sh` plays offline; `./game.sh online` runs a local server and browser client; `./game.sh test` parses and runs the three suites.
 - After a route change: `tools/build_routes.py --check` and `tools/drive.sh` (also `TRUCK=semi`).
-- **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`): every mountain problem was found only in a picture. [testing](docs/testing.md)
+- **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`; `--ballot` for the mountain vote, `--mountain=<id>` for the lot on another mountain): every mountain problem was found only in a picture. [testing](docs/testing.md)
 
 ## Rules
 
 - **A player is their truck.** `DdTruck` binds `DotVehicleInstance` and `DotVehicleWheeled` itself; `DdGame` calls `drive()` once a tick. Do not bring in `DotVehicleRide`. [design](docs/design.md)
 - A route is a level and a corner of one world; a new route is a file in `routes/`. Hairpins always put the cliff on the inside. [design](docs/design.md#one-world-holds-every-route-and-a-route-is-a-level)
+- **A map is a mountain: a named set of routes** (`DdMountains`). `library` is every route loaded, `documents` the mountain's; only `set_mountain` changes it, and it ends every trip first. The vote is TIME_LIMIT on dot-vote's clock (no rounds), its change waits for people mid-haul (`note_road_clear`), and every change goes through `DdModule._change_mountain` so the clock and the world agree. [design](docs/design.md#a-mountain-is-a-set-of-routes-and-the-players-vote-for-the-next-one)
 - **Never Godot's `hash()` for a roll**: use `DdWeather.unit()` (MD5). Weather, hazards, boulders and terrain noise must be the same on every machine. [design](docs/design.md#weather-is-the-worlds-and-a-trip-is-paid-for-what-it-met)
 - Pay counts only the weather and rock a trip met (`DdTrip.meet`). Ice and debris are road, laid from the document; debris never takes both lanes.
 - Falls are a height test, never a trigger volume; R costs what a fall costs; a respawned truck is a ghost until clear of every other truck; rock is rate-limited per site. [design](docs/design.md#falls-are-a-height-test-and-rock-is-rate-limited)

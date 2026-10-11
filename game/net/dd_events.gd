@@ -32,6 +32,9 @@ enum Kind {
 	BODY_GONE,
 	## Rock came down: route and where, so a client near it hears it and feels the jolt.
 	ROCK,
+	## The world was rebuilt on another mountain: its id and name and the route documents, as
+	## in HELLO. Every trip ended first; a GARAGE follows to each driver.
+	MOUNTAIN,
 }
 
 enum Ask {

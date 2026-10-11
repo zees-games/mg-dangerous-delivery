@@ -8,6 +8,16 @@ The brief asked for a big map whose corners have their own weather, and for leve
 
 **Hairpins put the cliff on the inside**, always (`build_routes.py`'s `hairpin()`): every truck cuts the corner, and with the drop inside a stand-in fell 41 times in one bend.
 
+## A mountain is a set of routes, and the players vote for the next one
+
+Every route is already open to everybody, so a ballot over single routes decides nothing. What a server can change for everybody at once is which routes the world holds: `DdMountains` names three (`range`, every route loaded and the default; `low_country`, levels 1 to 3; `high_country`, levels 3 to 5), and `DdGame.set_mountain` rebuilds the world on one from `library` (every document accepted) into `documents` (the mountain's). A smaller mountain puts the same drivers on three roads instead of five, sharing the road, the weather and the rock. A delivered route pack joins the whole range only.
+
+- **No rounds, so the ballot runs on dot-vote's own clock** (`DdVote`, `trigger: time_limit`): a mountain lasts `mountain_minutes` (15, the `dd_vote_minutes` cvar), the ballot opens a minute before, and its winner is applied when the time is up. `!rtv` opens one early and applies it at once.
+- **The hauls on the road are the "round" the change waits for** (`time_up: finish_round`, at most 180 s): a change ends every trip, so `DdModule._game_tick` reports the road clear (`note_road_clear`) only when no person is mid-haul. Stand-ins never hold it up.
+- **A mountain's lowest level is always open** (`is_unlocked` counts over the routes the world holds), so High Country is drivable by somebody who has delivered nothing.
+- **Every trip ends and the rock goes** before the rebuild: the road a truck was on may not exist any more. The old route nodes leave the tree before the new ones arrive (same names), and the weather cache is cleared so every zone is painted again.
+- **The ballot is the shell's**: the `map_ballot` notice drawn by `DotBallotPanel`, as in the other games; `tools/shot.sh --ballot` renders it. The server-wide game vote is dot-server-deploy's and separate (its commands are `game_`-prefixed); this vote's director stays out of the registry (`register_service` off) and waits for a votekick (`busy_fn`).
+
 ## Weather is the world's, and a trip is paid for what it met
 
 Several trucks share a mountain, so the sky over a zone is `DdWeather.at(seed, "route|zone", zone, tick)`, a hash per `PERIOD_SECONDS` (150) window, the same for everybody on it.

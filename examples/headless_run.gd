@@ -17,9 +17,10 @@ const DdBank := preload("res://game/dd_bank.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdProgress := preload("res://game/dd_progress.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
+const DdMountains := preload("res://game/dd_mountains.gd")
 
-const SECTIONS := 18
-const CHECKS := 102
+const SECTIONS := 19
+const CHECKS := 106
 
 var _passed := 0
 var _failed := 0
@@ -53,6 +54,7 @@ func _ready() -> void:
 	progress.earned.connect(func(key: StringName, title: String, _points: int) -> void: _earned.append([key, title]))
 
 	_test_unlocking()
+	_test_every_mountain()
 	await _test_a_delivery()
 	await _test_a_fall()
 	_test_solo()
@@ -344,6 +346,45 @@ func _test_unlocking() -> void:
 	_check(not game.start_trip(&"p1", &"dd_snowline").ok, "a locked route cannot be started")
 	var view := game.garage_view(&"p1")
 	_check((view["routes"] as Array).size() == 5 and bool(view["routes"][1]["locked"]), "the garage shows which are locked")
+	_finished_section()
+
+
+## Every mountain on the ballot is buildable from the shipped routes, and a ballot never
+## offers two mountains holding the same routes.
+func _test_every_mountain() -> void:
+	_section("every mountain on the ballot")
+	var named_all := true
+
+	for mountain in DdMountains.ALL:
+		var wanted: Array = mountain["routes"]
+		named_all = named_all and DdMountains.routes_of(mountain, game.library).size() == (wanted.size() if not wanted.is_empty() else game.library.size())
+
+	_check(named_all and DdMountains.allowed(game.library).size() == DdMountains.ALL.size(),
+		"every mountain names only routes this game ships, and all are offered")
+
+	var built := true
+	var names_clean := true
+
+	for mountain in DdMountains.ALL:
+		var moved := game.set_mountain(mountain["id"])
+		built = built and moved.ok and game.routes.size() == DdMountains.routes_of(mountain, game.library).size() \
+			and str(game.garage_view(&"anyone").get("mountain", "")) == mountain["name"]
+
+		for id: StringName in game.routes:
+			names_clean = names_clean and String((game.routes[id] as Node).name) == "Route_%s" % String(id)
+
+	var _back := game.set_mountain(DdMountains.DEFAULT)
+	_check(built and game.routes.size() == 5, "each one builds, and the lot names it", String(game.mountain_id))
+	_check(names_clean, "a rebuilt route keeps its node name (the old one leaves the tree first)")
+
+	var narrowed := {}
+
+	for id: String in ["dd_foothills", "dd_river_cut", "dd_snowline"]:
+		narrowed[StringName(id)] = game.library[StringName(id)]
+
+	var offered: Array = DdMountains.allowed(narrowed).map(func(m: Dictionary) -> String: return String(m["id"]))
+	_check(offered == ["range", "high_country"],
+		"a server narrowed to Low Country's routes offers it once, not under two names", str(offered))
 	_finished_section()
 
 

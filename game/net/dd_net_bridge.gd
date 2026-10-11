@@ -10,8 +10,9 @@ extends Node
 ## of reliable JSON events (see [code]dd_events.gd[/code]).
 ##
 ## [b]What every machine computes for itself:[/b] the roads, from the documents in HELLO, and
-## the weather, from the seed in HELLO and the tick the clock already agrees on. Neither is
-## ever sent again.
+## the weather, from the seed in HELLO and the tick the clock already agrees on. The roads are
+## sent again only when the world is rebuilt on another mountain (MOUNTAIN, the same field
+## HELLO carries, applied through the same `adopt_documents`).
 
 const DdEvent := preload("dd_event.gd")
 const DdEvents := preload("dd_events.gd")
@@ -39,6 +40,8 @@ const FIRST_BOT_SESSION := 900000
 signal hello_received(key: StringName)
 signal trip_received(view: Dictionary)
 signal garage_received(view: Dictionary)
+## The world was rebuilt on another mountain. Client side.
+signal mountain_received(id: StringName, name_text: String)
 signal said(text: String, tone: String)
 signal driver_changed(key: StringName)
 signal notice_received(text: String)
@@ -134,6 +137,7 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		# The sound and the jolt are the client's, so it is told where; the body comes as BODY.
 		game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
 			_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
+		game.mountain_changed.connect(_on_mountain_changed)
 
 	return DotResult.success(true)
 
@@ -248,6 +252,7 @@ func _admit(peer_id: int) -> void:
 	_tell(peer_id, DdEvents.Kind.HELLO, {
 		"you": String(key), "seed": game.seed_value, "tick_rate": game.tick_rate, "tick": net.clock.tick,
 		"routes": game.documents_in_order(), "weather": game.forced_weather,
+		"mountain": String(game.mountain_id), "mountain_name": game.mountain_name(),
 		"config": {
 			"snow_grip": game.config.snow_grip, "rain_grip": game.config.rain_grip,
 			"weather_frequency": game.config.weather_frequency, "allow_solo": game.config.allow_solo,
@@ -440,6 +445,18 @@ func trip_view_of(key: StringName) -> Dictionary:
 	}
 
 
+## The world is on another mountain: every client rebuilds the roads from the documents, as
+## from HELLO, then gets its garage (the routes in it changed). The trips already ended, each
+## with its own TRIP and DRIVER, before the world was rebuilt.
+func _on_mountain_changed(id: StringName) -> void:
+	_broadcast(DdEvents.Kind.MOUNTAIN, {
+		"mountain": String(id), "name": game.mountain_name(), "routes": game.documents_in_order(),
+	})
+
+	for peer_id: int in _ready_peers.keys():
+		_send_garage(_player_of_peer.get(peer_id, &""))
+
+
 func _send_garage(key: StringName) -> void:
 	var peer := peer_of(key)
 
@@ -620,6 +637,10 @@ func _on_event(message: DotNetMessage) -> void:
 			game.forced_weather = forced if forced is Dictionary else {}
 		DdEvents.Kind.BODY:
 			_apply_body(data)
+		DdEvents.Kind.MOUNTAIN:
+			var id := StringName(str(data.get("mountain", "")))
+			game.adopt_documents(data.get("routes", []), id)
+			mountain_received.emit(id, str(data.get("name", "")))
 		DdEvents.Kind.ROCK:
 			# On the mirror world, where the client listens for it offline too.
 			var at: Variant = data.get("at", [])
@@ -649,7 +670,7 @@ func _apply_hello(data: Dictionary) -> void:
 
 	var forced: Variant = data.get("weather", {})
 	game.forced_weather = forced if forced is Dictionary else {}
-	game.adopt_documents(data.get("routes", []))
+	game.adopt_documents(data.get("routes", []), StringName(str(data.get("mountain", ""))))
 	hello_received.emit(local_key)
 
 

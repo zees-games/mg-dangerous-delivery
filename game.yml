@@ -23,3 +23,7 @@ cvars:
 # rather than on a map change: nobody is admitted to a server playing only the built-in map.
 metadata:
   maps_delivery: server
+  # The players' vote for the next mountain (game/dd_vote.gd), keyed as dot-vote's rules.
+  # Unset keeps the game's defaults: 15 minutes a mountain, the change after the hauls in progress.
+  # mountain_vote:
+  #   duration_sec: 1200

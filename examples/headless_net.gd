@@ -11,8 +11,8 @@ const DdTruck := preload("res://game/dd_truck.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 11
-const CHECKS := 35
+const SECTIONS := 12
+const CHECKS := 39
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -50,6 +50,7 @@ func _ready() -> void:
 		await _test_rock()
 		await _test_rock_heard()
 	await _test_a_trailer()
+	await _test_another_mountain()
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -339,6 +340,30 @@ func _test_a_trailer() -> void:
 	_client_net.interpolate_frame(1.0)
 	_check(server_trailer != null and (mirror.trailer as Node3D).global_position.distance_to(server_trailer.global_position) < 1.0,
 		"where the server's is")
+	_finished_section()
+
+
+## The players' vote moved the server to another mountain while this client was driving: the
+## MOUNTAIN event rebuilds its roads from the documents, as HELLO did, its trip is over and its
+## garage lists the new mountain's routes. Then back, so the world is as the other checks left it.
+func _test_another_mountain() -> void:
+	_section("another mountain over the wire")
+	var was_on_road := (_server_game.drivers[_key] as DdGame.Driver).on_road()
+	var moved := _server_game.set_mountain(&"low_country")
+	_exchange()
+	await _steps(4)
+	_check(moved.ok and _client_game.mountain_id == &"low_country" and _client_game.routes.size() == 3 \
+			and absf(_client_game.routes[&"dd_snowline"].length() - _server_game.routes[&"dd_snowline"].length()) < 0.001,
+		"the client rebuilds the mountain's three routes from the documents it was sent", "%s, %d routes" % [_client_game.mountain_id, _client_game.routes.size()])
+	var mirror: DdGame.Driver = _client_game.drivers.get(_key, null)
+	_check(was_on_road and mirror != null and mirror.truck == null and not bool(_client_bridge.trip_view.get("on_road", true)),
+		"the trip it was on ended, on both ends", str(_client_bridge.trip_view.get("on_road", "?")))
+	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 3 and str(_client_bridge.garage_view.get("mountain", "")) == "Low Country",
+		"and its garage lists the mountain's routes under its name", str(_client_bridge.garage_view.get("mountain", "")))
+	var _back := _server_game.set_mountain(&"range")
+	_exchange()
+	await _steps(2)
+	_check(_client_game.routes.size() == 5 and _client_game.mountain_id == &"range", "and back to the whole range")
 	_finished_section()
 
 
