@@ -26,7 +26,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
 | `game/dd_mountains.gd`, `dd_vote.gd` | the mountains (named route sets: this game's maps); the players' vote for the next one over dot-vote, on its own clock |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
-| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_client_chat.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
+| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
 | `game/dd_audio.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame through `DotAudioManager.shape` |
 | `routes/` | the route documents, written by `tools/build_routes.py` |
 | `assets/kenney/trucks/` | four Car Kit trucks and their atlas, CC0 |

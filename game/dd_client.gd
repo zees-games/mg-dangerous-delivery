@@ -17,7 +17,7 @@ const DdTruck := preload("dd_truck.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdNetBridge := preload("net/dd_net_bridge.gd")
 const DdTruckNet := preload("net/dd_truck_net.gd")
-const DdClientChat := preload("dd_client_chat.gd")
+const DdServices := preload("dd_services.gd")
 const DdAudio := preload("dd_audio.gd")
 const DdSettings := preload("dd_settings.gd")
 
@@ -62,7 +62,7 @@ var _clear_sun := 1.0
 var _env: Environment = null
 var _look := Vector3.ZERO
 
-var chat: DdClientChat = null
+var chat: DotGameChatClient = null
 ## The truck's and the mountain's sounds, through dot-audio. See [DdAudio].
 var audio: DdAudio = null
 ## Rock coming down near you, felt as well as heard: a dot-fx shake, so the settings' shake
@@ -129,8 +129,7 @@ func _ready() -> void:
 	garage.act = _act
 	layer.add_child(garage)
 
-	chat = DdClientChat.new()
-	chat.name = "Chat"
+	chat = new_chat()
 	add_child(chat)
 	_build_audio()
 	_build_effects()
@@ -833,3 +832,20 @@ func _set_weather(weather: Dictionary) -> void:
 	var dim := _clear_sun * (0.5 if sky != DdWeather.CLEAR else 1.0)
 	_sun.light_energy = lerpf(_sun.light_energy, dim, 0.02)
 	_env.fog_density = lerpf(_env.fog_density, 0.006 if sky == DdWeather.SNOW else (0.003 if sky == DdWeather.RAIN else 0.0012), 0.02)
+
+
+## dot-game's chat box and microphone, with this game's channels and voice format. It also
+## draws dot-server's own lines (the vote between games, joins, an admin's `say`), which arrive
+## on the shell's client link rather than on this game's bridge. Static so a suite can build
+## the same box the client does.
+static func new_chat() -> DotGameChatClient:
+	var box := DotGameChatClient.new()
+	box.name = "Chat"
+	box.channels = [
+		{"id": DdServices.CH_ALL, "label": "All", "colour": Color(0.93, 0.94, 0.96)},
+	]
+	box.max_length = DdServices.MAX_LINE
+	box.voice_config = DdServices.voice_format()
+	# This bridge's `send_voice` is the server's `(peer_id, bytes)`; the client half is this.
+	box.voice_method = &"send_voice_up"
+	return box
