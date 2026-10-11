@@ -136,6 +136,7 @@ func _ready() -> void:
 	_build_effects()
 
 	_build_settings()
+	_listen_for_rock()
 
 	if not _offline:
 		_show_garage(true)
@@ -151,12 +152,6 @@ func _ready() -> void:
 	game.fell.connect(func(key: StringName, why: String) -> void:
 		if key == local_key:
 			hud.say({"fell": "OVER THE EDGE", "flipped": "ON ITS SIDE", "respawn": "BACK TO THE CHECKPOINT"}.get(why, why.to_upper()), 2.0, Color(1.0, 0.4, 0.35)))
-	game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
-		var me := _driver()
-		if me != null and me.truck != null and (me.truck as Node3D).global_position.distance_to(at) < 120.0:
-			var _heard := audio.rock() if audio != null else false
-			if effects != null:
-				effects.shake_at(&"rock", at, ROCK_SHAKE_FALLOFF))
 	game.delivered.connect(func(key: StringName, _route: StringName, pay: int) -> void:
 		if key == local_key:
 			var _heard := audio.delivered() if audio != null else false
@@ -191,6 +186,25 @@ func _build_audio() -> void:
 		remove_child(audio)
 		audio.free()
 		audio = null
+
+
+## Rock coming down: offline the world's own signal, connected the bridge's re-emission of the
+## server's ROCK event on the mirror world (a mirror never drops rock itself). One handler for
+## both, so a connected player cannot be the one who does not hear it (it once was).
+func _listen_for_rock() -> void:
+	game.boulder_dropped.connect(_on_rock)
+
+
+func _on_rock(_route_id: StringName, at: Vector3) -> void:
+	var me := _driver()
+
+	if me == null or me.truck == null or (me.truck as Node3D).global_position.distance_to(at) >= 120.0:
+		return
+
+	var _heard := audio.rock() if audio != null else false
+
+	if effects != null:
+		effects.shake_at(&"rock", at, ROCK_SHAKE_FALLOFF)
 
 
 ## Rock coming down near you is a jolt as well as a rumble. An effect, so dot-fx's: its manager

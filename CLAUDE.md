@@ -53,6 +53,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Every garage button and key is one ACT through `DdBridgeActs.run`, which offline calls directly; never a second code path.
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
+- A sound or shake the server's world causes reaches a connected client as an event (appended to `DdEvents.Kind`) re-emitted on the mirror world, where the offline handler already listens; never an offline-only `connect`. [netcode](docs/netcode.md)
 - Every sound is a `DdAudio` catalogue id; a loop is shaped through `dd_audio_sink.gd`, never by restarting it. Sound is proven only under xvfb (`tools/audio_probe`). [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
 - The light is a daylight dot-lighting document turned down under Compatibility, dimmed by weather; the surfaces keep the mountain's colours (no pastel grid: snow and wet are read from them). [design](docs/design.md#the-light-is-the-familys-daylight-the-colours-stay-the-mountains)
 - No `class_name`; every own `res://` path through `DdPaths.rebase()` where defined (see [mg-buses-from-hell's delivery.md](../mg-buses-from-hell/docs/delivery.md)).

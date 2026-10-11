@@ -30,6 +30,8 @@ enum Kind {
 	BODY,
 	## A body went.
 	BODY_GONE,
+	## Rock came down: route and where, so a client near it hears it and feels the jolt.
+	ROCK,
 }
 
 enum Ask {

@@ -11,8 +11,8 @@ const DdTruck := preload("res://game/dd_truck.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 10
-const CHECKS := 33
+const SECTIONS := 11
+const CHECKS := 35
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -48,6 +48,7 @@ func _ready() -> void:
 		await _test_refusal()
 		await _test_bots()
 		await _test_rock()
+		await _test_rock_heard()
 	await _test_a_trailer()
 
 	print("")
@@ -286,6 +287,38 @@ func _test_rock() -> void:
 	_exchange()
 	await _steps(2)
 	_check(_client_bridge.entity_count() == 1, "and goes when it goes")
+	_finished_section()
+
+
+## The client's own rock handler, on the mirror world: what a connected player hears and feels.
+## The client is not put in the tree (its `_ready` would build a world of its own); it is given
+## the mirror and builds only its sound and its effects.
+func _test_rock_heard() -> void:
+	_section("rock, heard and felt by a connected client")
+	var client: Node = (load("res://game/dd_client.gd") as GDScript).new()
+	client.set("game", _client_game)
+	client.set("local_key", _key)
+	client.call("_build_audio")
+	client.call("_build_effects")
+	client.call("_listen_for_rock")
+	var audio: Node = client.get("audio")
+	var effects: DotFxManager = client.get("effects")
+	var sink := audio.get("manager").get("sink") as DotAudioSinkNull if audio != null else null
+	var before := sink.count_of(&"rockfall") if sink != null else -1
+	var truck := (_server_game.drivers[_key] as DdGame.Driver).truck as Node3D
+	var at := truck.global_position + Vector3(5.0, 0.0, 0.0)
+	effects.viewer_position = (_client_game.drivers[_key] as DdGame.Driver).truck.global_position
+	var seen: Array = []
+	_client_game.boulder_dropped.connect(func(route_id: StringName, where: Vector3) -> void: seen.append([route_id, where]))
+	_server_game.boulder_dropped.emit(&"dd_foothills", at)
+	_exchange()
+	await _steps(2)
+	_check(seen.size() == 1 and seen[0][0] == &"dd_foothills" and (seen[0][1] as Vector3).distance_to(at) < 0.01,
+		"a rockfall reaches the client, where the server says", str(seen))
+	_check(sink != null and sink.count_of(&"rockfall") == before + 1 and effects.shake.trauma() > 0.0,
+		"and the client plays rockfall and shakes",
+		"%s trauma %.2f" % [sink.played_ids() if sink != null else [], effects.shake.trauma() if effects != null else -1.0])
+	client.free()
 	_finished_section()
 
 

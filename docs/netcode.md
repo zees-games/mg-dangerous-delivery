@@ -9,7 +9,8 @@
 - A client sends what it is pressing as **four bytes a tick** behind a snapshot ack (`DdEvents.write_drive`), unreliably; the server drives with the latest.
 - Trucks, trailers and boulders are `DotNetIdentity`s with `Authority.SERVER`, always relevant, replicated by `DdBodyNet` (pose, interpolated) and `DdTruckNet` (plus steering and signed km/h). A client creates the body on a DRIVER or BODY event and keeps it frozen.
 - **HELLO carries the seed, the route documents and the settings a client's own weather needs**; after that a client builds every road and computes every zone's sky itself. `headless_net` checks every zone agrees between the two ends.
-- The rest (DRIVER, GONE, TRIP to the owner six times a second, GARAGE, SAY, WEATHER, BODY) is JSON: a few hundred bytes a second, and a garage view that grows a field should be a change in one place.
+- The rest (DRIVER, GONE, TRIP to the owner six times a second, GARAGE, SAY, WEATHER, BODY, ROCK) is JSON: a few hundred bytes a second, and a garage view that grows a field should be a change in one place.
+- **ROCK is a rockfall's place, re-emitted on the client's mirror world as `boulder_dropped`**, the signal the client listens to offline too, so the rumble and the dot-fx shake have one handler (`DdClient._on_rock`). Until it existed a connected player never heard rock (the body arrived, the sound did not); `headless_net` drives the client's own handler on the mirror.
 - **Every garage button and key is one ACT request answered by `DdBridgeActs.run`**, which an offline client calls directly: one table, so offline and online cannot mean different things by "skip".
 
 ## Names

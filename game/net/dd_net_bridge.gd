@@ -131,6 +131,9 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.bank.account_changed.connect(_send_garage)
 		game.boulder_made.connect(_on_boulder_made)
 		game.boulder_gone.connect(_on_boulder_gone)
+		# The sound and the jolt are the client's, so it is told where; the body comes as BODY.
+		game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
+			_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
 
 	return DotResult.success(true)
 
@@ -617,6 +620,12 @@ func _on_event(message: DotNetMessage) -> void:
 			game.forced_weather = forced if forced is Dictionary else {}
 		DdEvents.Kind.BODY:
 			_apply_body(data)
+		DdEvents.Kind.ROCK:
+			# On the mirror world, where the client listens for it offline too.
+			var at: Variant = data.get("at", [])
+
+			if at is Array and (at as Array).size() == 3:
+				game.boulder_dropped.emit(StringName(str(data.get("route", ""))), Vector3(float(at[0]), float(at[1]), float(at[2])))
 		DdEvents.Kind.BODY_GONE:
 			var net_id := int(data.get("net_id", 0))
 			var behaviour: DdBodyNet = _entities.get(net_id, null)
