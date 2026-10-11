@@ -20,7 +20,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 110
+const CHECKS := 115
 
 var _passed := 0
 var _failed := 0
@@ -64,7 +64,7 @@ func _ready() -> void:
 	_test_ice_and_debris()
 	await _test_a_trailer()
 	await _test_the_client_settings()
-	_test_the_lot_makes_room()
+	await _test_the_lot_makes_room()
 	await _test_sound_and_effects()
 
 	print("")
@@ -721,6 +721,44 @@ func _test_the_lot_makes_room() -> void:
 	_check(lot.call("room_target") == Vector2(-110.0, 1010.0),
 		"a frame too narrow for a three-column lot beside the ballot leaves it centred", str(lot.call("room_target")))
 
+	# A full chat log: the box the client builds, bottom-left of a 1280 x 720 frame on a layer
+	# above the lot, eight lines in it. Before the lot cleared it, rows from 518 down lay over
+	# the routes column (`tools/shot.sh --ballot --chat=8` is what it looks like).
+	lot.size = Vector2(1280.0, 720.0)
+	ballot.position = Vector2(904.0, 110.0)
+	var chat_layer := CanvasLayer.new()
+	chat_layer.layer = 2
+	add_child(chat_layer)
+	var screen := Control.new()
+	screen.position = Vector2.ZERO
+	screen.size = Vector2(1280.0, 720.0)
+	chat_layer.add_child(screen)
+	var chat := DotChatWindow.new()
+	screen.add_child(chat)
+	await get_tree().process_frame
+	lot.set("chat_window", chat)
+
+	lot.call("make_room")
+	_check(lot.call("room_target_y") == Vector2(60.0, 660.0), "an empty chat log costs the lot nothing",
+		str(lot.call("room_target_y")))
+
+	for i in 8:
+		chat.add_text("[Server] line %d" % i)
+
+	lot.call("make_room")
+	var log_rect: Rect2 = lot.call("chat_log_rect")
+	_check(is_equal_approx(log_rect.position.y, 518.0) and is_equal_approx(log_rect.end.y, 678.0),
+		"eight lines in the log draw from 518 to 678", str(log_rect))
+	_check(frame.offset_bottom + 360.0 <= log_rect.position.y - 16.0 and frame.offset_top + 360.0 >= 16.0,
+		"a full log: the lot lifts and shortens to end clear of it, still on screen",
+		"lot %.0f..%.0f, log from %.0f" % [frame.offset_top + 360.0, frame.offset_bottom + 360.0, log_rect.position.y])
+	_check(lot.call("room_target") == Vector2(16.0, 888.0), "and still keeps left of the ballot")
+
+	chat.clear()
+	lot.call("make_room")
+	_check(lot.call("room_target_y") == Vector2(60.0, 660.0), "and it goes back down when the log empties")
+
+	chat_layer.queue_free()
 	layer.queue_free()
 	lot.queue_free()
 	_finished_section()

@@ -55,6 +55,8 @@ The client shell draws every ballot (the server's game vote and this game's moun
 - **Narrower than 720 px it stays centred**, under the panel: three columns a word wide are worse. That is a phone in landscape, where the column is a third of the frame.
 - `tools/shot.sh --ballot` renders it; `headless_run` checks where the lot goes.
 
+**And for the chat log under it.** The chat box is dot-game's, bottom-left on a layer above the lot; a full log (eight rows, 518 to 678 px at 720) lay over the routes column from its third row up, so a server vote's lines arriving while a driver chose a route were printed through the route list. While the log draws rows, the lot rises (to 16 px from the top) and then shortens to end 16 px above them, never below `LOT_MIN_HEIGHT` (400); its columns scroll, so a shorter lot loses rows on screen and nothing else. Only the rows being drawn count, so an empty log costs nothing, and the lot eases back as lines expire. Not the log hidden behind the lot: the lot is where a driver waits out a vote, and its lines are what they wait for. `tools/shot.sh --ballot --chat=8` renders it.
+
 ## Settings, behind a button
 
 `DdSettings` is dot-menu's `DotMenuSettings` with this game's schema: field of view (SERVER_CLAMPED, default 70), master and effects volume (bound to `DdAudio`'s mixer) and shake (bound to the client's `DotFxManager`). The stock keys nothing here reads are listed in `NOT_APPLIED` (there is no sensitivity: the mouse turns nothing). **The lot's SETTINGS button and O open it, never Escape**, because Escape is how a driver gets back to the lot. The lot hides while the screen is up, because the panel is translucent and the route list printed through it.

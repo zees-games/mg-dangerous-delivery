@@ -37,7 +37,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - `./game.sh` plays offline; `./game.sh online` runs a local server and browser client; `./game.sh test` parses and runs the three suites.
 - After a route change: `tools/build_routes.py --check` and `tools/drive.sh` (also `TRUCK=semi`).
-- **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`; `--ballot` for the mountain vote, `--mountain=<id>` for the lot on another mountain): every mountain problem was found only in a picture. [testing](docs/testing.md)
+- **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`; `--ballot` for the mountain vote, `--chat=8` for a full chat log, `--mountain=<id>` for the lot on another mountain): every mountain problem was found only in a picture. [testing](docs/testing.md)
 
 ## Rules
 
@@ -56,6 +56,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
 - The lot moves left of any visible `dot_hud_cover` Control over it (the shell's ballots); read the group by its string, never a dot-ui constant. [design](docs/design.md#the-lot-makes-room-for-a-ballot)
+- The lot also lifts and shortens (to `LOT_MIN_HEIGHT`) above the rows the chat log is drawing (`DdGarage.chat_window`); a full log lay over the routes column. `headless_run`'s lot section checks it. [design](docs/design.md#the-lot-makes-room-for-a-ballot)
 - A sound or shake the server's world causes reaches a connected client as an event (appended to `DdEvents.Kind`) re-emitted on the mirror world, where the offline handler already listens; never an offline-only `connect`. [netcode](docs/netcode.md)
 - Every sound is a `DdAudio` catalogue id; a loop is shaped through `manager.shape()` (dot-audio API level 2), never by restarting it. Sound is proven only under xvfb (`tools/audio_probe`). [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
 - The light is a daylight dot-lighting document turned down under Compatibility, dimmed by weather; the surfaces keep the mountain's colours (no pastel grid: snow and wet are read from them). [design](docs/design.md#the-light-is-the-familys-daylight-the-colours-stay-the-mountains)

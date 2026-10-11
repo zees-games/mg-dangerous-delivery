@@ -131,6 +131,7 @@ func _ready() -> void:
 
 	chat = new_chat()
 	add_child(chat)
+	garage.chat_window = chat.window
 	_build_audio()
 	_build_effects()
 

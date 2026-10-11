@@ -47,11 +47,28 @@ const ROOM_GAP := 16.0
 ## panel is the lesser harm: a frame this narrow is a phone, where the ballot is a third of it.
 const LOT_MIN_WIDTH := 720.0
 
+## Shortest the lot goes to clear the chat log under it. Its columns scroll, so a shorter lot
+## loses nothing but rows on screen; below this the routes column shows one route.
+const LOT_MIN_HEIGHT := 400.0
+
+## The chat box (a `DotChatWindow`), whose log the lot keeps clear of. Null for none.
+##
+## [b]The lot lifts and shortens above the log while the log has lines.[/b] The box is drawn
+## bottom-left on a layer above this one, and a full log (eight rows from 518 px at 720) lay
+## over the routes column from its third row up: a server's vote or a join, arriving while a
+## driver is choosing a route, was printed through the route list. Not the log hidden behind
+## the lot: the lot is where a driver waits out a vote, and the vote's lines are what they are
+## waiting for. Only the rows the log is drawing count, so an empty log costs the lot nothing.
+var chat_window: Control = null
+
 ## How fast the lot slides out of the way and back, per second; it eases either way.
 const ROOM_SPEED := 14.0
 
 ## Where the lot's left and right edges are going, in this Control's coordinates.
 var _room_target := Vector2.ZERO
+
+## Where the lot's top and bottom edges are going, in this Control's coordinates.
+var _room_target_y := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -274,10 +291,53 @@ func make_room(delta: float = 0.0) -> void:
 	_frame.offset_left = now.x
 	_frame.offset_right = now.y
 
+	# Up and down: clear of the chat log. See [member chat_window].
+	var target_y := Vector2(home.position.y, home.end.y)
+	var log_rect := chat_log_rect()
+
+	if log_rect.has_area() and log_rect.position.y < home.end.y + ROOM_GAP \
+			and log_rect.position.x < target.y and log_rect.end.x > target.x:
+		var bottom := log_rect.position.y - ROOM_GAP
+		var top := maxf(ROOM_GAP, minf(home.position.y, bottom - LOT_SIZE.y))
+		target_y = Vector2(top, maxf(bottom, top + LOT_MIN_HEIGHT))
+
+	_room_target_y = target_y
+	var half_y := size.y * 0.5
+	var want_y := Vector2(target_y.x - half_y, target_y.y - half_y)
+	var have_y := Vector2(_frame.offset_top, _frame.offset_bottom)
+	var now_y := want_y if delta <= 0.0 or have_y.distance_to(want_y) < 0.5 else have_y.lerp(want_y, 1.0 - exp(-ROOM_SPEED * delta))
+	_frame.offset_top = now_y.x
+	_frame.offset_bottom = now_y.y
+
+
+## The rows the chat log is drawing right now, in this Control's coordinates, or an empty rect.
+## Worked out from the box's own numbers: its bottom-anchored rect less the entry field, and a
+## row per line it holds, up to its [code]max_lines[/code].
+func chat_log_rect() -> Rect2:
+	if chat_window == null or not is_instance_valid(chat_window) or not is_inside_tree() \
+			or not chat_window.is_visible_in_tree() or not chat_window.has_method(&"line_count"):
+		return Rect2()
+
+	var rows := mini(int(chat_window.call(&"line_count")), int(chat_window.get(&"max_lines")))
+
+	if rows <= 0:
+		return Rect2()
+
+	var to_me := get_global_transform_with_canvas().affine_inverse()
+	var box := to_me * (chat_window.get_global_transform_with_canvas() * Rect2(Vector2.ZERO, chat_window.size))
+	var row := float(chat_window.get(&"line_height")) + float(chat_window.get(&"line_gap"))
+	var bottom := box.end.y - float(chat_window.get(&"entry_height"))
+	return Rect2(box.position.x, bottom - row * rows, box.size.x, row * rows)
+
 
 ## The lot's left and right edges where they are going: for a check and a bug report.
 func room_target() -> Vector2:
 	return _room_target
+
+
+## The lot's top and bottom edges where they are going: for a check and a bug report.
+func room_target_y() -> Vector2:
+	return _room_target_y
 
 
 func notice(text: String) -> void:
