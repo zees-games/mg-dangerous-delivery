@@ -3,7 +3,7 @@ extends Node
 ## Under xvfb-run (never --headless, whose audio driver is Dummy): does a truck make a noise?
 ##   xvfb-run -a godot --path . res://tools/audio_probe.tscn
 ##
-## Asks the engine's own players through the sink (`voice()`), not dot-audio's book-keeping:
+## Asks the engine's own players (`DotAudioManager.voice()`, read from the pooled player), not dot-audio's book-keeping:
 ## a handle is the pool handing over a player, which says nothing about a speaker.
 
 const DdClient := preload("res://game/dd_client.gd")
@@ -25,12 +25,11 @@ func _ready() -> void:
 		await get_tree().process_frame
 
 	var audio: DdAudio = client.audio
-	var sink: Object = audio.manager.sink
 	var own := audio.loop_state(&"own")
-	var own_voice: Dictionary = sink.call("voice", int(own.get("handle", 0))) if sink.has_method("voice") else {}
+	var own_voice: Dictionary = audio.manager.voice(int(own.get("handle", 0)))
 	var bot_truck: Node = (client.game.drivers[&"bot"] as Object).get("truck")
 	var other := audio.loop_state(DdAudio.loop_key(bot_truck)) if bot_truck != null else {}
-	var other_voice: Dictionary = sink.call("voice", int(other.get("handle", 0))) if sink.has_method("voice") and not other.is_empty() else {}
+	var other_voice: Dictionary = audio.manager.voice(int(other.get("handle", 0))) if not other.is_empty() else {}
 	var chimed := audio.delivered()
 	var chime_playing := false
 

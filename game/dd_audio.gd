@@ -1,7 +1,6 @@
 extends Node
 
 const DdPaths := preload("dd_paths.gd")
-const DdAudioSink := preload("dd_audio_sink.gd")
 
 ## What driving sounds like, on the client: an engine whose pitch follows the speed and whose
 ## load follows the throttle, a hiss when the brakes go on, rain on the roof, a gust of wind,
@@ -18,8 +17,8 @@ const DdAudioSink := preload("dd_audio_sink.gd")
 ## [member braking], [member weather] and [member driving] every frame, feeds every other
 ## truck through [method feed_other], and calls the one-shots when the world says something
 ## happened. Every loop is SHAPED each frame (its volume and pitch eased towards where they
-## should be), which dot-audio's manager cannot do to a playing voice, so the Godot sink is
-## [code]dd_audio_sink.gd[/code], which can.
+## should be) through [method DotAudioManager.shape], which changes a playing voice in place
+## (dot-audio API level 2); restarting a loop to change its pitch is a click a frame.
 ##
 ## [b]Never on a server, and never deciding anything.[/b]
 
@@ -118,11 +117,6 @@ func setup() -> DotResult:
 	manager.register_as_service = false
 	# Your engine, rain, wind, three one-shots and a dozen trucks.
 	manager.voices = 24
-
-	# The sink that can shape a playing voice, where there is a device to play on; otherwise
-	# the manager makes its null sink and everything below is the real limits with no speaker.
-	if DotAudioSink.device_present():
-		manager.sink = DdAudioSink.new(manager, manager.voices)
 
 	add_child(manager)
 	var ready_now := manager.setup()
@@ -231,8 +225,11 @@ func _shape(key: StringName, id: StringName, target_db: float, pitch: float, k: 
 	elif at != null:
 		manager.move(handle, at)
 
-	if handle != 0 and manager.sink is DdAudioSink:
-		(manager.sink as DdAudioSink).shape(handle, db, float(loop["pitch"]))
+	# The same units play() was given, so a loop just started is shaped to where it already
+	# is, and the def's gain and rolled pitch stay underneath. A false answer (stolen, ended)
+	# is the `is_playing` above starting it again next frame.
+	if handle != 0:
+		manager.shape(handle, db_to_linear(db), float(loop["pitch"]))
 
 	_loops[key] = loop
 

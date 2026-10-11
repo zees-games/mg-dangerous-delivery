@@ -26,7 +26,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
 | `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_client_chat.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
-| `game/dd_audio.gd`, `dd_audio_sink.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame; the sink subclass that can change a playing voice's volume and pitch |
+| `game/dd_audio.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame through `DotAudioManager.shape` |
 | `routes/` | the route documents, written by `tools/build_routes.py` |
 | `assets/kenney/trucks/` | four Car Kit trucks and their atlas, CC0 |
 | `examples/` | `headless_run`, `headless_net`, `dedicated` |
@@ -54,7 +54,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
 - A sound or shake the server's world causes reaches a connected client as an event (appended to `DdEvents.Kind`) re-emitted on the mirror world, where the offline handler already listens; never an offline-only `connect`. [netcode](docs/netcode.md)
-- Every sound is a `DdAudio` catalogue id; a loop is shaped through `dd_audio_sink.gd`, never by restarting it. Sound is proven only under xvfb (`tools/audio_probe`). [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
+- Every sound is a `DdAudio` catalogue id; a loop is shaped through `manager.shape()` (dot-audio API level 2), never by restarting it. Sound is proven only under xvfb (`tools/audio_probe`). [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
 - The light is a daylight dot-lighting document turned down under Compatibility, dimmed by weather; the surfaces keep the mountain's colours (no pastel grid: snow and wet are read from them). [design](docs/design.md#the-light-is-the-familys-daylight-the-colours-stay-the-mountains)
 - No `class_name`; every own `res://` path through `DdPaths.rebase()` where defined (see [mg-buses-from-hell's delivery.md](../mg-buses-from-hell/docs/delivery.md)).
 
