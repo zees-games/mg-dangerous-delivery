@@ -15,6 +15,10 @@ config/description="Drive a loaded truck up mountain roads with no rails, throug
 config/features=PackedStringArray("4.7")
 run/main_scene="res://game/dd.tscn"
 
+[audio]
+
+driver/enable_input=true
+
 [physics]
 
 ; The engine default, and nothing reads it: DdConfig.gravity is what the world is tuned
