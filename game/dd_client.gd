@@ -57,6 +57,8 @@ var command := DotVehicleCommand.new()
 var _rain: CPUParticles3D = null
 var _snow: CPUParticles3D = null
 var _sun: DirectionalLight3D = null
+## The sun's strength under a clear sky on this machine's profile; weather dims from it.
+var _clear_sun := 1.0
 var _env: Environment = null
 var _look := Vector3.ZERO
 
@@ -706,36 +708,66 @@ func _follow(truck: DdTruck, delta: float) -> void:
 
 # --- The sky -----------------------------------------------------------------
 
+## The family's daylight (game-arena's built-in maps) as a dot-lighting document: a warm sun
+## with soft shadows, a pale cool fill, filmic tone map and mild glow, with this game's own
+## mountain sky kept. **No palette change**: this is rock, grass, asphalt, snow and water, and
+## a pastel prototype grid on a mountain would say "block-out", not "mountain road"; the
+## weather is what a route is about, so the road's snow and the wet must stay as they are.
+##
+## The weather still drives the light ([method _set_weather]): the sun dims to half of its
+## clear value under rain or snow, and the fog is the old exponential fog, thickened per zone,
+## which is why the document carries no fog of its own.
 func _build_environment() -> void:
-	_env = Environment.new()
-	_env.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var material := ProceduralSkyMaterial.new()
-	material.sky_top_color = Color(0.42, 0.62, 0.86)
-	material.sky_horizon_color = Color(0.78, 0.84, 0.9)
-	material.ground_bottom_color = Color(0.2, 0.3, 0.32)
-	material.ground_horizon_color = Color(0.7, 0.76, 0.8)
-	sky.sky_material = material
-	_env.sky = sky
-	_env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	_env.ambient_light_energy = 0.5
-	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	_env.tonemap_exposure = 0.8
+	var lighting := Node3D.new()
+	lighting.name = "Lighting"
+	add_child(lighting)
+	var doc := {
+		"sun": {
+			"colour": [1.0, 0.95, 0.86],
+			"brightness": 380.0,
+			"spread_degrees": 1.0,
+			"ambient_colour": [0.74, 0.78, 0.92],
+		},
+	}
+	_sun = DotLightRig.apply(lighting, DotLightDocument.from_dictionary(doc), light_profile())
+	_sun.rotation_degrees = Vector3(-50.0, 35.0, 0.0)
+	_sun.shadow_blur = 1.5
+	_sun.directional_shadow_max_distance = 160.0
+	_clear_sun = _sun.light_energy
+
+	for node in lighting.get_children():
+		if node is WorldEnvironment:
+			_env = (node as WorldEnvironment).environment
+
+	var material := _env.sky.sky_material as ProceduralSkyMaterial
+	if material != null:
+		material.sky_top_color = Color(0.42, 0.62, 0.86)
+		material.sky_horizon_color = Color(0.78, 0.84, 0.9)
+		material.ground_bottom_color = Color(0.2, 0.3, 0.32)
+		material.ground_horizon_color = Color(0.7, 0.76, 0.8)
 	_env.fog_enabled = true
+	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	_env.fog_light_color = Color(0.78, 0.84, 0.9)
 	_env.fog_density = 0.0012
-	var world := WorldEnvironment.new()
-	world.name = "Environment"
-	world.environment = _env
-	add_child(world)
 
-	_sun = DirectionalLight3D.new()
-	_sun.name = "Sun"
-	_sun.rotation_degrees = Vector3(-50.0, 35.0, 0.0)
-	_sun.light_energy = 1.1
-	_sun.shadow_enabled = true
-	_sun.directional_shadow_max_distance = 160.0
-	add_child(_sun)
+
+## What this machine draws of the light.
+##
+## Shadows stay on in the browser, unlike dot-lighting's `web()`: a truck's shadow on the road
+## is how far off the edge it is. **The Compatibility renderer, which this game and the client
+## shell use, has no headroom above white**: at Forward+'s numbers a snowy road clipped to one
+## flat white, its centre line and its edge gone. Under `gl_compatibility` the sun is divided
+## by 700 instead of 200 and the fill is 0.62 (game-arena's numbers). Glow starts above white,
+## not at dot-lighting's 0.85, or a snow road blooms into the sky.
+static func light_profile() -> DotLightProfile:
+	var p := DotLightProfile.web() if OS.has_feature("web") else DotLightProfile.high()
+	p.sun_shadows = true
+	p.ambient_energy = 1.0
+	p.glow_threshold = 1.0
+	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		p.brightness_reference = 700.0
+		p.ambient_energy = 0.62
+	return p
 
 
 ## Rain and snow are particles round the camera, not over the mountain: what falls a kilometre
@@ -777,6 +809,6 @@ func _set_weather(weather: Dictionary) -> void:
 	var sky := int(weather.get("sky", DdWeather.CLEAR))
 	_rain.emitting = sky == DdWeather.RAIN
 	_snow.emitting = sky == DdWeather.SNOW
-	var dim := 0.55 if sky != DdWeather.CLEAR else 1.1
+	var dim := _clear_sun * (0.5 if sky != DdWeather.CLEAR else 1.0)
 	_sun.light_energy = lerpf(_sun.light_energy, dim, 0.02)
 	_env.fog_density = lerpf(_env.fog_density, 0.006 if sky == DdWeather.SNOW else (0.003 if sky == DdWeather.RAIN else 0.0012), 0.02)

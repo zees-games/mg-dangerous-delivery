@@ -48,3 +48,10 @@ Any truck with `"trailer": {length, mass}` in `DdTrucks` pulls a `DdTrailer`: a 
 
 **Rock coming down within 120 m is felt as well as heard**: a dot-fx `rock` shake with distance falloff (`ROCK_SHAKE_FALLOFF`, 70 m), added to the camera after it follows the truck and taken off before the next follow, so the jolt never feeds into the chase camera's easing. The settings' shake slider reaches it through `bind_fx`. The weather's rain and snow are particles round the camera, a state rather than an effect, and stay the client's.
 
+## The light is the family's daylight; the colours stay the mountain's
+
+The family's look pass (game-arena's built-in maps: pastel prototype grid, daylight dot-lighting) was judged against this game and only its light was taken. **The palette was not**: the world is rock, grass, asphalt, snow and water, and the weather a route is built around is read from those colours (a white road is snow, a dark glossy one is wet, a grey one is grip). A pastel grid over a mountain would make every surface a block-out and take the snow's meaning away.
+
+- **The light is a dot-lighting document** (`DdClient._build_environment`): a warm sun with soft shadows at the old angle, a pale cool fill, filmic tone map, glow, with this game's own sky colours painted after the rig.
+- **The weather still drives it**: the sun dims to half its clear value under rain or snow (`_clear_sun`), and the fog is the old exponential fog, thickened per zone, so the document carries none.
+- **Compatibility** (this game's and the shell's renderer) divides the sun by 700 instead of 200 and drops the fill to 0.62 (`light_profile`); at the old hand-set sun a snowy road clipped to flat white and lost its edge. Glow starts above white so a snow road does not bloom. Shadows stay on in the browser. Check both renderers (`GODOT=<a wrapper adding --rendering-method forward_plus> tools/shot.sh`).
