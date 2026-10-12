@@ -220,15 +220,10 @@ func _drive(command: DotVehicleCommand, delta: float) -> void:
 
 	super._drive(command, delta)
 
-	# The brakes as a force. Godot's raycast vehicle reads a wheel's `brake` as an IMPULSE per
-	# physics step (Bullet's `maxImpulse` for the rolling friction), not a force: the stock
-	# chassis's `brake_force / wheels` stopped a loaded Flatbed from 50 km/h in 0.7 m, a wall,
-	# not a brake. Times the step, it is newtons again, and a heavy load stops later.
-	var wheels := maxf(float(_wheels.size()), 1.0)
-	body.brake = tunables.brake_force * command.brake * delta / wheels
-
-	for wheel in _handbrake_wheels:
-		wheel.brake = (tunables.handbrake_force * delta / float(maxi(_handbrake_wheels.size(), 1))) if command.handbrake else 0.0
+	# The brakes are dot-vehicle's (super): newtons times the physics step on each wheel, since
+	# 4f4afaf. This class did it itself before then, because Godot reads a wheel's `brake` as an
+	# impulse per step and the stock chassis's `brake_force / wheels` stopped a loaded Flatbed
+	# from 50 km/h in 0.7 m.
 
 	# What pushes back: the tyres rolling, the air, and the engine with the throttle shut. Along
 	# the velocity (air, tyres) or along the truck (the engine), never gravity: the physics

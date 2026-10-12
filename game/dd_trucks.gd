@@ -187,6 +187,10 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	t.top_speed = float(def["governor_kmh"]) / 3.6
 	t.brake_force = float(def.get("brake_force", 40000.0)) * brakes
 	t.handbrake_force = t.brake_force * 0.5
+	# No damping proportional to speed: [DdDrivetrain] pushes back with the air and the tyres.
+	# dot-vehicle writes this onto the body (REPLACE) at bind, over whatever [DdTruck] set,
+	# so it has to be 0 here; at its default 0.1 the Bulk Carrier never reached 50 km/h.
+	t.linear_damp = 0.0
 	t.steering_limit_deg = float(def.get("steering_limit_deg", 32.0))
 	t.steering_speed_falloff = float(def.get("steering_speed_falloff", 0.35))
 	t.friction_slip = float(def.get("friction_slip", 3.0)) * tyres
