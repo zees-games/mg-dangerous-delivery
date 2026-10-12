@@ -10,9 +10,12 @@ const DdNetBridge := preload("res://game/net/dd_net_bridge.gd")
 const DdTruck := preload("res://game/dd_truck.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
+const DdEvent := preload("res://game/net/dd_event.gd")
+const DdEvents := preload("res://game/net/dd_events.gd")
+const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 12
-const CHECKS := 39
+const CHECKS := 41
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -254,6 +257,14 @@ func _test_refusal() -> void:
 	_exchange()
 	await _steps(2)
 	_check(str(_heard.get("said", "")).contains("Nothing called"), "an action that does not exist")
+
+	# A kind goes out in a fixed field the writer masks without a word, so one past it aliases a
+	# smaller kind: game-zombie-zone sent HURT and AMMO as HELLO and MAP that way.
+	_check(DdEvent.fits(), "every event kind fits the event's kind field",
+		"%d kinds in %d bits" % [DdEvents.Kind.size(), DdEvent.KIND_BITS])
+	_check(DdRequest.fits(), "every request kind fits the request's kind field",
+		"%d kinds in %d bits" % [DdEvents.Ask.size(), DdRequest.KIND_BITS])
+
 	_finished_section()
 
 
