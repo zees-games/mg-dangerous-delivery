@@ -30,7 +30,7 @@ You start in the lot with a box truck and no money. Pick a route, set off, and g
 | **R** | Back to the last checkpoint (costs what a fall costs) |
 | **T** | Restart the trip |
 | **N** | Skip a stage (costs part of the pay) |
-| **B** | Solo: nobody sees you, nothing of yours collides, and you see nobody |
+| **K** | Solo: nobody sees you, nothing of yours collides, and you see nobody |
 | **C** | Camera: chase, cab or high |
 | **G** / **Esc** | Back to the lot |
 | **O** | Menu: settings (every key above can be rebound), help, and leave. The lot's Settings button opens it too |

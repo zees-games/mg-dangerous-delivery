@@ -50,6 +50,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - **Never Godot's `hash()` for a roll**: use `DdWeather.unit()` (MD5). Weather, hazards, boulders and terrain noise must be the same on every machine. [design](docs/design.md#weather-is-the-worlds-and-a-trip-is-paid-for-what-it-met)
 - Pay counts only the weather and rock a trip met (`DdTrip.meet`). Ice and debris are road, laid from the document; debris never takes both lanes.
 - Falls are a height test, never a trigger volume; R costs what a fall costs; a respawned truck is a ghost until clear of every other truck; rock is rate-limited per site. [design](docs/design.md#falls-are-a-height-test-and-rock-is-rate-limited)
+- Solo is on K; B is the family's loadout key and nothing here may default to it (`headless_run` checks). A player whose settings file already stored B keeps it.
 - Solo is collision exceptions (`_refresh_exceptions`, both ways, recomputed on every change) plus visibility (`sees`); it does not touch chat.
 - The chase and high cameras are swept against `DdRoute.CAMERA_LAYER` (the mountain, gates, road, debris); anything a camera must not enter goes on that layer, never on layer 1. [design](docs/design.md#the-cameras-stay-out-of-the-mountain-and-the-server-may-hold-one)
 - Every teleport re-hitches a trailer (`DdTrailer.rehitch`); a trailer shares its truck's collision exceptions.

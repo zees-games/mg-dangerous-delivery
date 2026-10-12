@@ -40,7 +40,9 @@ static func make() -> DotMenuBindings:
 	keys.add(RESPAWN, &"bind_respawn", "Back to the last checkpoint (costs what a fall costs)", "R", "The trip")
 	keys.add(RESTART, &"bind_restart", "Restart the trip", "T", "The trip")
 	keys.add(SKIP, &"bind_skip", "Skip a stage (costs part of the pay)", "N", "The trip")
-	keys.add(SOLO, &"bind_solo", "Solo: nobody sees you, and nothing of yours collides", "B", "The trip")
+	# K, not B: B is the family's loadout key in every game where players choose one
+	# (dot-menu's `dot_menu_loadout`), so no game ships anything else on it (first play test).
+	keys.add(SOLO, &"bind_solo", "Solo: nobody sees you, and nothing of yours collides", "K", "The trip")
 	keys.add(GARAGE, &"bind_garage", "Back to the lot (Esc too)", "G", "The trip")
 
 	# F5, the family's view key in every game; a server's `mp_forceview` limits which of the

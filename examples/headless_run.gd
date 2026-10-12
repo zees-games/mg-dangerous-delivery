@@ -20,7 +20,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 123
+const CHECKS := 124
 
 var _passed := 0
 var _failed := 0
@@ -706,6 +706,9 @@ func _test_the_client_settings() -> void:
 		hud_keys.text if hud_keys != null else "")
 	var _back: DotResult = keys.rebind(restart_row, was, settings.settings)
 
+	_check(keys.defaults_on("B").is_empty() and str(keys.row_for_action(&"dd_solo").get("default", "")) == "K",
+		"nothing defaults to B, the family's loadout key; solo defaults to K",
+		"%s, solo on %s" % [str(keys.defaults_on("B").size()), keys.key_for(&"dd_solo")])
 	# M, the family's rule since the first play test: the mountain list, and solo a choice
 	# changes it now. The server's half (the owner's flag, the vote) is in `dedicated`.
 	_check(keys.key_for(DotMenuBindings.MAPS_ACTION) == "M" and keys.defaults_on("M").size() == 1,
