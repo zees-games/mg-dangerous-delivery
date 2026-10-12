@@ -37,6 +37,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - `./game.sh` plays offline; `./game.sh online` runs a local server and browser client; `./game.sh test` parses and runs the three suites.
 - After a route change: `tools/build_routes.py --check` and `tools/drive.sh` (also `TRUCK=semi`).
+- After touching a camera, the road, the terrain or a gate: `tools/camera_check.sh` (every road, armed; `--render` for frames). [design](docs/design.md#the-cameras-stay-out-of-the-mountain-and-the-server-may-hold-one)
 - **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`; `--ballot` for the mountain vote, `--chat=8` for a full chat log, `--mountain=<id>` for the lot on another mountain): every mountain problem was found only in a picture. [testing](docs/testing.md)
 
 ## Rules
@@ -49,6 +50,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Pay counts only the weather and rock a trip met (`DdTrip.meet`). Ice and debris are road, laid from the document; debris never takes both lanes.
 - Falls are a height test, never a trigger volume; R costs what a fall costs; a respawned truck is a ghost until clear of every other truck; rock is rate-limited per site. [design](docs/design.md#falls-are-a-height-test-and-rock-is-rate-limited)
 - Solo is collision exceptions (`_refresh_exceptions`, both ways, recomputed on every change) plus visibility (`sees`); it does not touch chat.
+- The chase and high cameras are swept against `DdRoute.CAMERA_LAYER` (the mountain, gates, road, debris); anything a camera must not enter goes on that layer, never on layer 1. [design](docs/design.md#the-cameras-stay-out-of-the-mountain-and-the-server-may-hold-one)
 - Every teleport re-hitches a trailer (`DdTrailer.rehitch`); a trailer shares its truck's collision exceptions.
 - **The road's trimesh is the only floor.** The mountain collides with nothing and is held under the road by `BAND` (8 m, more than a cell's diagonal); `headless_run` checks every half metre of every road. [terrain](docs/terrain.md)
 - `PackedVector3Array` is copy-on-write; Godot's front face is clockwise. [terrain](docs/terrain.md#the-road)

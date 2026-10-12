@@ -33,6 +33,12 @@ const ROCKS := ["rock_largeA", "rock_largeC", "rock_tallB", "rock_tallE", "stone
 
 const CHANNEL := "delivery.route"
 
+## The layer only cameras stop against (20): the mountain, the gates and the road, so the
+## chase camera stays out of the cliff and the checkpoint arch (the first play test had it
+## inside both). Trucks collide on layer 1 and never see it; the mountain and the gates are
+## on it alone, because a truck that hit the drawn mountain would be on a second floor.
+const CAMERA_LAYER := 1 << 19
+
 ## Metres between samples.
 const STEP := 2.0
 
@@ -371,6 +377,7 @@ func describe() -> Dictionary:
 func _build_geometry() -> void:
 	_body = StaticBody3D.new()
 	_body.name = "Road"
+	_body.collision_layer = 1 | CAMERA_LAYER
 	add_child(_body)
 
 	# A member, not a local passed down: a PackedVector3Array is copied on write, so the
@@ -411,6 +418,7 @@ func _build_geometry() -> void:
 		terrain = make_terrain()
 		_terrain_node = terrain.make_node(_noise(0.05, 0.6))
 		add_child(_terrain_node)
+		_build_camera_mountain()
 		_build_scenery()
 	_build_ice()
 	_build_debris()
@@ -667,6 +675,23 @@ func _build_pad(at: Transform3D, is_lot: bool) -> void:
 	pad.global_transform = Transform3D(at.basis, at.origin + at.basis * Vector3(0.0, -SLAB * 0.5, -along))
 
 
+## The drawn mountain as something a camera can stop against, on [constant CAMERA_LAYER]
+## alone. Built only where the mountain is drawn: a server has no camera.
+func _build_camera_mountain() -> void:
+	if _terrain_node == null or _terrain_node.mesh == null:
+		return
+	var body := StaticBody3D.new()
+	body.name = "CameraMountain"
+	body.collision_layer = CAMERA_LAYER
+	body.collision_mask = 0
+	var collider := CollisionShape3D.new()
+	var shape := _terrain_node.mesh.create_trimesh_shape()
+	shape.backface_collision = true
+	collider.shape = shape
+	body.add_child(collider)
+	_terrain_node.add_child(body)
+
+
 ## Two posts and a banner across the road.
 func _build_gate(d: float, label: String) -> void:
 	var at := transform_at(d, 0.0)
@@ -698,6 +723,18 @@ func _build_gate(d: float, label: String) -> void:
 	banner.position = Vector3(0.0, 6.2, 0.0)
 	gate.add_child(banner)
 
+	# The posts and the banner as camera-only boxes: a truck drives under the banner and
+	# between the posts as it always did, and the chase camera stops in front of them.
+	if draws:
+		var solid := StaticBody3D.new()
+		solid.name = "CameraGate"
+		solid.collision_layer = CAMERA_LAYER
+		solid.collision_mask = 0
+		for side in [-1.0, 1.0]:
+			solid.add_child(_camera_box(Vector3(0.4, 6.0, 0.4), Vector3(side * (width * 0.5 + 0.6), 3.0, 0.0)))
+		solid.add_child(_camera_box(Vector3(width + 1.6, 0.9, 0.2), Vector3(0.0, 6.2, 0.0)))
+		gate.add_child(solid)
+
 	var text := Label3D.new()
 	text.text = label
 	text.font_size = 96
@@ -706,6 +743,15 @@ func _build_gate(d: float, label: String) -> void:
 	text.position = Vector3(0.0, 6.2, 0.15)
 	text.rotation.y = PI
 	gate.add_child(text)
+
+
+static func _camera_box(size: Vector3, at: Vector3) -> CollisionShape3D:
+	var collider := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	collider.shape = box
+	collider.position = at
+	return collider
 
 
 ## Pines on the mountainside above every cliff and rocks down every drop, as one MultiMesh per
@@ -850,6 +896,7 @@ func _build_debris() -> void:
 		var size: Vector3 = pile["size"]
 		var body := StaticBody3D.new()
 		body.name = "Debris"
+		body.collision_layer = 1 | CAMERA_LAYER
 		var shape := BoxShape3D.new()
 		shape.size = size
 		var collider := CollisionShape3D.new()

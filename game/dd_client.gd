@@ -48,6 +48,10 @@ var command_override: DotVehicleCommand = null
 
 enum CameraMode { CHASE, CAB, HIGH }
 
+## Metres over a truck's origin that the chase camera is swept from: over any cab, under any
+## gate's banner.
+const PIVOT_HEIGHT := 3.2
+
 var game: DdGame = null
 var hud: DdHud = null
 var garage: DdGarage = null
@@ -62,6 +66,21 @@ var _sun: DirectionalLight3D = null
 var _clear_sun := 1.0
 var _env: Environment = null
 var _look := Vector3.ZERO
+
+## The server's `mp_forceview`, the family's numbering: 0 any camera, 1 the cab only (the
+## first-person view), 2 the chase and high cameras only. Followed through the link.
+var force_view: int = 0
+
+## Where the chase or high camera is heading before the level has its say: eased toward the
+## place behind the truck, then swept from over the truck by [member _probe].
+var _chase_at := Vector3.ZERO
+var _probe: DotCameraProbe = null
+var _was_cab := true
+var _last_truck_at := Vector3.INF
+
+## Metres a truck may move between two frames before it counts as a teleport (a respawn, a
+## restart, a new route): the camera cuts to its place rather than easing across the map.
+const CUT_DISTANCE := 20.0
 
 var chat: DotGameChatClient = null
 ## The truck's and the mountain's sounds, through dot-audio. See [DdAudio].
@@ -285,6 +304,7 @@ func _build_netcode() -> DotResult:
 
 	bridge.open_link(link)
 	net.messages.seal()
+	_follow_view_rule()
 
 	bridge.hello_received.connect(func(key: StringName) -> void:
 		local_key = key
@@ -539,7 +559,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key.is_action(DdBindings.SKIP):
 		_act("skip")
 	elif key.is_action(DdBindings.CAMERA):
-		camera_mode = (camera_mode + 1) % 3 as CameraMode
+		cycle_camera()
 	elif key.is_action(DdBindings.MENU):
 		# The settings from the road, where the lot's button is not on screen.
 		if settings != null:
@@ -715,7 +735,49 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 	return out
 
 
+## The camera key: the next camera the server's `mp_forceview` allows, and a line when it
+## allows only the one in use.
+func cycle_camera() -> void:
+	var next := camera_mode
+	for i in 3:
+		next = (next + 1) % 3 as CameraMode
+		if camera_allowed(next):
+			break
+	if next == camera_mode and hud != null:
+		hud.say("This server allows only this camera")
+	camera_mode = next
+
+
+## Whether `mp_forceview` allows [param mode]: the cab is first person, the others third.
+func camera_allowed(mode: CameraMode) -> bool:
+	match force_view:
+		1:
+			return mode == CameraMode.CAB
+		2:
+			return mode != CameraMode.CAB
+	return true
+
+
+func _follow_view_rule() -> void:
+	if link == null or not link.has_method(&"replicated_cvar"):
+		return
+	_apply_view_rule(String(link.call(&"replicated_cvar", "mp_forceview", "0")))
+	if link.has_signal(&"replicated_cvar_changed"):
+		link.connect(&"replicated_cvar_changed", func(cvar_name: String, value: String) -> void:
+			if cvar_name == "mp_forceview":
+				_apply_view_rule(value))
+
+
+func _apply_view_rule(value: String) -> void:
+	force_view = clampi(value.to_int(), 0, 2) if value.strip_edges().is_valid_int() else 0
+	if not camera_allowed(camera_mode):
+		camera_mode = CameraMode.CAB if force_view == 1 else CameraMode.CHASE
+
+
 func _follow(truck: DdTruck, delta: float) -> void:
+	if not camera_allowed(camera_mode):
+		camera_mode = CameraMode.CAB if force_view == 1 else CameraMode.CHASE
+
 	var basis := truck.global_basis
 	# Flattened, so a truck on its side does not roll the camera with it.
 	var flat := Vector3(basis.z.x, 0.0, basis.z.z).normalized()
@@ -732,6 +794,8 @@ func _follow(truck: DdTruck, delta: float) -> void:
 			look = target - basis.z * 20.0
 			camera.global_position = target
 			camera.look_at(look)
+			_was_cab = true
+			_last_truck_at = truck.global_position
 			return
 		CameraMode.HIGH:
 			target = truck.global_position + flat * 22.0 + Vector3(0.0, 16.0, 0.0)
@@ -740,10 +804,42 @@ func _follow(truck: DdTruck, delta: float) -> void:
 			target = truck.global_position + flat * (truck.half_length + 9.0) + Vector3(0.0, 5.5, 0.0)
 			look = truck.global_position - flat * 6.0 + Vector3(0.0, 1.5, 0.0)
 
+	# Leaving the cab, the chase eases out from where the camera was, as it always did. After
+	# a teleport it cuts: eased from the old place, it flew through the mountain to the new
+	# one (the play test's fly-through at a route's start, 1:27).
+	var teleported := _last_truck_at.distance_to(truck.global_position) > CUT_DISTANCE
+	_last_truck_at = truck.global_position
+	if teleported:
+		_chase_at = target
+		_look = look
+		if _probe != null:
+			_probe.reset()
+	elif _was_cab or _chase_at == Vector3.ZERO:
+		_chase_at = camera.global_position
+		if _probe != null:
+			_probe.reset()
+	_was_cab = false
+
 	var k := 1.0 - exp(-delta * 5.0)
-	camera.global_position = camera.global_position.lerp(target, k)
+	_chase_at = _chase_at.lerp(target, k)
+	camera.global_position = _clear_of_mountain(truck, _chase_at, delta)
 	_look = _look.lerp(look, k) if _look != Vector3.ZERO else look
 	camera.look_at(_look)
+
+
+## [param wanted] pulled toward a point over the truck until it is clear of the mountain,
+## the road, the gates and the debris (all on [constant DdRoute.CAMERA_LAYER]).
+##
+## [b]Swept, not set.[/b] The chase camera eased toward a point 9 m behind and 5.5 m over
+## the truck with nothing between, so on a hairpin with the cliff on the inside it sat in
+## the rock, and under a checkpoint's banner it sat in the banner (the first play test, at
+## 2:12 and 2:46). dot-core's [DotCameraProbe] sweeps a sphere from over the cab and eases
+## in ahead of the rock; the other trucks are on layer 1 and never stop it.
+func _clear_of_mountain(truck: DdTruck, wanted: Vector3, delta: float) -> Vector3:
+	if _probe == null:
+		_probe = DotCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER)
+		_probe.radius = 0.3
+	return _probe.resolve(truck.global_position + Vector3.UP * PIVOT_HEIGHT, wanted, delta)
 
 
 # --- The sky -----------------------------------------------------------------

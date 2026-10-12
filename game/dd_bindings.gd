@@ -43,7 +43,9 @@ static func make() -> DotMenuBindings:
 	keys.add(SOLO, &"bind_solo", "Solo: nobody sees you, and nothing of yours collides", "B", "The trip")
 	keys.add(GARAGE, &"bind_garage", "Back to the lot (Esc too)", "G", "The trip")
 
-	keys.add(CAMERA, &"bind_camera", "Camera: chase, cab or high", "C", "General")
+	# F5, the family's view key in every game; a server's `mp_forceview` limits which of the
+	# three it cycles through (the cab is the first-person one).
+	keys.add(CAMERA, &"bind_camera", "Camera: chase, cab or high, where the server allows", "F5", "General")
 	keys.add(MENU, &"bind_menu", "Settings, help and leave, from the road", "O", "General")
 	keys.add(SCOREBOARD, &"bind_scoreboard", "Scoreboard (hold)", "Tab", "General")
 	return keys

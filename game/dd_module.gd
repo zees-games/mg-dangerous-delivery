@@ -142,6 +142,15 @@ func _game_load() -> DotResult:
 	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
 	# rather than removed because every shipped config sets it; left as its own number it
 	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.
+	# The family's `mp_forceview` (dot-player-controller's numbering; this game links no
+	# controller, so the cvar is bound here): 0 any camera, 1 the cab only (first person), 2
+	# the chase and high cameras only. REPLICATED, because each client places its own camera.
+	var _view := add_cvar("mp_forceview", "0",
+		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
+		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+	if _view != null:
+		_view.with_range(0.0, 2.0)
+
 	_bots = add_cvar("dd_bots", str(world.config.bots), "Deprecated, sets bot_quota. Stand-in drivers on the mountain; people take their places.")
 
 	if _bots != null:
