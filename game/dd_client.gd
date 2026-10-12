@@ -938,6 +938,13 @@ func _build_environment() -> void:
 	}
 	_sun = DotLightRig.apply(lighting, DotLightDocument.from_dictionary(doc), light_profile())
 	_sun.rotation_degrees = Vector3(-50.0, 35.0, 0.0)
+	# The rig aimed its fill opposite the sun it was given; the sun is turned here, so the fill
+	# is turned with it, or it lights the faces the sun already does.
+	var fill := lighting.get_node_or_null("Fill") as DirectionalLight3D
+	if fill != null:
+		var aimed := DotLightRig.fill(DotLightDocument.from_dictionary(doc), _sun.rotation, light_profile())
+		fill.rotation = aimed.rotation
+		aimed.free()
 	_sun.shadow_blur = 1.5
 	_sun.directional_shadow_max_distance = 160.0
 	_clear_sun = _sun.light_energy
@@ -958,22 +965,21 @@ func _build_environment() -> void:
 	_env.fog_density = FOG_CLEAR
 
 
-## What this machine draws of the light.
+## What this machine draws of the light: dot-lighting's `painted()`.
 ##
 ## Shadows stay on in the browser, unlike dot-lighting's `web()`: a truck's shadow on the road
-## is how far off the edge it is. **The Compatibility renderer, which this game and the client
-## shell use, has no headroom above white**: at Forward+'s numbers a snowy road clipped to one
-## flat white, its centre line and its edge gone. Under `gl_compatibility` the sun is divided
-## by 700 instead of 200 and the fill is 0.62 (game-arena's numbers). Glow starts above white,
-## not at dot-lighting's 0.85, or a snow road blooms into the sky.
+## is how far off the edge it is. `painted()` is the family's profile for a world lit by
+## nothing but the rig (no lightmap), matched to the renderer: **the Compatibility renderer,
+## which this game and the client shell use, has no headroom above white**, and at Forward+'s
+## numbers a snowy road clipped to one flat white, its centre line and its edge gone. Over the
+## hand-set numbers it replaced (the sun divided by 700, a fill of 0.62) it lowers the
+## exposure, grades, and adds a shadowless fill so a cliff's faces away from the sun are not
+## one flat tone. Glow starts above white, not at dot-lighting's 0.85, or a snow road blooms
+## into the sky.
 static func light_profile() -> DotLightProfile:
-	var p := DotLightProfile.web() if OS.has_feature("web") else DotLightProfile.high()
+	var p := DotLightProfile.painted()
 	p.sun_shadows = true
-	p.ambient_energy = 1.0
 	p.glow_threshold = 1.0
-	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
-		p.brightness_reference = 700.0
-		p.ambient_energy = 0.62
 	return p
 
 
