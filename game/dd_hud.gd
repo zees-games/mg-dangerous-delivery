@@ -10,6 +10,10 @@ extends Control
 
 const DdWeather := preload("dd_weather.gd")
 
+## This game's accent: the progress bar's amber, and the money's green as "good".
+const AMBER := Color(0.98, 0.78, 0.12)
+const MONEY_GREEN := Color(0.55, 0.95, 0.5)
+
 var _stage: Label = null
 var _bar: ProgressBar = null
 var _money: Label = null
@@ -22,21 +26,89 @@ var _message: Label = null
 var _keys: Label = null
 var _message_left: float = 0.0
 
+## The plates behind the strip and the three corners, restyled from the theme's `plate` and
+## `plate_edge` whenever the theme changes. See [method _restyle].
+var _plates: Array[PanelContainer] = []
+
+## The Escape menu, whose theme this HUD follows (dot-menu's `follow_hud`): the menu sets the
+## theme on this root now and at every theme change, and applies the player's HUD size.
+## Christian's first play test (2026-10-11) asked for a darker HUD a player can restyle in the
+## menu. Duck-typed and called by name, for a client shell older than dot-menu 7.
+var _menu: Object = null
+
+
+## This game's accent over whichever theme the player picked in the menu: the highlight (the
+## stage bar), the plates' edge and "good". The plates, the words and their outline are the
+## theme's, dark by default, so a light or high-contrast theme can change them. Static so a
+## render tool can use it.
+static func piece_theme() -> Theme:
+	var t := Theme.new()
+	var type := DotHudPiece.THEME_TYPE
+	t.set_color(&"plate_edge", type, Color(AMBER, 0.3))
+	t.set_color(&"highlight", type, AMBER)
+	t.set_color(&"good", type, MONEY_GREEN)
+	return t
+
+
+func follow_menu(menu: Object) -> void:
+	_menu = menu
+	_follow()
+
+
+func _follow() -> void:
+	if _menu != null and _menu.has_method(&"follow_hud"):
+		_menu.call(&"follow_hud", self, piece_theme())
+
+
+## A theme colour on dot-ui's piece type, or the piece's own default without one.
+func colour(key: StringName) -> Color:
+	if has_theme_color(key, DotHudPiece.THEME_TYPE):
+		return get_theme_color(key, DotHudPiece.THEME_TYPE)
+	return DotHudPiece.DEFAULTS.get(key, Color.WHITE)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_THEME_CHANGED:
+		_restyle()
+
+
+## The plates and the bar from the theme: nothing else here holds a colour of its own except
+## the accent lines (money, the solo tag, the load's warning colours, the message's).
+func _restyle() -> void:
+	var plate := colour(&"plate")
+	var edge := colour(&"plate_edge")
+	for panel in _plates:
+		panel.add_theme_stylebox_override("panel", _panel(plate, edge))
+	if _bar != null:
+		_bar.add_theme_stylebox_override("fill", _panel(colour(&"highlight")))
+		_bar.add_theme_stylebox_override("background", _panel(Color(colour(&"text"), 0.14)))
+	if _money != null:
+		_money.add_theme_color_override("font_color", colour(&"good"))
+
+
+## A plate behind [param child], restyled with the rest.
+func _plate(parent: Node) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(panel)
+	_plates.append(panel)
+	return panel
+
 
 func _ready() -> void:
 	# With offsets: under a CanvasLayer there is no parent Control, and anchors alone left this
 	# zero-sized in the top-left corner (the first render).
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The accent until the menu hands over its theme ([method follow_menu]).
+	theme = piece_theme()
 
 	# The stage strip across the top, as the genre has it.
-	var top := PanelContainer.new()
+	var top := _plate(self)
 	top.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	top.offset_left = -260.0
 	top.offset_right = 260.0
 	top.offset_top = 10.0
-	top.add_theme_stylebox_override("panel", _panel(Color(0.08, 0.09, 0.1, 0.72)))
-	add_child(top)
 	var strip := VBoxContainer.new()
 	top.add_child(strip)
 	_stage = _label(strip, "STAGE 0/0", 20, HORIZONTAL_ALIGNMENT_CENTER)
@@ -44,16 +116,15 @@ func _ready() -> void:
 	_bar.custom_minimum_size = Vector2(500.0, 14.0)
 	_bar.show_percentage = false
 	_bar.max_value = 1.0
-	_bar.add_theme_stylebox_override("fill", _panel(Color(0.98, 0.78, 0.12)))
-	_bar.add_theme_stylebox_override("background", _panel(Color(0.2, 0.2, 0.22)))
 	strip.add_child(_bar)
 
-	# The numbers, top left.
+	# The numbers, top left, on a plate: white words outlined alone were thin over snow and a
+	# pale sky (fpt-family-hud-theme-dd-1).
+	var left_plate := _plate(self)
+	left_plate.position = Vector2(12.0, 10.0)
 	var left := VBoxContainer.new()
-	left.position = Vector2(16.0, 12.0)
-	add_child(left)
+	left_plate.add_child(left)
 	_money = _label(left, "$0", 26)
-	_money.add_theme_color_override("font_color", Color(0.55, 0.95, 0.5))
 	_cargo = _label(left, "CARGO 100%", 18)
 	_offer = _label(left, "", 16)
 	_sky = _label(left, "", 16)
@@ -62,25 +133,27 @@ func _ready() -> void:
 	_solo.visible = false
 
 	# Speed, bottom right.
-	_speed = _label(self, "0 km/h", 34, HORIZONTAL_ALIGNMENT_RIGHT)
-	_speed.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_speed.offset_left = -240.0
-	_speed.offset_top = -64.0
-	_speed.offset_right = -20.0
-	_speed.offset_bottom = -16.0
+	var speed_plate := _plate(self)
+	speed_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	speed_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	speed_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	speed_plate.offset_left = -240.0
+	speed_plate.offset_top = -70.0
+	speed_plate.offset_right = -14.0
+	speed_plate.offset_bottom = -12.0
+	_speed = _label(speed_plate, "0 km/h", 34, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	# The keys, down the right side: the defaults until the client says what is bound
 	# ([method show_keys]).
-	_keys = _label(self, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
-	_keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-	_keys.offset_left = -150.0
-	_keys.offset_right = -14.0
-	_keys.offset_top = -80.0
-	_keys.offset_bottom = 80.0
-	# Nearly opaque, with a heavier outline: it is read over snow and sky, where the faded list
+	var keys_plate := _plate(self)
+	keys_plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+	keys_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	keys_plate.grow_vertical = Control.GROW_DIRECTION_BOTH
+	keys_plate.offset_left = -160.0
+	keys_plate.offset_right = -12.0
+	# On a plate, in the theme's words: it is read over snow and sky, where the faded list
 	# disappeared.
-	_keys.modulate = Color(1, 1, 1, 0.95)
-	_keys.add_theme_constant_override("outline_size", 6)
+	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
 
 	# A line in the middle for a checkpoint, a fall, a delivery.
 	_message = _label(self, "", 36, HORIZONTAL_ALIGNMENT_CENTER)
@@ -89,8 +162,8 @@ func _ready() -> void:
 	_message.offset_right = 400.0
 	_message.offset_top = -120.0
 	_message.offset_bottom = -60.0
-	_message.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_message.add_theme_constant_override("outline_size", 8)
+	_restyle()
 
 
 ## The key list down the right side, as bound now: `[[key, what], ...]` (`DdBindings.hud_lines`).
@@ -108,15 +181,20 @@ func _label(parent: Node, text: String, size: int, align: int = HORIZONTAL_ALIGN
 	label.text = text
 	label.horizontal_alignment = align
 	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	label.add_theme_constant_override("outline_size", 4)
+	# The words' colour and their outline's are the menu theme's (a Label under this root takes
+	# them); only the outline's width is this HUD's.
+	label.add_theme_constant_override("outline_size", 5)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(label)
 	return label
 
 
-static func _panel(color: Color) -> StyleBoxFlat:
+static func _panel(color: Color, edge: Color = Color(0, 0, 0, 0)) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = color
+	if edge.a > 0.0:
+		box.border_color = edge
+		box.set_border_width_all(1)
 	box.set_corner_radius_all(6)
 	box.content_margin_left = 10
 	box.content_margin_right = 10
@@ -138,7 +216,11 @@ func show_trip(facts: Dictionary) -> void:
 	var cargo := float(facts.get("cargo", 1.0))
 	var load_name := str(facts.get("cargo_name", ""))
 	_cargo.text = ("%s %d%%" % [load_name.to_upper(), int(round(cargo * 100.0))]) if load_name != "" else "CARGO %d%%" % int(round(cargo * 100.0))
-	_cargo.add_theme_color_override("font_color", Color(1, 1, 1) if cargo > 0.6 else (Color(1.0, 0.75, 0.3) if cargo > 0.3 else Color(1.0, 0.35, 0.3)))
+	# The theme's words while the load is fine, the accent's warnings as it goes.
+	if cargo > 0.6:
+		_cargo.remove_theme_color_override("font_color")
+	else:
+		_cargo.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3) if cargo > 0.3 else colour(&"low"))
 	_offer.text = "Pays $%d on delivery" % int(facts.get("offer", 0)) if state != "delivered" else ""
 	# The gear beside the speed: a climb taken in third is a climb, not a cap.
 	var gear := int(facts.get("gear", 0))
@@ -169,10 +251,14 @@ func show_solo(on: bool) -> void:
 	_solo.visible = on
 
 
-## A line in the middle of the screen for [param seconds].
-func say(text: String, seconds: float = 2.5, color: Color = Color(1, 1, 1)) -> void:
+## A line in the middle of the screen for [param seconds], in [param color]; the theme's
+## words when it is left transparent.
+func say(text: String, seconds: float = 2.5, color: Color = Color(0, 0, 0, 0)) -> void:
 	_message.text = text
-	_message.add_theme_color_override("font_color", color)
+	if color.a > 0.0:
+		_message.add_theme_color_override("font_color", color)
+	else:
+		_message.remove_theme_color_override("font_color")
 	_message_left = seconds
 
 

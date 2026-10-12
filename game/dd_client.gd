@@ -464,6 +464,9 @@ func _build_settings() -> void:
 		# the server's console when one runs in this process. One of the menu's overlays, so
 		# opening it stops the player and frees the pointer exactly as the menu does.
 		console = DotConsoleKit.build(self, settings.settings, settings.menu)
+		# The HUD in the menu's theme and at the player's HUD size, live.
+		if hud != null:
+			hud.follow_menu(settings.menu)
 
 	# The HUD's key list from the table, now and whenever the menu closes (a key may have
 	# moved on its Controls page).

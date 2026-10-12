@@ -20,7 +20,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 126
+const CHECKS := 129
 
 var _passed := 0
 var _failed := 0
@@ -719,6 +719,25 @@ func _test_the_client_settings() -> void:
 	_check(hud_keys != null and hud_keys.text.contains("J  restart"), "and a key moved in the menu moves there too",
 		hud_keys.text if hud_keys != null else "")
 	var _back: DotResult = keys.rebind(restart_row, was, settings.settings)
+
+	# The HUD follows the menu's theme (fpt-family-hud-theme-dd-1): dark by default, restyled
+	# live by a theme picked in the menu, this game's amber kept as the accent. Put back after,
+	# since this is the machine's real settings document.
+	var hud: Control = client.get("hud")
+	var theme_was: Variant = settings.settings.get_value(&"ui_theme")
+	var _dark: Variant = settings.settings.set_value(&"ui_theme", &"midnight")
+	var plate: Color = hud.call("colour", &"plate")
+	var strip_box := (hud.get("_plates")[0] as PanelContainer).get_theme_stylebox(&"panel") as StyleBoxFlat
+	_check(plate.get_luminance() < 0.1 and plate.a >= 0.7 and strip_box != null and strip_box.bg_color == plate,
+		"the HUD is dark by default, in the menu's theme, plates and all", str(plate))
+	var _c: Variant = settings.settings.set_value(&"ui_theme", &"contrast")
+	var contrast: DotMenuPalette = menu.palette()
+	strip_box = (hud.get("_plates")[0] as PanelContainer).get_theme_stylebox(&"panel") as StyleBoxFlat
+	_check(contrast.id == &"contrast" and hud.call("colour", &"plate") == contrast.hud_plate and strip_box.bg_color == contrast.hud_plate
+		and hud_keys.get_theme_color(&"font_color") == contrast.hud_text,
+		"a theme picked in the menu reaches the plates and the words at once")
+	_check(hud.call("colour", &"highlight") == (hud.get_script() as Script).get_script_constant_map()["AMBER"], "keeping this game's amber as the accent")
+	var _put_back: Variant = settings.settings.set_value(&"ui_theme", theme_was)
 
 	_check(keys.defaults_on("B").is_empty() and str(keys.row_for_action(&"dd_solo").get("default", "")) == "K",
 		"nothing defaults to B, the family's loadout key; solo defaults to K",
