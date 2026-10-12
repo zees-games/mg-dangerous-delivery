@@ -17,7 +17,7 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view == "garage" or view == "far"
+	var on_foot := view in ["garage", "far", "seller", "roam"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -89,6 +89,23 @@ func _ready() -> void:
 
 	if str(_args.get("panel", "0")) == "1":
 		client._act("garage")
+
+	# Beside a salesperson, the use key's words on screen; or at the wheel of a truck handed over
+	# in the lot, driving round it.
+	if view == "seller" or view == "roam":
+		await get_tree().physics_frame
+		var truck_id: StringName = StringName(truck) if truck != "" else client.game.trucks.starter()
+		var me = client.game.drivers[client.local_key]
+		var spot := Transform3D(Basis(Vector3.UP, PI * 0.8), (client.game.lot.sellers[truck_id] as Vector3) + Vector3(-1.5, 0.0, 2.5))
+		me.walk_at = spot.origin
+		client._place_walker(spot)
+
+		if view == "roam":
+			client._act("drive", {"truck": String(truck_id)})
+			var gentle := DotVehicleCommand.new()
+			gentle.throttle = 0.35
+			gentle.steer = 0.25
+			client.command_override = gentle
 
 	if view == "cab":
 		client.camera_mode = DdClient.CameraMode.CAB

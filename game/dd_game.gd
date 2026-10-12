@@ -59,6 +59,12 @@ const SETTLE_SECONDS := 0.4
 ## of every route, this far past the furthest south any road reaches.
 const LOT_CLEARANCE := 170.0
 
+## Metres from a truck's side a person on foot can get in from.
+const GET_IN_REACH := 4.5
+
+## Metres a second under which a truck can be got out of.
+const GET_OUT_SPEED := 3.0
+
 ## Metres a walker may move in one report. A run is 7.5 m/s, a report goes every tick, and
 ## the input is unreliable: a run of lost packets is one long step, not a cheat.
 const WALK_STEP_MAX := 4.0
@@ -90,6 +96,10 @@ signal mountain_changed(id: StringName)
 ## Somebody was put on foot somewhere they did not walk to (a spawn, out of a truck, back from
 ## a road, a refused step): their own machine moves its walker there.
 signal walker_placed(key: StringName)
+## A truck was built for somebody (a trip's, or one to drive round in): the bridge replicates it.
+signal truck_made(key: StringName)
+## Somebody got into or out of their truck off a road: everybody is told (a DRIVER).
+signal seated(key: StringName)
 
 ## One person (or stand-in) on the server.
 class Driver:
@@ -119,6 +129,8 @@ class Driver:
 	## Which spawn they were last put on, so two people spawning together stand apart.
 	var spawn_index: int = 0
 	var corrected_at: float = -INF
+	## Seconds left before a truck off a road lying on its side is put back in a bay.
+	var upset: float = 0.0
 
 	func on_road() -> bool:
 		return truck != null and trip != null
@@ -330,11 +342,14 @@ func set_mountain(id: StringName) -> DotResult:
 	if id == mountain_id and not routes.is_empty():
 		return DotResult.success(false)
 
+	# Every truck goes, on a road or parked: the lot they would be parked in moves too. People
+	# are put on foot on the new lot's spawn below.
 	for key: StringName in drivers:
 		var driver: Driver = drivers[key]
 
 		if driver.truck != null:
-			end_trip(key)
+			_remove_truck(driver)
+			trip_ended.emit(key)
 			driver.idle = 1.0
 
 	for body: RigidBody3D in boulders.keys():
@@ -350,11 +365,11 @@ func set_mountain(id: StringName) -> DotResult:
 	_select_mountain()
 	build_routes()
 
-	# The lot moved with the routes: everybody on foot is put back on its spawn.
+	# The lot moved with the routes: every person is put back on its spawn, on foot.
 	for key: StringName in drivers:
 		var walker_of: Driver = drivers[key]
 
-		if walker_of.walker != null and walker_of.on_foot:
+		if walker_of.walker != null:
 			_put_on_foot(walker_of, spawn_transform(walker_of))
 	DotLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
 	mountain_changed.emit(id)
@@ -537,34 +552,12 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 		truck_id = trucks.starter()
 
 	_remove_truck(driver)
-
-	var truck := DdTruck.new()
-	truck.owner_key = key
 	var doc: Dictionary = documents[route_id]
 	var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
-	var levels := bank.upgrades_of(key, truck_id)
-	var made := truck.configure(truck_id, trucks.effective(truck_id, levels), trucks.tunables_for(truck_id, levels, load_def), draws, load_def)
+	var made := _make_truck(driver, truck_id, load_def, true)
 
 	if not made.ok:
-		truck.free()
 		return made
-
-	truck.name = "Truck_%s" % String(key)
-	add_child(truck)
-	driver.truck = truck
-	var trailer_spec: Variant = trucks.get_truck(truck_id).get("trailer")
-
-	if config.trailers and trailer_spec is Dictionary:
-		var trailer := DdTrailer.new()
-		var spec := (trailer_spec as Dictionary).duplicate()
-		spec["mass"] = trucks.trailer_mass(truck_id, load_def)
-		trailer.configure(spec, truck.half_length, 2.5, draws, truck.rear_axle_z())
-
-		if truck.chassis is DdTruck.DdDrivetrain:
-			(truck.chassis as DdTruck.DdDrivetrain).hitch_mass = float(spec["mass"]) * DdTrailer.HITCH_SHARE
-		trailer.name = "Trailer_%s" % String(key)
-		add_child(trailer)
-		driver.trailer = trailer
 
 	var trip := DdTrip.new()
 	trip.route_id = route_id
@@ -593,7 +586,41 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 	return DotResult.success(trip)
 
 
-## Back to the lot: the truck goes, and a person is on foot at the spawn.
+## Builds [param driver]'s truck [param truck_id] with [param load_def] (empty for none), and
+## its trailer when [param with_trailer] and the truck pulls one. Not placed.
+func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, with_trailer: bool) -> DotResult:
+	var truck := DdTruck.new()
+	truck.owner_key = driver.key
+	var levels := bank.upgrades_of(driver.key, truck_id)
+	var made := truck.configure(truck_id, trucks.effective(truck_id, levels), trucks.tunables_for(truck_id, levels, load_def), draws, load_def)
+
+	if not made.ok:
+		truck.free()
+		return made
+
+	truck.name = "Truck_%s" % String(driver.key)
+	add_child(truck)
+	driver.truck = truck
+	var trailer_spec: Variant = trucks.get_truck(truck_id).get("trailer")
+
+	if with_trailer and config.trailers and trailer_spec is Dictionary:
+		var trailer := DdTrailer.new()
+		var spec := (trailer_spec as Dictionary).duplicate()
+		spec["mass"] = trucks.trailer_mass(truck_id, load_def)
+		trailer.configure(spec, truck.half_length, 2.5, draws, truck.rear_axle_z())
+
+		if truck.chassis is DdTruck.DdDrivetrain:
+			(truck.chassis as DdTruck.DdDrivetrain).hitch_mass = float(spec["mass"]) * DdTrailer.HITCH_SHARE
+		trailer.name = "Trailer_%s" % String(driver.key)
+		add_child(trailer)
+		driver.trailer = trailer
+
+	truck_made.emit(driver.key)
+	return DotResult.success(truck)
+
+
+## Back to the lot: the trip's truck goes. A person is on foot beside their truck, parked empty
+## in a bay (on foot at the spawn when every bay is taken); a stand-in just has no truck.
 func end_trip(key: StringName) -> void:
 	var driver: Driver = drivers.get(key, null)
 
@@ -602,7 +629,7 @@ func end_trip(key: StringName) -> void:
 
 	_remove_truck(driver)
 
-	if driver.walker != null:
+	if driver.walker != null and not _park(driver, false):
 		_put_on_foot(driver, spawn_transform(driver))
 
 	trip_ended.emit(key)
@@ -842,6 +869,253 @@ func walkable(at: Vector3) -> bool:
 	return lot != null and lot.contains(at, 1.0) and at.y > -3.0 and at.y < 40.0
 
 
+# --- Trucks off the road: buying, getting in and out --------------------------
+
+## Whether [param key] is in the lot, on foot or at the wheel: where trucks are bought and
+## upgraded (`DdBridgeActs`).
+func in_lot(key: StringName) -> bool:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or lot == null:
+		return false
+
+	if driver.on_foot:
+		return lot.contains(driver.walk_at, 2.0)
+
+	return driver.truck != null and driver.trip == null and lot.contains((driver.truck as Node3D).global_position, 2.0)
+
+
+## Whether [param driver] is in a truck off a road (driving round the world, or parked with
+## nobody in it when [member Driver.on_foot]).
+static func roaming(driver: Driver) -> bool:
+	return driver != null and driver.truck != null and driver.trip == null
+
+
+## What the use key does for [param key] where they are: [code]{action, truck, text}[/code]
+## ([code]action[/code] empty for nothing). [param owns] is [code]func(truck_id) -> bool[/code]
+## and [param money] what they have: the world's bank on the authority, the GARAGE a client
+## was sent on a mirror, so the HUD's words and the server's choice come from one function.
+## [param at] is where they stand on foot (a client's walker is ahead of the world's copy).
+func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vector3.INF) -> Dictionary:
+	var driver: Driver = drivers.get(key, null)
+	var none := {"action": "", "text": ""}
+
+	if driver == null or driver.is_bot or driver.trip != null:
+		return none
+
+	if driver.on_foot:
+		var here := at if at.is_finite() else driver.walk_at
+
+		# Their own truck, parked: get in.
+		if driver.truck != null and is_instance_valid(driver.truck) and _beside(driver.truck as DdTruck, here):
+			return {"action": "get_in", "truck": String((driver.truck as DdTruck).truck_id),
+				"text": "E  Get in your %s" % str(trucks.get_truck((driver.truck as DdTruck).truck_id).get("name", "truck"))}
+
+		# A salesperson: buy theirs, or drive it away if it is already yours.
+		var selling := lot.seller_near(here) if lot != null else &""
+
+		if selling != &"":
+			var def := trucks.get_truck(selling)
+			var label := str(def.get("name", selling))
+
+			if bool(owns.call(selling)):
+				return {"action": "drive", "truck": String(selling), "text": "E  Drive your %s" % label}
+
+			var price := int(def.get("price", 0))
+
+			if money < price:
+				return {"action": "", "text": "The %s is $%s; you have $%s" % [label, DdLot._thousands(price), DdLot._thousands(money)]}
+
+			return {"action": "buy_truck", "truck": String(selling), "text": "E  Buy the %s for $%s" % [label, DdLot._thousands(price)]}
+
+		return none
+
+	if roaming(driver):
+		var truck := driver.truck as DdTruck
+
+		if absf(truck.forward_speed()) < GET_OUT_SPEED:
+			return {"action": "get_out", "text": "E  Get out"}
+
+	return none
+
+
+## The use key: whatever [method use_choice] says it does here, done.
+func use(key: StringName) -> DotResult:
+	var choice := use_choice(key, func(id: StringName) -> bool: return bank.owns(key, id), bank.money(key))
+
+	match str(choice["action"]):
+		"get_in":
+			return get_in(key)
+		"get_out":
+			return get_out(key)
+		"drive":
+			return drive_off(key, StringName(str(choice["truck"])))
+		"buy_truck":
+			return buy_truck(key, StringName(str(choice["truck"])))
+
+	return DotResult.fail(DotError.CODE_STATE, str(choice.get("text", "")) if str(choice.get("text", "")) != "" else "Nothing to use here.")
+
+
+## [param truck_id] (theirs) brought round to the nearest free bay and [param key] put at its
+## wheel: a salesperson's E on a truck they own, and the panel's DRIVE. The truck they had
+## parked goes (one truck each). In the lot only.
+func drive_off(key: StringName, truck_id: StringName) -> DotResult:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or driver.walker == null:
+		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+
+	if driver.trip != null:
+		return DotResult.fail(DotError.CODE_STATE, "You are on a delivery.")
+
+	if not in_lot(key):
+		return DotResult.fail(DotError.CODE_FORBIDDEN, "Trucks are handed over in the lot.")
+
+	var chosen := bank.select_truck(key, truck_id)
+
+	if not chosen.ok:
+		return chosen
+
+	_remove_truck(driver)
+
+	if not _park(driver, true, lot.displays.get(truck_id, Transform3D.IDENTITY).origin if lot != null else Vector3.ZERO):
+		return DotResult.fail(DotError.CODE_STATE, "Every bay in the lot is full.")
+
+	return DotResult.success(truck_id)
+
+
+## Into their own parked truck, from beside it.
+func get_in(key: StringName) -> DotResult:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or not driver.on_foot or not roaming(driver):
+		return DotResult.fail(DotError.CODE_STATE, "You have no truck parked.")
+
+	if not _beside(driver.truck as DdTruck, driver.walk_at):
+		return DotResult.fail(DotError.CODE_STATE, "Walk up to your truck first.")
+
+	driver.on_foot = false
+	driver.command = _held()
+	seated.emit(key)
+	return DotResult.success(null)
+
+
+## Out of their truck, off a road and nearly stopped: on foot beside the driver's door, the
+## truck left parked where it is.
+func get_out(key: StringName) -> DotResult:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or driver.on_foot or not roaming(driver) or driver.walker == null:
+		return DotResult.fail(DotError.CODE_STATE, "You are not in a truck off the road.")
+
+	var truck := driver.truck as DdTruck
+
+	if absf(truck.forward_speed()) >= GET_OUT_SPEED:
+		return DotResult.fail(DotError.CODE_STATE, "Stop first.")
+
+	var door := door_of(truck)
+
+	if not walkable(door.origin):
+		door = spawn_transform(driver)
+
+	_put_on_foot(driver, door)
+	seated.emit(key)
+	return DotResult.success(null)
+
+
+## Where somebody getting out of [param truck] stands: beside the driver's door (the left),
+## facing the way the truck faces, on the ground.
+func door_of(truck: DdTruck) -> Transform3D:
+	var flat := Vector3(-truck.global_basis.z.x, 0.0, -truck.global_basis.z.z).normalized()
+
+	if flat == Vector3.ZERO:
+		flat = Vector3.FORWARD
+
+	var left := Vector3(flat.z, 0.0, -flat.x)
+	var at := truck.global_position + left * 2.6 + flat * truck.half_length * 0.3
+	at.y = lot.global_position.y if lot != null and lot.contains(at, 2.0) else truck.global_position.y - truck.ride_height()
+	return Transform3D(Basis(Vector3.UP, atan2(-flat.x, -flat.z)), at)
+
+
+func _beside(truck: DdTruck, at: Vector3) -> bool:
+	if truck == null or not is_instance_valid(truck):
+		return false
+
+	var local := truck.global_transform.affine_inverse() * at
+	return absf(local.z) <= truck.half_length + 1.0 and absf(local.x) <= GET_IN_REACH and absf(local.y) < 4.0
+
+
+## Puts [param driver]'s chosen truck, empty, in the free bay nearest [param near] (the
+## showroom's middle when not given): at its wheel when [param seated], else on foot beside it.
+## False when every bay is taken.
+func _park(driver: Driver, seated_now: bool, near: Vector3 = Vector3.INF) -> bool:
+	if lot == null or driver.walker == null:
+		return false
+
+	var taken: Array = []
+
+	for k: StringName in drivers:
+		var other: Driver = drivers[k]
+
+		if other != driver and other.truck != null and is_instance_valid(other.truck):
+			taken.append((other.truck as Node3D).global_position)
+
+	var bay := lot.free_bay(near if near.is_finite() else lot.global_position, taken)
+
+	if bay < 0:
+		return false
+
+	var truck_id := StringName(str(bank.account(driver.key)["truck"]))
+
+	if trucks.get_truck(truck_id).is_empty():
+		truck_id = trucks.starter()
+
+	var made := _make_truck(driver, truck_id, {}, false)
+
+	if not made.ok:
+		return false
+
+	var truck := driver.truck as DdTruck
+	var at: Transform3D = lot.bays[bay]
+	at.origin.y += truck.ride_height() + 0.02
+	truck.place(at)
+	_refresh_exceptions()
+
+	if seated_now:
+		driver.on_foot = false
+		driver.command = _held()
+		seated.emit(driver.key)
+	else:
+		_put_on_foot(driver, door_of(truck))
+
+	return true
+
+
+## A truck off a road, one tick: driven by its driver's command, or held on its brakes while
+## they are out of it. One that fell off the world, or lies on its side, is put back in a bay.
+func _step_roaming(driver: Driver, delta: float) -> void:
+	var truck := driver.truck as DdTruck
+	truck.drive(_held() if driver.on_foot else driver.command, delta)
+
+	var fallen := truck.global_position.y < WALK_FLOOR
+	var flipped := truck.is_flipped() and truck.linear_velocity.length() < 2.0
+
+	if flipped:
+		driver.upset -= delta
+	else:
+		driver.upset = config.flipped_respawn_seconds
+
+	if fallen or driver.upset <= 0.0:
+		driver.upset = config.flipped_respawn_seconds
+		var was_on_foot := driver.on_foot
+		_remove_truck(driver)
+
+		if not _park(driver, not was_on_foot):
+			_put_on_foot(driver, spawn_transform(driver))
+
+		put_back.emit(driver.key)
+
+
 # --- The tick ----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
@@ -881,6 +1155,8 @@ func step(delta: float) -> void:
 
 		if driver.on_road():
 			_step_driver(driver, delta)
+		elif roaming(driver):
+			_step_roaming(driver, delta)
 
 	_step_boulders(delta)
 

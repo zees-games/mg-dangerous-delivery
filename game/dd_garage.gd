@@ -213,12 +213,13 @@ func refresh(view: Dictionary) -> void:
 		var button := Button.new()
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var state := "DRIVING" if bool(t.get("selected", false)) else ("owned" if bool(t.get("owned", false)) else "$%d" % int(t["price"]))
+		var state := "YOURS: DRIVE IT" if bool(t.get("selected", false)) else ("owned: drive it" if bool(t.get("owned", false)) else "buy: $%d" % int(t["price"]))
 		button.text = "%s  [%s]  pay x%.1f\n      %s" % [t["name"], state, float(t["pay"]), t.get("blurb", "")]
-		button.disabled = bool(t.get("selected", false))
 
+		# A truck of theirs is brought round to a bay and they are put at its wheel ("drive");
+		# one they do not own is bought, and stays on show until they drive it.
 		if bool(t.get("owned", false)):
-			button.pressed.connect(func() -> void: _do("select_truck", {"truck": id}))
+			button.pressed.connect(func() -> void: _do("drive", {"truck": id}))
 		else:
 			button.pressed.connect(func() -> void: _do("buy_truck", {"truck": id}))
 

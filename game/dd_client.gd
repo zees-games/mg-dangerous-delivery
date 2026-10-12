@@ -405,6 +405,10 @@ func _act(action: String, args: Dictionary = {}) -> void:
 		_show_garage(not garage.visible)
 		return
 
+	# DRIVE on the panel: the truck is brought round and they are at its wheel, so the panel goes.
+	if action == "drive":
+		_show_garage(false)
+
 	if not _offline:
 		if bridge != null:
 			bridge.ask_act(action, args)
@@ -626,7 +630,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Each a row of [DdBindings], matched by its action so a key moved on the Controls page
 	# moves what it does here. Escape is a keycode: no row may hold it.
-	if key.is_action(DdBindings.SOLO):
+	if key.is_action(DdBindings.USE):
+		# Only when it does something here; the world decides what (the same `use_choice`).
+		if use_prompt().begins_with("E") or use_action() != "":
+			_act("use")
+	elif key.is_action(DdBindings.SOLO):
 		_act("solo")
 	elif key.is_action(DdBindings.RESPAWN):
 		_act("respawn")
@@ -658,7 +666,7 @@ func _physics_process(delta: float) -> void:
 	_walk(me, delta)
 
 	if _offline:
-		if me != null and me.on_road() and not garage.visible and not me.assisted:
+		if me != null and me.truck != null and not me.on_foot and not garage.visible and not me.assisted:
 			game.set_command(local_key, command)
 
 		return
@@ -687,7 +695,7 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 	var out := DotVehicleCommand.new()
 
 	# Typing is not driving: W in a chat line must not floor the throttle.
-	if me == null or me.truck == null or garage.visible or (chat != null and chat.is_typing()):
+	if me == null or me.truck == null or me.on_foot or garage.visible or (chat != null and chat.is_typing()):
 		out.brake = 1.0
 		return out
 
@@ -768,18 +776,20 @@ func _process(delta: float) -> void:
 	_present_walkers(me)
 	var facts := _trip_facts(me)
 
+	var at_wheel := not facts.is_empty() or (me != null and me.truck != null and not me.on_foot)
+
 	if audio != null:
-		audio.driving = not facts.is_empty()
+		audio.driving = at_wheel
 		audio.listen_from(camera.global_position)
 
-		if not facts.is_empty():
-			audio.speed = float(facts.get("speed", 0.0))
+		if at_wheel:
+			audio.speed = float(facts.get("speed", _speed_of(me)))
 			# The wheel's own command, or the stand-in's when the wheel is handed over (a shot, a
 			# suite): sampled keys say nothing about a truck the autopilot is driving.
 			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
-			audio.weather = facts.get("weather", {})
+			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
 
 		var route := StringName(str(facts.get("route", "")))
 		audio.on_route(route)
@@ -796,6 +806,13 @@ func _process(delta: float) -> void:
 		if _walking():
 			_follow_walker(delta)
 			hud.show_off_road(_where_on_foot())
+		elif me != null and me.truck != null and is_instance_valid(me.truck):
+			# Driving round the world, off any route: the chase camera, the speed, no trip.
+			camera.global_position -= _shaken
+			_shaken = Vector3.ZERO
+			_follow(me.truck as DdTruck, delta)
+			hud.show_off_road(_where_on_foot(), _speed_of(me))
+			_present_effects(delta)
 
 		hud.show_prompt(use_prompt())
 		return
@@ -973,19 +990,46 @@ func _sample_walk() -> DotPlayerIntent:
 	return intent
 
 
-## The strip's words on foot: the lot, or the open road.
+## The strip's words off a road: the lot, or the open road, wherever this player is.
 func _where_on_foot() -> String:
 	var me := _driver()
+	var at := Vector3.INF
 
-	if me != null and game.lot != null and game.lot.contains(me.walk_at, 2.0):
+	if me != null:
+		at = (me.truck as Node3D).global_position if me.truck != null and not me.on_foot and is_instance_valid(me.truck) \
+			else (walker.global_position if walker != null else me.walk_at)
+
+	if at.is_finite() and game.lot != null and game.lot.contains(at, 2.0):
 		return "THE LOT — %s" % game.mountain_name().to_upper()
 
 	return game.mountain_name().to_upper()
 
 
-## What the use key would do where this player is, in words for the HUD; "" for nothing.
+## What the use key would do where this player is: the world's own `use_choice`, asked with
+## what this machine knows of their money and trucks (its world's bank offline, the server's
+## GARAGE connected) and where its walker really is.
+func use_choice() -> Dictionary:
+	if game == null or _on_road():
+		return {"action": "", "text": ""}
+
+	var view: Dictionary = game.garage_view(local_key) if _offline else (bridge.garage_view if bridge != null else {})
+	var owned := {}
+
+	for t: Dictionary in view.get("trucks", []):
+		if bool(t.get("owned", false)):
+			owned[StringName(str(t["id"]))] = true
+
+	var at := walker.global_position if walker != null and walker.visible else Vector3.INF
+	return game.use_choice(local_key, func(id: StringName) -> bool: return owned.has(id), int(view.get("money", 0)), at)
+
+
+## The use key's words for the HUD; "" for nothing.
 func use_prompt() -> String:
-	return ""
+	return str(use_choice().get("text", ""))
+
+
+func use_action() -> String:
+	return str(use_choice().get("action", ""))
 
 
 ## F5 on foot: over the shoulder or through the eyes, where `mp_forceview` allows both.

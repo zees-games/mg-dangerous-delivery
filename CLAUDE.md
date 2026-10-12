@@ -9,7 +9,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/world.md](docs/world.md) | the lot, walking, the walker on the wire, the camera on foot |
+| [docs/world.md](docs/world.md) | the lot, walking, the walker on the wire, the camera on foot, buying, getting in and out, a truck off the road |
 | [docs/design.md](docs/design.md) | routes and levels, hairpins, the drivetrain, loads, challenges and traffic, mountains and the vote, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound levels, the light, signs and the pointer |
 | [docs/terrain.md](docs/terrain.md) | `dd_route.gd`'s meshes or `dd_terrain.gd` |
 | [docs/netcode.md](docs/netcode.md) | `game/net/`, the module, anything sent, names |
@@ -48,6 +48,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - **Every key is a `DdBindings` row read through its action** (driving polls the actions; the arrows drive too, through `ui_*`, which no row holds); the HUD's key list is `DdBindings.hud_lines`. H is help (dot-menu's stock key; `DdSettings._fill_help`), so no row may default to H. Escape stays the lot; the menu with Help and Leave is O and the lot's Settings button. `headless_run` checks it.
 - **M is the mountain list** (dot-menu's map menu): `DdGame.mountain_rows()` and `set_mountain()` solo, the module's `_change_mountain` on a server, where dot-vote's map menu lets the owner's `sv_map_menu_flag` change it now and gives anybody else a vote. No row may default to M; `headless_run` and `dedicated` check it.
+- **E is one ACT, `use`, decided by `DdGame.use_choice`** (get in, get out, buy, drive one you own), and the HUD's line is the same function on the client; buying, choosing and upgrading are the lot's alone (`in_lot` in `DdBridgeActs`). A driver has one truck: off a road it is empty and parked in a bay (`_park`), a trip replaces it, back from a road it is parked again. [world](docs/world.md#buying-and-a-truck-off-the-road)
 - **On foot, the owner walks and the world only refuses** (`DdGame.walk`: step length, `walkable`, a PLACE back); nothing on foot is predicted or rewound, and stand-ins never walk. Others are drawn from `Driver.walker` by `DdClient._present_walkers`, never the owner's own. [world](docs/world.md)
 - **In a truck a player is their truck.** `DdTruck` binds `DotVehicleInstance` and `DdDrivetrain` (a `DotVehicleWheeled` by path) itself; `DdGame` calls `drive()` once a tick. Do not bring in `DotVehicleRide`. [design](docs/design.md)
 - A route is a level and a corner of one world; a new route is a file in `routes/`. Hairpins always put the cliff on the inside and a rail round the outside, 1.5 m wider than the road. [design](docs/design.md#one-world-holds-every-route-and-a-route-is-a-level)

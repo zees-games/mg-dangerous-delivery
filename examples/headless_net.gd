@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 13
-const CHECKS := 48
+const SECTIONS := 14
+const CHECKS := 52
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -45,6 +45,7 @@ func _ready() -> void:
 	if await _build():
 		await _test_joining()
 		await _test_walkers()
+		await _test_buying_and_driving()
 		await _test_a_trip()
 		await _test_driving()
 		await _test_weather()
@@ -243,6 +244,43 @@ func _test_walkers() -> void:
 	_finished_section()
 
 
+## The lot's trade over the wire: DRIVE (the panel's, or a salesperson's E) brings the truck
+## round and the client mirrors it with them at the wheel; it drives it round the lot from its
+## input; E gets them out beside it, told where they stand, and the truck stays parked.
+func _test_buying_and_driving() -> void:
+	_section("driving round the lot over the wire")
+	var server_me: DdGame.Driver = _server_game.drivers[_key]
+	var starter: StringName = _server_game.trucks.starter()
+	_client_bridge.ask_act("drive", {"truck": String(starter)})
+	_exchange()
+	await _steps(6)
+	var mirror: DdGame.Driver = _client_game.drivers[_key]
+	_check(DdGame.roaming(server_me) and not server_me.on_foot and mirror.truck != null and not mirror.on_foot
+		and not bool(_client_bridge.trip_view.get("on_road", true)),
+		"DRIVE brings their truck round to a bay, and the client mirrors it with them at the wheel")
+	var truck := server_me.truck as DdTruck
+	var from := truck.global_position
+	var go := DotVehicleCommand.new()
+	go.throttle = 1.0
+	await _steps(80, go)
+	var stop := DotVehicleCommand.new()
+	stop.brake = 1.0
+	await _steps(120, stop)
+	_exchange()
+	_client_net.interpolate_frame(1.0)
+	_check(truck.global_position.distance_to(from) > 3.0 and (mirror.truck as Node3D).global_position.distance_to(truck.global_position) < 1.0,
+		"its input drives it round the lot, and the client's copy follows",
+		"%.1f m, mirror %.2f m off" % [truck.global_position.distance_to(from), (mirror.truck as Node3D).global_position.distance_to(truck.global_position)])
+	_heard.erase("placed")
+	_client_bridge.ask_act("use", {})
+	_exchange()
+	await _steps(4)
+	_check(server_me.on_foot and mirror.on_foot and mirror.truck != null and _heard.has("placed")
+		and (_heard["placed"] as Transform3D).origin.distance_to(truck.global_position) < 6.0,
+		"E gets them out, told where they stand beside it, and the truck stays parked")
+	_finished_section()
+
+
 func _test_a_trip() -> void:
 	_section("setting off")
 	_client_bridge.ask_act("start", {"route": "dd_foothills"})
@@ -313,6 +351,16 @@ func _test_solo() -> void:
 
 func _test_refusal() -> void:
 	_section("what the server refuses")
+	_heard.erase("said")
+	# On a road: trucks are bought in the lot.
+	_client_bridge.ask_act("buy_truck", {"truck": "box_truck"})
+	_exchange()
+	await _steps(2)
+	_check((_server_game.drivers[_key] as DdGame.Driver).on_road() and str(_heard.get("said", "")).contains("in the lot"),
+		"a truck bought from a road, refused: that is the lot's", str(_heard.get("said", "")))
+	_client_bridge.ask_act("garage")
+	_exchange()
+	await _steps(2)
 	_heard.erase("said")
 	_client_bridge.ask_act("buy_truck", {"truck": "bulk"})
 	_exchange()

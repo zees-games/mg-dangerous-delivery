@@ -163,6 +163,8 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 			_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
 		game.mountain_changed.connect(_on_mountain_changed)
 		game.walker_placed.connect(_on_walker_placed)
+		game.truck_made.connect(_on_truck_made)
+		game.seated.connect(func(key: StringName) -> void: _broadcast_driver(key))
 
 	return DotResult.success(true)
 
@@ -325,7 +327,9 @@ func _driver_body(key: StringName) -> Dictionary:
 	if truck != null:
 		body["truck_id"] = String(truck.truck_id)
 		body["def"] = truck.def
-		body["route"] = String((driver.trip as DdTrip).route_id)
+
+		if driver.trip != null:
+			body["route"] = String((driver.trip as DdTrip).route_id)
 
 		if driver.trailer != null:
 			body["trailer_net_id"] = int(_net_of.get(driver.trailer, 0))
@@ -373,7 +377,9 @@ func _send_place(key: StringName) -> void:
 
 # --- Server: trucks and rock --------------------------------------------------
 
-func _on_trip_started(key: StringName, _route: StringName) -> void:
+## A truck was built for somebody (a trip's, or one to drive round the world in): the bodies
+## they had before go, the new ones are replicated, and everybody is told.
+func _on_truck_made(key: StringName) -> void:
 	var driver: DdGame.Driver = game.drivers.get(key, null)
 
 	if driver == null or driver.truck == null:
@@ -383,7 +389,7 @@ func _on_trip_started(key: StringName, _route: StringName) -> void:
 	var behaviour := DdTruckNet.new()
 	behaviour.name = "Net"
 	behaviour.body = driver.truck
-	var net_id := _replicate(behaviour, driver.truck, peer_of(key))
+	var _net_id := _replicate(behaviour, driver.truck, peer_of(key))
 
 	# The trailer is a body of its own: a client draws it where the server's is, swinging.
 	if driver.trailer != null:
@@ -392,16 +398,26 @@ func _on_trip_started(key: StringName, _route: StringName) -> void:
 		trailer_net.body = driver.trailer
 		var _t := _replicate(trailer_net, driver.trailer, 0)
 
-	if net_id != 0:
-		_broadcast_driver(key)
-		_send_trip(key)
+	_broadcast_driver(key)
 
 
-## A truck left the road: its entity goes. [param announce] sends the driver's new state.
+func _on_trip_started(key: StringName, _route: StringName) -> void:
+	_broadcast_driver(key)
+	_send_trip(key)
+
+
+## Bodies of [param key]'s that are no longer their truck or trailer go. [param announce] sends
+## the driver's new state.
 func _on_truck_gone(key: StringName, announce: bool = true) -> void:
+	var driver: DdGame.Driver = game.drivers.get(key, null)
+	var keep: Array = [driver.truck, driver.trailer] if driver != null else []
+
 	for body: Node in _net_of.keys():
 		if not is_instance_valid(body):
 			_net_of.erase(body)
+			continue
+
+		if keep.has(body) and not body.is_queued_for_deletion():
 			continue
 
 		if (body is DdTruck and (body as DdTruck).owner_key == key) or (body is DdTrailer and String(body.name) == "Trailer_%s" % String(key)):
@@ -987,13 +1003,28 @@ class DdBridgeActs:
 	static func run(world: Node, key: StringName, args: Dictionary) -> DotResult:
 		var acct: Dictionary = world.bank.account(key)
 
-		match str(args.get("action", "")):
+		var action := str(args.get("action", ""))
+
+		# Trucks are bought, chosen and upgraded in the lot: at the panel (G) anywhere in it, or
+		# from a salesperson. A stand-in has no lot.
+		if action in ["buy_truck", "select_truck", "upgrade"] and not world.in_lot(key):
+			return DotResult.fail(DotError.CODE_FORBIDDEN, "Trucks are bought and upgraded in the lot.")
+
+		match action:
 			"start":
 				return world.start_trip(key, StringName(str(args.get("route", ""))))
 			"buy_truck":
 				return world.buy_truck(key, StringName(str(args.get("truck", ""))))
 			"select_truck":
 				return world.select_truck(key, StringName(str(args.get("truck", ""))))
+			"drive":
+				return world.drive_off(key, StringName(str(args.get("truck", ""))))
+			"use":
+				return world.use(key)
+			"get_in":
+				return world.get_in(key)
+			"get_out":
+				return world.get_out(key)
 			"upgrade":
 				return world.buy_upgrade(key, StringName(str(acct["truck"])), str(args.get("kind", "")))
 			"respawn":

@@ -5,6 +5,8 @@
 #   tools/shot.sh --people=6                              # with six more people walking round the lot
 #   tools/shot.sh --panel                                 # the lot's panel open (G)
 #   tools/shot.sh --view=far --people=4                   # the lot from high over its south fence
+#   tools/shot.sh --view=seller [--truck=semi]            # beside a salesperson: what E does
+#   tools/shot.sh --view=roam --seconds=4                 # at the wheel of a truck handed over in the lot
 #   tools/shot.sh --view=drive --route=dd_snowline --seconds=40   # a stand-in at the wheel, chase camera
 #   tools/shot.sh --view=cab --route=dd_river_cut --seconds=20    # from the cab
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above

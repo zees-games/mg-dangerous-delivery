@@ -20,9 +20,10 @@ const DdProgress := preload("res://game/dd_progress.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 const DdLot := preload("res://game/dd_lot.gd")
+const DdNetBridge := preload("res://game/net/dd_net_bridge.gd")
 
-const SECTIONS := 22
-const CHECKS := 145
+const SECTIONS := 23
+const CHECKS := 158
 
 var _passed := 0
 var _failed := 0
@@ -57,6 +58,7 @@ func _ready() -> void:
 
 	_test_unlocking()
 	_test_on_foot()
+	await _test_buying_and_driving()
 	_test_every_mountain()
 	await _test_a_delivery()
 	await _test_a_fall()
@@ -394,6 +396,60 @@ func _test_on_foot() -> void:
 	_finished_section()
 
 
+## The lot's trade: a salesperson sells a truck to somebody who can pay for it, and hands over
+## one they own (brought round to a bay, them at the wheel); they drive it, stop and get out on
+## foot beside it, and get back in. A trip takes the parked truck; back from the road it is
+## parked again and they are on foot beside it. Buying is the lot's alone.
+func _test_buying_and_driving() -> void:
+	_section("buying a truck in the lot, and getting in and out")
+	var key := &"buyer"
+	var me := game.join(key, "Buyer")
+	var _paid := game.bank.credit(key, 5000, "test")
+	var flatbed: Vector3 = game.lot.sellers[&"flatbed"]
+	me.walk_at = flatbed + Vector3(0.0, 0.0, 1.5)
+	var offer := game.use_choice(key, func(id: StringName) -> bool: return game.bank.owns(key, id), game.bank.money(key))
+	_check(offer["action"] == "buy_truck" and str(offer["text"]).contains("Flatbed"), "a salesperson offers their truck", str(offer))
+	var price := int(game.trucks.get_truck(&"flatbed").get("price", 0))
+	var bought := game.use(key)
+	_check(bought.ok and game.bank.owns(key, &"flatbed") and game.bank.money(key) == 5000 - price, "E buys it", "$%d left" % game.bank.money(key))
+	var handed := game.use(key)
+	var truck := me.truck as DdTruck
+	_check(handed.ok and truck != null and not me.on_foot and me.trip == null and truck.truck_id == &"flatbed"
+		and game.lot.contains(truck.global_position) and game.bank.account(key)["truck"] == "flatbed",
+		"E again brings it round to a bay, with them at the wheel", str(handed.error) if not handed.ok else "")
+	await _seconds(0.5)
+	var from := truck.global_position
+	var go := DotVehicleCommand.new()
+	go.throttle = 1.0
+	game.set_command(key, go)
+	await _seconds(1.5)
+	var stop := DotVehicleCommand.new()
+	stop.brake = 1.0
+	game.set_command(key, stop)
+	await _seconds(2.0)
+	_check(truck.global_position.distance_to(from) > 3.0 and absf(truck.forward_speed()) < 1.0,
+		"they drive it round the lot, and stop", "%.1f m" % truck.global_position.distance_to(from))
+	var out := game.use(key)
+	_check(out.ok and me.on_foot and game.walkable(me.walk_at) and me.walk_at.distance_to(truck.global_position) < 6.0 and is_instance_valid(truck) and me.truck == truck,
+		"E gets out, on foot beside it, and the truck stays parked", str(out.error) if not out.ok else str(me.walk_at.distance_to(truck.global_position)))
+	var back_in := game.use(key)
+	_check(back_in.ok and not me.on_foot and me.truck == truck, "and E beside it gets back in")
+	var _out_again := game.use(key)
+	var _r := game.start_trip(key, &"dd_foothills")
+	_check(me.on_road() and (not is_instance_valid(truck) or (truck as Node).is_queued_for_deletion()), "a trip takes the parked truck away")
+	var refused: DotResult = DdNetBridge.DdBridgeActs.run(game, key, {"action": "buy_truck", "truck": "hauler"})
+	_check(not refused.ok and refused.error.code == DotError.CODE_FORBIDDEN, "trucks are bought in the lot, not from a road", str(refused.error))
+	game.end_trip(key)
+	_check(me.on_foot and me.truck != null and me.trip == null and game.lot.contains((me.truck as Node3D).global_position),
+		"back from the road their truck is parked in the lot, and they are on foot beside it")
+	(me.truck as DdTruck).place(Transform3D(Basis.IDENTITY, game.lot.global_position + Vector3(0.0, -40.0, 0.0)))
+	await _seconds(0.2)
+	_check(me.truck != null and is_instance_valid(me.truck) and game.lot.contains((me.truck as Node3D).global_position),
+		"a truck that falls off the world is put back in a bay")
+	game.leave(key)
+	_finished_section()
+
+
 ## Every mountain on the ballot is buildable from the shipped routes, and a ballot never
 ## offers two mountains holding the same routes.
 func _test_every_mountain() -> void:
@@ -479,7 +535,8 @@ func _test_a_delivery() -> void:
 	me.assisted = false
 	me.autopilot = null
 	game.end_trip(&"p1")
-	_check(not me.on_road() and me.on_foot and game.lot.contains(me.walk_at), "back to the lot on foot, and the truck is gone")
+	_check(not me.on_road() and me.on_foot and game.lot.contains(me.walk_at) and DdGame.roaming(me),
+		"back to the lot on foot, beside their truck parked empty")
 	_finished_section()
 
 
@@ -890,6 +947,27 @@ func _test_walking_client() -> void:
 	_check(camera.global_position.distance_to(walker.global_position) < 7.0 and camera.global_position.y > walker.global_position.y,
 		"the camera follows on foot, behind and over them", str(camera.global_position - walker.global_position))
 	_check(str((client.get("hud").get("_stage") as Label).text).begins_with("THE LOT"), "and the HUD says they are in the lot")
+
+	# Up to the salesperson of the truck they start with: E hands it over, and E gets out.
+	var starter: StringName = world.trucks.starter()
+	var by_seller := Transform3D(Basis.IDENTITY, (world.lot.sellers[starter] as Vector3) + Vector3(0.0, 0.0, 1.5))
+	me.walk_at = by_seller.origin
+	client.call("_place_walker", by_seller)
+	await _seconds(0.1)
+	var said: String = client.call("use_prompt")
+	_check(said.begins_with("E") and said.contains("Drive your"), "beside a salesperson the HUD says what E does", said)
+	var e_key := InputEventKey.new()
+	e_key.physical_keycode = KEY_E
+	e_key.keycode = KEY_E
+	e_key.pressed = true
+	client.call("_unhandled_input", e_key)
+	await _seconds(0.6)
+	_check(not me.on_foot and me.truck != null and not walker.visible and str(client.call("use_prompt")).contains("Get out"),
+		"E puts them at the wheel of it, in a bay; the walker is put away", str(client.call("use_prompt")))
+	client.call("_unhandled_input", e_key)
+	await _seconds(0.2)
+	_check(me.on_foot and walker.visible and walker.global_position.distance_to((me.truck as Node3D).global_position) < 6.0,
+		"and E gets them out beside it", str(walker.global_position.distance_to((me.truck as Node3D).global_position)))
 	remove_child(client)
 	client.free()
 	await get_tree().process_frame

@@ -378,12 +378,12 @@ func _build_showroom(names: Dictionary) -> void:
 		person.build(look, 1.8)
 		var tag := Label3D.new()
 		tag.name = "Tag"
-		tag.text = "%s · SALES\nE to buy" % STAFF[i % STAFF.size()]
-		tag.font_size = 48
-		tag.pixel_size = 0.01
+		tag.text = "%s · SALES" % STAFF[i % STAFF.size()]
+		tag.font_size = 40
+		tag.pixel_size = 0.006
 		tag.outline_size = 8
 		tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		tag.position = Vector3(0.0, 2.3, 0.0)
+		tag.position = Vector3(0.0, 2.15, 0.0)
 		seller.add_child(tag)
 		_labels.append(tag)
 
