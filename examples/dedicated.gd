@@ -8,7 +8,7 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 
 const SECTIONS := 8
-const CHECKS := 46
+const CHECKS := 49
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -263,6 +263,32 @@ func _test_the_mountain_vote() -> void:
 	_check(director.current_id() == &"range" and is_equal_approx(director.clock.duration, game.config.mountain_minutes * 60.0) \
 			and director.rules.trigger == DotVoteRules.Trigger.TIME_LIMIT,
 		"on dot-vote's own clock: a time limit of mountain_minutes", "%s, %.0f s" % [director.current_id(), director.clock.duration])
+
+	# The map menu's server half (M): the owner's flag changes the mountain now, anybody else
+	# gets a nomination and a rock-the-vote. Contexts as dot-server makes them for a chat line.
+	var menu_half: Object = vote.get("commands").get("map_menu")
+	_check(menu_half != null and server.console.find_command("mapmenu") != null
+		and server.console.find_cvar("sv_map_menu_flag").get_string() == "generic"
+		and (menu_half.get("change_fn") as Callable).is_valid(),
+		"the map menu is there, staff-only by default, changing the mountain now")
+	var staff := DotCmdContext.new()
+	staff.source = DotCmdContext.Source.CHAT
+	staff.permissions = PackedStringArray(["generic"])
+	var player := DotCmdContext.new()
+	player.source = DotCmdContext.Source.CHAT
+	var offered: Dictionary = menu_half.call("offer", player)
+	_check((offered["maps"] as Array).size() > 1 and not bool(offered["allowed"]) and bool(offered["vote"]),
+		"a player is offered every mountain, as a vote")
+	var target: StringName = &""
+	for row: Dictionary in offered["maps"]:
+		if not bool(row["current"]):
+			target = StringName(str(row["id"]))
+			break
+	var menu_changed: Dictionary = await menu_half.call("choose", staff, target)
+	_check(bool(menu_changed["ok"]) and game.mountain_id == target, "staff choosing one changes the mountain on the spot",
+		"%s: %s" % [target, menu_changed.get("text", "")])
+	var _restore: Variant = await menu_half.call("choose", staff, &"range")
+	director.begin(&"range")
 
 	# A person mid-haul, who must not lose the trip to the clock.
 	var hauler := &"uid:hauler"

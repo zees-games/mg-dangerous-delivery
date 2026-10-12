@@ -276,6 +276,14 @@ func _build_vote(world: DdGame) -> void:
 	var commanded := vote.install_commands(self)
 	DotLog.result(CHANNEL, "the mountain vote's commands", commanded)
 
+	# The map menu (M), dot-vote's: a player holding the owner's `sv_map_menu_flag` moves the
+	# world to another mountain now, and sees the same rows a solo player does. Read by name,
+	# because a server on a dot-vote older than the menu has no `map_menu` and runs without it.
+	var menu_half: Variant = vote.commands.get(&"map_menu") if vote.commands != null else null
+	if menu_half is Object:
+		(menu_half as Object).set(&"change_fn", _change_mountain)
+		(menu_half as Object).set(&"rows_fn", func(_rows: Array) -> Array: return world.mountain_rows())
+
 	# From the next mountain on: the clock running now keeps the limit it started with.
 	var minutes := add_cvar("dd_vote_minutes", str(world.config.mountain_minutes),
 		"Minutes a mountain is played before the vote for the next one (0: rock the vote only). From the next mountain on.")

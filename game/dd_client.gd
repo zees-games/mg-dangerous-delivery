@@ -478,6 +478,22 @@ func _build_settings() -> void:
 		)
 
 	_wire_board()
+	_wire_maps()
+
+
+## M: the mountain list (dot-menu's map menu). Solo a choice moves the world to that mountain's
+## routes at once; connected the server decides, by the owner's `sv_map_menu_flag`, and anybody
+## without it gets a vote instead (dot-vote's map menu, wired in [DdModule]). By name, so a
+## client shell older than the map menu still runs the game without it.
+func _wire_maps() -> void:
+	if settings == null or not settings.has_method(&"use_maps"):
+		return
+	var maps: Variant = settings.call(&"use_maps",
+		func() -> Array: return game.mountain_rows() if game != null else [],
+		func(id: StringName) -> DotResult: return game.set_mountain(id))
+	if maps is Object:
+		(maps as Object).set(&"title", "Change mountain")
+		(maps as Object).set(&"noun", "mountains")
 
 
 ## The Tab board: who is driving, in what, with how much money and how many deliveries, how

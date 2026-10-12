@@ -252,6 +252,21 @@ func _select_mountain() -> void:
 		documents[id] = library[id]
 
 
+## Every mountain this server can play, as the map menu (M) lists them: `{id, name, detail,
+## current}`, its routes under the name. Solo the client's list, online the server's (the
+## module hands it to dot-vote's map menu), so both say the same.
+func mountain_rows() -> Array:
+	var out: Array = []
+	for mountain in DdMountains.allowed(library):
+		var names := PackedStringArray()
+		for route_id in DdMountains.routes_of(mountain, library):
+			var doc: Variant = library.get(route_id)
+			names.append(str((doc as Dictionary).get("name", route_id)) if doc is Dictionary else String(route_id))
+		out.append({"id": String(mountain["id"]), "name": str(mountain["name"]), "current": mountain["id"] == mountain_id,
+			"detail": "%d routes: %s" % [names.size(), ", ".join(names)]})
+	return out
+
+
 ## Rebuilds the world on [param id]'s routes. Every trip ends first (the trucks go back to the
 ## lot: the road they were on may not exist any more), the rock goes, and
 ## [signal mountain_changed] tells the bridge to send the routes on. Already on it is a
