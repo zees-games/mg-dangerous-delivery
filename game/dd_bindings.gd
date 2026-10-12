@@ -50,7 +50,9 @@ static func make() -> DotMenuBindings:
 	keys.add(CAMERA, &"bind_camera", "Camera: chase, cab or high, where the server allows", "F5", "General")
 	keys.add(MENU, &"bind_menu", "Settings, help and leave, from the road", "O", "General")
 	keys.add(SCOREBOARD, &"bind_scoreboard", "Scoreboard (hold)", "Tab", "General")
-	return keys
+	# Defaults that moved under saved documents (solo left B for loadout, the camera left C for
+	# the family's F5): a player who never touched them follows, a key they chose stays.
+	return keys.renamed(&"bind_solo", ["B"]).renamed(&"bind_camera", ["C"])
 
 
 ## The HUD's short key list, as bound now: `[[key, what], ...]`.

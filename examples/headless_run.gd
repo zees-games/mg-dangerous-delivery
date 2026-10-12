@@ -8,6 +8,7 @@ extends Node
 ## aborts the section it is in and the section counter alone is satisfied by that.
 
 const DdGame := preload("res://game/dd_game.gd")
+const DdSettings := preload("res://game/dd_settings.gd")
 const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
@@ -20,7 +21,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 129
+const CHECKS := 131
 
 var _passed := 0
 var _failed := 0
@@ -781,6 +782,23 @@ func _test_the_client_settings() -> void:
 
 	remove_child(client)
 	client.free()
+	await get_tree().process_frame
+
+	# A document saved when solo was on B and the camera on C: both follow their new defaults,
+	# and a key the player chose stays where they put it.
+	var old_doc := DotSettingsStoreMemory.new()
+	var _saved := old_doc.save_document(DdSettings.APP_NAMESPACE, &"local", {"version": 1, "values": {
+		"bind_solo": "B", "bind_camera": "C", "bind_restart": "J",
+	}})
+	var returning := DdSettings.new()
+	add_child(returning)
+	var _set_up := returning.setup(old_doc, false)
+	var rk: DotMenuBindings = returning.bindings
+	_check(rk.key_for(&"dd_solo") == "K" and rk.key_for(&"dd_camera") == "F5",
+		"an old settings file with solo on B and the camera on C: they move to K and F5",
+		"%s %s" % [rk.key_for(&"dd_solo"), rk.key_for(&"dd_camera")])
+	_check(rk.key_for(&"dd_restart") == "J", "and a key the player chose is kept", rk.key_for(&"dd_restart"))
+	returning.queue_free()
 	await get_tree().process_frame
 	_finished_section()
 
