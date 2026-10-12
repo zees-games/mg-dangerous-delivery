@@ -76,6 +76,11 @@ var _player_of_peer: Dictionary = {}
 var _key_of_session: Dictionary = {}
 var _peer_of_key: Dictionary = {}
 var _ready_peers: Dictionary = {}
+## Server: peers whose READY came before their seat ([method add_player]). A client sends READY
+## when its link says PLAYING, which the link decides itself after sending `loaded` on another
+## channel; over ENet with loss the READY can overtake `loaded`, and a READY dropped here left
+## that client waiting for a world for ever. Admitted when seated.
+var _ready_unseated: Dictionary = {}
 var _next_bot_session: int = FIRST_BOT_SESSION
 
 ## net id -> behaviour; and truck node / boulder node -> net id.
@@ -182,6 +187,11 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 	_peer_of_key[key] = peer_id
 	_key_of_session[session_id] = key
 	var _driver := game.join(key, display_name)
+
+	if _ready_unseated.has(peer_id):
+		_ready_unseated.erase(peer_id)
+		_admit(peer_id)
+
 	return DotResult.success(key)
 
 
@@ -213,6 +223,7 @@ func remove_peer(peer_id: int) -> void:
 	var key: StringName = _player_of_peer.get(peer_id, &"")
 	_player_of_peer.erase(peer_id)
 	_ready_peers.erase(peer_id)
+	_ready_unseated.erase(peer_id)
 
 	if key != &"":
 		_peer_of_key.erase(key)
@@ -242,6 +253,8 @@ func _admit(peer_id: int) -> void:
 	var key: StringName = _player_of_peer.get(peer_id, &"")
 
 	if key == &"":
+		if peer_id > 0:
+			_ready_unseated[peer_id] = true
 		return
 
 	_ready_peers[peer_id] = true

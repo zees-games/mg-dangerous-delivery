@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 12
-const CHECKS := 41
+const CHECKS := 42
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -162,10 +162,15 @@ func _build() -> bool:
 
 func _test_joining() -> void:
 	_section("a client joins")
+	# The READY first, as over ENet with loss: a client is PLAYING by its own reckoning once it has
+	# sent `loaded`, on another channel, so its READY can reach the server before its seat. Kept,
+	# and answered by the seat; a bridge that drops it never tells this client who it is.
+	_client_bridge.ask_ready()
+	_exchange()
+	_check(_client_bridge.local_key == &"", "a READY before the seat is told nothing yet")
 	var seated := _server_bridge.add_player(CLIENT_PEER, SESSION, "Ada")
 	_check(seated.ok, "the server seats them")
 	_key = seated.value
-	_client_bridge.ask_ready()
 	_exchange()
 	await _steps(4)
 	_check(_client_bridge.local_key == _key, "the client is told who it is", String(_client_bridge.local_key))

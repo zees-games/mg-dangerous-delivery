@@ -20,3 +20,4 @@ Kept because each could come back. Each was found by running or rendering.
 - **The lot ran off the left of a 1152-wide window** ("OUTES", "$64"): a fixed 1120 x 600 panel whose content pushed it wider. It is fitted to the window now (`DdGarage.fitted_size`).
 - **A stand-in nodded its front wheels off the road** after being put down, once the body's linear damping was gone: the suspension's damping is near Godot's typical values now (0.85 / 0.95).
 
+- **A READY that overtook the seat was dropped (2026-10-12).** A client sends READY when its link says PLAYING, which the link decides itself after sending `loaded` on another ENet channel. Through a lossy link the READY can reach the server first; `_admit` found no player for the peer and returned, and nothing asked again, so that client never got a world. Loopback and WebSocket order the two, so no suite could see it until `headless_net` sent the READY before the seat.

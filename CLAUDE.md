@@ -64,6 +64,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - **The road's trimesh is the only floor.** The mountain collides with nothing and is held under the road by `BAND` (8 m, more than a cell's diagonal); `headless_run` checks every half metre of every road. [terrain](docs/terrain.md)
 - `PackedVector3Array` is copy-on-write; Godot's front face is clockwise. [terrain](docs/terrain.md#the-road)
 - **Nothing is predicted.** The drive is four bytes a tick; bodies ride snapshots; everything else is JSON; HELLO carries what a client needs to compute weather and roads itself. [netcode](docs/netcode.md)
+- **A READY before the player is seated is kept** (`_ready_unseated` in the bridge) and answered by `add_player`: over ENet with loss it overtakes the link's `loaded`, and a dropped READY left the client waiting for ever. `headless_net` sends it first (armed). [history](docs/history.md)
 - Every garage button and key is one ACT through `DdBridgeActs.run`, which offline calls directly; never a second code path.
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
