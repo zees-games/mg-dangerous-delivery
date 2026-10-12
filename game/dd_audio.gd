@@ -62,14 +62,20 @@ var others_heard: int = 0
 ## play test's capture gain). The one-shots came down 5 dB, so a rockfall, the brakes and the
 ## depot's chime stand out of the bed by more than before. Rain is 5 dB under the wind: its
 ## noise is broadband, and at the same level a rainy stage measured 6 LU louder than a snowy one.
-const OWN_IDLE_DB := -23.0
-const OWN_FULL_DB := -15.0
-const OTHER_DB := -22.0
-const RAIN_DB := -28.0
-const WIND_DB := -22.0
+##
+## [b]And then 17 dB up again, all together (2026-10-12).[/b] Measured on the Master bus with
+## dot-audio's `addons/dot_audio/tools/loudness.sh` over tools/loudness.tscn (Snowline, snow
+## and wind, two stand-ins) these levels read -35.1 LUFS, 18 units under the family's -17: the
+## shaped loops had already come down when the custom sink went, so the 9 dB cut was on top of
+## a fix. The balance between them is unchanged; dot-audio's master limiter is the backstop.
+const OWN_IDLE_DB := -6.0
+const OWN_FULL_DB := 2.0
+const OTHER_DB := -5.0
+const RAIN_DB := -13.0
+const WIND_DB := -5.0
 
 ## The one-shots' gain in the catalogue: the brakes, rock, the chime.
-const SHOT_DB := -9.0
+const SHOT_DB := 8.0
 
 ## m/s, signed: forward is positive.
 var speed: float = 0.0
@@ -83,6 +89,9 @@ var driving: bool = false
 
 var manager: DotAudioManager = null
 
+## The bed under the weather: dot-audio's stock (generated, CC0), per route and at the lot.
+var ambience: DotAudioAmbience = null
+
 var _was_braking := false
 ## Loop key -> {"id", "handle", "db", "pitch"}: what each loop is eased to, kept here so a
 ## loop that was stopped (silent, stolen, out of range) starts again where it was.
@@ -92,11 +101,28 @@ var _fed: Dictionary = {}
 
 
 static func ids() -> Array[StringName]:
-	return [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED]
+	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED]
+	# dot-audio's stock beds (and its footsteps, which nobody here walks to make). Appended:
+	# a typed array plus a typed array is an untyped one.
+	out.append_array(DotAudioStock.ids())
+	return out
+
+
+## Each route's bed under the weather, and the lot's: mountains are wind, the low valleys are
+## birds and a breeze. A route document's `"ambience"` wins.
+const ROUTE_BED := {
+	&"dd_foothills": &"amb_outdoor",
+	&"dd_river_cut": &"amb_outdoor",
+	&"dd_snowline": &"amb_wind",
+	&"dd_wind_ridge": &"amb_wind",
+	&"dd_devils_spine": &"amb_wind",
+}
+const LOT_BED := &"amb_outdoor"
 
 
 static func sound_catalogue() -> DotAudioCatalogue:
 	var c := DotAudioCatalogue.new()
+	DotAudioStock.add_to(c)
 
 	c.add(_def(ENGINE, 1, 90, true))
 	# Heard from 60 m, full at 6: a diesel carries further than a person's footsteps, and a
@@ -146,6 +172,13 @@ func setup() -> DotResult:
 	if not ready_now.ok:
 		return ready_now.wrap("delivery audio")
 
+	ambience = DotAudioAmbience.new()
+	ambience.name = "Ambience"
+	ambience.manager = manager
+	ambience.fallback_bed = LOT_BED
+	add_child(ambience)
+	ambience.set_map_bed(LOT_BED)
+
 	var godot_sink := manager.sink as DotAudioSinkGodot
 
 	if godot_sink != null:
@@ -165,6 +198,16 @@ func setup() -> DotResult:
 		DotLog.info(CHANNEL, "no audio device; sounds are resolved and not heard")
 
 	return DotResult.success(null)
+
+
+## The bed for where the truck is: a route's, or the lot's when [param route] is empty.
+func on_route(route: StringName, doc: Dictionary = {}) -> void:
+	if ambience == null:
+		return
+	if route == &"":
+		ambience.set_map_bed(LOT_BED)
+		return
+	ambience.set_map_bed(StringName(str(doc.get("ambience", ROUTE_BED.get(route, &"amb_wind")))))
 
 
 ## Where the ears are, once a frame: the camera.

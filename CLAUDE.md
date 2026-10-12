@@ -38,7 +38,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - `./game.sh` plays offline; `./game.sh online` runs a local server and browser client; `./game.sh test` parses and runs the four suites (`handling` measures every truck and load; `-- --only=<word>` for one section).
 - After a route change: `tools/build_routes.py --check` and `tools/drive.sh` (also `TRUCK=semi`, `TRUCK=bulk`).
-- After touching a sound or a level: `tools/loudness.sh` (`--sky=rain`, `--company=N`); the levels are `DdAudio`'s named constants. [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
+- After touching a sound or a level: `addons/dot_audio/tools/loudness.sh --no-walk --scene=res://tools/loudness.tscn [-- --sky=rain]` (the family's −17 LUFS band; `tools/loudness.sh` is the quick local one); the levels are `DdAudio`'s named constants, a route's bed is `DdAudio.ROUTE_BED`. [design](docs/design.md#sound-is-a-dot-audio-catalogue-and-every-loop-is-shaped)
 - After touching a camera, the road, the terrain or a gate: `tools/camera_check.sh` (every road, armed; `--render` for frames). [design](docs/design.md#the-cameras-stay-out-of-the-mountain-and-the-server-may-hold-one)
 - **Render after touching the road, the terrain, the HUD or the lot** (`tools/shot.sh`; `--ballot` for the mountain vote, `--chat=8` for a full chat log, `--mountain=<id>` for the lot on another mountain): every mountain problem was found only in a picture. [testing](docs/testing.md)
 

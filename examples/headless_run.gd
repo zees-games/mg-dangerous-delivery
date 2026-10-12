@@ -914,7 +914,8 @@ func _test_sound_and_effects() -> void:
 	var ids: Array = DdAudio.call("ids")
 	_check(
 		catalogue.validate().ok and ids.all(func(id: StringName) -> bool:
-			return catalogue.find(id) != null and stand_ins.has(id)),
+			# dot-audio's stock beds and footsteps are files the addon ships: no stand-in needed.
+			return catalogue.find(id) != null and (stand_ins.has(id) or DotAudioStock.ids().has(id))),
 		"every sound the game names is in its catalogue, with a stand-in", str(ids))
 
 	# The world the sections above drove is in the same physics space, with its trucks and

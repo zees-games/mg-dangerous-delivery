@@ -728,6 +728,9 @@ func _process(delta: float) -> void:
 			audio.braking = driven != null and driven.brake > 0.1
 			audio.weather = facts.get("weather", {})
 
+		var route := StringName(str(facts.get("route", "")))
+		audio.on_route(route)
+
 	if facts.is_empty():
 		_set_weather({"sky": DdWeather.CLEAR, "wind": false})
 
@@ -767,6 +770,7 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)),
 			"speed": _speed_of(me), "offer": trip.pay_now(game.config),
 			"weather": game.weather_at(trip.route_id, trip.distance), "state": trip.state_name(),
+			"route": String(trip.route_id),
 			"zone": str((road.doc.get("zones", {}) as Dictionary).get(zone_id, {}).get("name", "")),
 		}
 
