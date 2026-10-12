@@ -1,0 +1,58 @@
+extends RefCounted
+
+## Every key this game reads, as one dot-menu [DotMenuBindings] table: the action, the setting
+## that stores it, the words a player sees, the default, and the card it goes on.
+##
+## [b]A table, because four things read it:[/b] the client matches events against the actions
+## and polls the driving rows, the settings document stores one binding per row, the menu's
+## Controls page draws a key per row, and the help screen (H) and the HUD's key list name
+## the key each is on now. Until 2026-10-11 these were keycodes in `DdClient`, and the HUD's
+## list was a sentence typed beside them.
+##
+## [b]The arrow keys drive as well[/b], through Godot's `ui_*` actions, which no row holds:
+## they are the second set every driving game has, and a row would make them rebindable away.
+## Escape is the lot, as G is, and is in no row because no row may hold it. H is help, in
+## every game of the family (dot-menu adds the row), so nothing here may default to it.
+
+const THROTTLE := &"dd_throttle"
+const BRAKE := &"dd_brake"
+const LEFT := &"dd_left"
+const RIGHT := &"dd_right"
+const HANDBRAKE := &"dd_handbrake"
+const RESPAWN := &"dd_respawn"
+const RESTART := &"dd_restart"
+const SKIP := &"dd_skip"
+const SOLO := &"dd_solo"
+const CAMERA := &"dd_camera"
+const GARAGE := &"dd_garage"
+const MENU := &"dd_menu"
+const SCOREBOARD := &"dd_scoreboard"
+
+
+static func make() -> DotMenuBindings:
+	var keys := DotMenuBindings.new()
+	keys.add(THROTTLE, &"bind_throttle", "Accelerate", "W", "Driving")
+	keys.add(BRAKE, &"bind_brake", "Brake, then reverse once stopped", "S", "Driving")
+	keys.add(LEFT, &"bind_steer_left", "Steer left", "A", "Driving")
+	keys.add(RIGHT, &"bind_steer_right", "Steer right", "D", "Driving")
+	keys.add(HANDBRAKE, &"bind_handbrake", "Handbrake", "Space", "Driving")
+
+	keys.add(RESPAWN, &"bind_respawn", "Back to the last checkpoint (costs what a fall costs)", "R", "The trip")
+	keys.add(RESTART, &"bind_restart", "Restart the trip", "T", "The trip")
+	keys.add(SKIP, &"bind_skip", "Skip a stage (costs part of the pay)", "N", "The trip")
+	keys.add(SOLO, &"bind_solo", "Solo: nobody sees you, and nothing of yours collides", "B", "The trip")
+	keys.add(GARAGE, &"bind_garage", "Back to the lot (Esc too)", "G", "The trip")
+
+	keys.add(CAMERA, &"bind_camera", "Camera: chase, cab or high", "C", "General")
+	keys.add(MENU, &"bind_menu", "Settings, help and leave, from the road", "O", "General")
+	keys.add(SCOREBOARD, &"bind_scoreboard", "Scoreboard (hold)", "Tab", "General")
+	return keys
+
+
+## The HUD's short key list, as bound now: `[[key, what], ...]`.
+static func hud_lines(keys: DotMenuBindings) -> Array:
+	var out: Array = []
+	for row in [[RESPAWN, "respawn"], [RESTART, "restart"], [SKIP, "skip stage"], [SOLO, "solo"],
+			[CAMERA, "camera"], [GARAGE, "garage"], [DotMenuBindings.HELP_ACTION, "help"]]:
+		out.append([keys.key_for(row[0]) if keys != null else "?", row[1]])
+	return out

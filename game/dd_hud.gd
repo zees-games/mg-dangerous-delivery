@@ -69,14 +69,18 @@ func _ready() -> void:
 	_speed.offset_right = -20.0
 	_speed.offset_bottom = -16.0
 
-	# The keys, down the right side.
-	_keys = _label(self, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage", 15)
+	# The keys, down the right side: the defaults until the client says what is bound
+	# ([method show_keys]).
+	_keys = _label(self, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
 	_keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
 	_keys.offset_left = -150.0
 	_keys.offset_right = -14.0
-	_keys.offset_top = -70.0
-	_keys.offset_bottom = 70.0
-	_keys.modulate = Color(1, 1, 1, 0.75)
+	_keys.offset_top = -80.0
+	_keys.offset_bottom = 80.0
+	# Nearly opaque, with a heavier outline: it is read over snow and sky, where the faded list
+	# disappeared.
+	_keys.modulate = Color(1, 1, 1, 0.95)
+	_keys.add_theme_constant_override("outline_size", 6)
 
 	# A line in the middle for a checkpoint, a fall, a delivery.
 	_message = _label(self, "", 36, HORIZONTAL_ALIGNMENT_CENTER)
@@ -87,6 +91,16 @@ func _ready() -> void:
 	_message.offset_bottom = -60.0
 	_message.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_message.add_theme_constant_override("outline_size", 8)
+
+
+## The key list down the right side, as bound now: `[[key, what], ...]` (`DdBindings.hud_lines`).
+func show_keys(lines: Array) -> void:
+	if _keys == null:
+		return
+	var text := PackedStringArray()
+	for line in lines:
+		text.append("%s  %s" % [str(line[0]), str(line[1])])
+	_keys.text = "\n".join(text)
 
 
 func _label(parent: Node, text: String, size: int, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:

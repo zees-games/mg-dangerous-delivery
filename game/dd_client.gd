@@ -8,6 +8,7 @@ extends Node3D
 ## this client owns, and against a server will be a mirror the bridge keeps. Nothing here
 ## decides a price, a checkpoint or a fall.
 
+const DdBindings := preload("dd_bindings.gd")
 const DdGame := preload("dd_game.gd")
 const DdHud := preload("dd_hud.gd")
 const DdGarage := preload("dd_garage.gd")
@@ -434,6 +435,15 @@ func _build_settings() -> void:
 		# opening it stops the player and frees the pointer exactly as the menu does.
 		console = DotConsoleKit.build(self, settings.settings, settings.menu)
 
+	# The HUD's key list from the table, now and whenever the menu closes (a key may have
+	# moved on its Controls page).
+	if hud != null:
+		hud.show_keys(DdBindings.hud_lines(settings.bindings))
+	if settings.menu != null and hud != null:
+		settings.menu_state_changed.connect(func(any_open: bool) -> void:
+			if not any_open:
+				hud.show_keys(DdBindings.hud_lines(settings.bindings)))
+
 	if settings.menu != null and garage != null:
 		# [b]The lot steps aside while the settings are up.[/b] The menu's panel sits over the
 		# lot's three columns of text, and the first render of the old one had the route list
@@ -508,7 +518,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 
 	# The Tab board, held: shown while the key is down, released when it comes up.
-	if key != null and key.physical_keycode == KEY_TAB and not key.echo:
+	if key != null and key.is_action(DdBindings.SCOREBOARD) and not key.echo:
 		_show_board(key.pressed)
 		return
 
@@ -518,23 +528,24 @@ func _unhandled_input(event: InputEvent) -> void:
 	if chat != null and chat.is_typing():
 		return
 
-	match key.keycode:
-		KEY_B:
-			_act("solo")
-		KEY_R:
-			_act("respawn")
-		KEY_T:
-			_act("restart")
-		KEY_N:
-			_act("skip")
-		KEY_C:
-			camera_mode = (camera_mode + 1) % 3 as CameraMode
-		KEY_O:
-			# The settings from the road, where the lot's button is not on screen.
-			if settings != null:
-				settings.open()
-		KEY_G, KEY_ESCAPE:
-			_act("garage")
+	# Each a row of [DdBindings], matched by its action so a key moved on the Controls page
+	# moves what it does here. Escape is a keycode: no row may hold it.
+	if key.is_action(DdBindings.SOLO):
+		_act("solo")
+	elif key.is_action(DdBindings.RESPAWN):
+		_act("respawn")
+	elif key.is_action(DdBindings.RESTART):
+		_act("restart")
+	elif key.is_action(DdBindings.SKIP):
+		_act("skip")
+	elif key.is_action(DdBindings.CAMERA):
+		camera_mode = (camera_mode + 1) % 3 as CameraMode
+	elif key.is_action(DdBindings.MENU):
+		# The settings from the road, where the lot's button is not on screen.
+		if settings != null:
+			settings.open()
+	elif key.is_action(DdBindings.GARAGE) or key.physical_keycode == KEY_ESCAPE:
+		_act("garage")
 
 
 func _say_refusal(result: DotResult) -> void:
@@ -579,10 +590,10 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.brake = 1.0
 		return out
 
-	var forward := Input.get_action_strength("ui_up") + (1.0 if Input.is_key_pressed(KEY_W) else 0.0)
-	var back := Input.get_action_strength("ui_down") + (1.0 if Input.is_key_pressed(KEY_S) else 0.0)
-	var left := Input.get_action_strength("ui_left") + (1.0 if Input.is_key_pressed(KEY_A) else 0.0)
-	var right := Input.get_action_strength("ui_right") + (1.0 if Input.is_key_pressed(KEY_D) else 0.0)
+	var forward := Input.get_action_strength("ui_up") + _held(DdBindings.THROTTLE, KEY_W)
+	var back := Input.get_action_strength("ui_down") + _held(DdBindings.BRAKE, KEY_S)
+	var left := Input.get_action_strength("ui_left") + _held(DdBindings.LEFT, KEY_A)
+	var right := Input.get_action_strength("ui_right") + _held(DdBindings.RIGHT, KEY_D)
 	var speed := _speed_of(me)
 
 	# One key for slowing down and reversing, which is how every driving game does it: brake
@@ -593,8 +604,16 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.throttle = clampf(forward, 0.0, 1.0) - clampf(back, 0.0, 1.0)
 
 	out.steer = clampf(right - left, -1.0, 1.0)
-	out.handbrake = Input.is_key_pressed(KEY_SPACE)
+	out.handbrake = _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0
 	return out
+
+
+## 1 while [param action] is held, as bound ([DdBindings]); the default key where nothing has
+## put the action on the InputMap (a suite with no settings).
+static func _held(action: StringName, fallback: Key) -> float:
+	if InputMap.has_action(action):
+		return 1.0 if Input.is_action_pressed(action) else 0.0
+	return 1.0 if Input.is_key_pressed(fallback) else 0.0
 
 
 ## Another truck's engine, where it is, fed every frame.

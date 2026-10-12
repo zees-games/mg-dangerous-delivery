@@ -1,5 +1,7 @@
 extends DotMenuSettings
 
+const DdBindings := preload("dd_bindings.gd")
+
 ## A player's own settings and the menu that changes them: how wide the view is, how loud the
 ## game is, the window, and the look of the menu itself. The lot's SETTINGS button and O open
 ## it; Escape is the garage's.
@@ -52,11 +54,14 @@ func _init() -> void:
 	schema = schema_for()
 	config = DotMenuConfig.new()
 	config.brand_name = "Dangerous Delivery"
-	# Nothing to leave to and no keys table to help with; Escape and Resume close the menu.
-	config.show_help = false
-	config.show_leave = false
+	# Help and Leave are dot-menu's stock: H opens help, Leave leaves the server or quits a
+	# solo game. Every game in the family has both (the first play test found this one with
+	# neither). The keys are a table now ([DdBindings]), so the help screen lists them.
+	bindings = DdBindings.make()
 	# Escape is the garage; O and the lot's button open this.
 	config.open_on_pointer_release = false
+	# The HUD's own key list says H (`DdHud.show_keys`); a corner plate would say it twice.
+	config.help_hint = &"off"
 	var _layered := config.load_layered()
 
 
@@ -69,3 +74,10 @@ static func schema_for() -> DotSettingsSchema:
 		DotSettingsDef.Scope.SERVER_CLAMPED
 	))
 	return DotMenuStock.declare(s, DotMenuStock.DEFAULT_GROUPS, null, NOT_APPLIED)
+
+
+## The help screen's goal and rules; the keys come from [DdBindings].
+func _fill_help(help: DotMenuHelp) -> void:
+	help.about = "Drive a loaded truck up mountain roads with no rails, through the weather and falling rock, and deliver it. A route is a level; a harder truck and worse weather pay more."
+	help.add_text("The trip", "A fall or a truck on its side sends you back to the last checkpoint, and that costs money. Skipping a stage costs part of the pay. Solo hides you from everybody, so nobody can knock you off.")
+	help.add_text("The lot", "Escape (or G) takes you back to the lot, where the pay buys trucks and upgrades and you pick the next route. Its Settings button and O open this menu.")

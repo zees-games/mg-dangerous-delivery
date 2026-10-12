@@ -20,7 +20,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 115
+const CHECKS := 120
 
 var _passed := 0
 var _failed := 0
@@ -672,6 +672,39 @@ func _test_the_client_settings() -> void:
 	tab.pressed = false
 	client.call("_unhandled_input", tab)
 	_check(board != null and not board.is_open(), "and letting go puts it away")
+
+	# The family's rule since the first play test: H opens help, nothing else in the table is
+	# on H, the Escape menu (here O and the lot's button) has Help and Leave, and the HUD's
+	# key list is the table's.
+	var keys: DotMenuBindings = settings.bindings
+	_check(keys.key_for(DotMenuBindings.HELP_ACTION) == "H" and keys.defaults_on("H").size() == 1,
+		"help is on H, and nothing else in the table is")
+	var h := InputEventKey.new()
+	h.physical_keycode = KEY_H
+	h.keycode = KEY_H
+	h.pressed = true
+	_check(menu.handle_event(h) and menu.help.is_open() and menu.help.about != ""
+		and menu.help.heading() == "How to play Dangerous Delivery",
+		"H opens the help screen, which says what the game is before the keys")
+	menu.help.close()
+	settings.open()
+	var leave := menu.screen.find_child("Action_leave", true, false) as Button
+	_check(menu.screen.find_child("Action_help", true, false) != null and leave != null and leave.visible,
+		"the menu has Help & commands and Leave")
+	settings.close()
+	var hud_keys := client.get("hud").get("_keys") as Label
+	_check(hud_keys != null and hud_keys.text.contains("H  help") and hud_keys.text.contains("R  respawn"),
+		"the HUD's key list comes from the table, and says H", hud_keys.text if hud_keys != null else "")
+	# This client's settings are the machine's real document, so the key is put back where it
+	# was rather than every key reset.
+	var restart_row := keys.row_for_action(&"dd_restart")
+	var was := keys.stored(restart_row, settings.settings)
+	var _r: DotResult = keys.rebind(restart_row, "J", settings.settings)
+	settings.open()
+	settings.close()
+	_check(hud_keys != null and hud_keys.text.contains("J  restart"), "and a key moved in the menu moves there too",
+		hud_keys.text if hud_keys != null else "")
+	var _back: DotResult = keys.rebind(restart_row, was, settings.settings)
 
 	remove_child(client)
 	client.free()

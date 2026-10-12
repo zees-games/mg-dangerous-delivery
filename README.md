@@ -33,6 +33,9 @@ You start in the lot with a box truck and no money. Pick a route, set off, and g
 | **B** | Solo: nobody sees you, nothing of yours collides, and you see nobody |
 | **C** | Camera: chase, cab or high |
 | **G** / **Esc** | Back to the lot |
+| **O** | Menu: settings (every key above can be rebound), help, and leave. The lot's Settings button opens it too |
+| **H** | Help: the rules and every key as you have it bound |
+| **Tab** (hold) | Scoreboard |
 
 ## Getting started
 You need [Godot 4.7](https://godotengine.org/download). The game is built from many Dot addons, each in its own repository, so the easiest way to get everything is [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap). It clones every project and links the addons into each one:

@@ -41,6 +41,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 ## Rules
 
+- **Every key is a `DdBindings` row read through its action** (driving polls the actions; the arrows drive too, through `ui_*`, which no row holds); the HUD's key list is `DdBindings.hud_lines`. H is help (dot-menu's stock key; `DdSettings._fill_help`), so no row may default to H. Escape stays the lot; the menu with Help and Leave is O and the lot's Settings button. `headless_run` checks it.
 - **A player is their truck.** `DdTruck` binds `DotVehicleInstance` and `DotVehicleWheeled` itself; `DdGame` calls `drive()` once a tick. Do not bring in `DotVehicleRide`. [design](docs/design.md)
 - A route is a level and a corner of one world; a new route is a file in `routes/`. Hairpins always put the cliff on the inside. [design](docs/design.md#one-world-holds-every-route-and-a-route-is-a-level)
 - **A map is a mountain: a named set of routes** (`DdMountains`). `library` is every route loaded, `documents` the mountain's; only `set_mountain` changes it, and it ends every trip first. The vote is TIME_LIMIT on dot-vote's clock (no rounds), its change waits for people mid-haul (`note_road_clear`), and every change goes through `DdModule._change_mountain` so the clock and the world agree. [design](docs/design.md#a-mountain-is-a-set-of-routes-and-the-players-vote-for-the-next-one)
