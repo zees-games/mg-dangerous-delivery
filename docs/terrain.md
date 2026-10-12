@@ -26,4 +26,4 @@
 
 ## Not done
 
-From above each route is still its own island in the lake with a steep face to the water; one terrain under the whole world would join them at the cost of the per-route build, which has not been timed in a browser. Grid lines show on the steepest faces at 5 m cells. A dark arch beside one route's depot, seen from above, is the massif's edge steepening into the lake and was left.
+From above each route is still its own island with a steep face to the water; the land ([world.md](world.md)) now reaches every island's start by a road, but the islands' mountains are not joined to it or to each other. One terrain under the whole world would join them at the cost of the per-route build, which has not been timed in a browser. Grid lines show on the steepest faces at 5 m cells. A dark arch beside one route's depot, seen from above, is the massif's edge steepening into the lake and was left.

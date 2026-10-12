@@ -74,7 +74,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Every garage button and key is one ACT through `DdBridgeActs.run`, which offline calls directly; never a second code path.
 - Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
-- The HUD follows the menu's theme and HUD size (`DdHud.follow_menu`, dot-menu's `follow_hud` by name, from `DdClient` after `DotConsoleKit.build`); `DdHud.piece_theme()` is the accent only (amber highlight and edge, the money's green as good), the plates are restyled from the theme's `plate` on every theme change, and Labels set no colour of their own except the accent lines (money, solo, the load's warnings, messages). `headless_run` checks the default and a theme change.
+- The HUD follows the menu's theme and HUD size (`DdHud.follow_menu`, after `DotConsoleKit.build`); `DdHud.piece_theme()` is the accent only, plates restyle from the theme's `plate`, and no Label sets a colour except the accent lines. `headless_run` checks the default and a theme change.
 - The lot moves left of any visible `dot_hud_cover` Control over it (the shell's ballots); read the group by its string, never a dot-ui constant. [design](docs/design.md#the-lot-makes-room-for-a-ballot)
 - The lot also lifts and shortens (to `LOT_MIN_HEIGHT`) above the rows the chat log is drawing (`DdGarage.chat_window`); a full log lay over the routes column. `headless_run`'s lot section checks it. [design](docs/design.md#the-lot-makes-room-for-a-ballot)
 - A sound or shake the server's world causes reaches a connected client as an event (appended to `DdEvents.Kind`) re-emitted on the mirror world, where the offline handler already listens; never an offline-only `connect`. [netcode](docs/netcode.md)
@@ -85,4 +85,4 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 ## Not yet done
 
-Nobody has driven it in the web shell (`examples/delivery_client` in dot-server-deploy proves the pack, the socket and the driving). Publishing the pack (`tmc/delivery`) follows the family's release order. The mountain is still one island per route; see [terrain](docs/terrain.md#not-done).
+Nobody has driven it, or walked the lot, in the web shell (`examples/delivery_client` in dot-server-deploy proves the pack, the socket and the driving; `tools/burst_all_games.sh delivery` the join's bytes). Publishing the pack (`tmc/delivery`) follows the family's release order, after a dot-player-char tag at API 3 (the people). Stand-ins still set off onto a route without driving from the lot to its gate. The islands' mountains are not joined to the land; see [terrain](docs/terrain.md#not-done).
