@@ -139,6 +139,11 @@ func _game_load() -> DotResult:
 	# the same mountain.
 	_quota = DotBotQuota.install(self, world.config.bots)
 
+	# How well the stand-ins drive: dot-bot's `bot_difficulty` (easy, medium, hard, nightmare;
+	# medium by default) and the `bot_*` settings it bundles, held on the game. A road reads two
+	# of them, `bot_aggression` and `bot_reaction` (see [method DdGame.tune_stand_in]).
+	var _bot_cvars := DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)
+
 	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
 	# rather than removed because every shipped config sets it; left as its own number it
 	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.
@@ -412,11 +417,20 @@ func _keep_bots() -> void:
 	var wanted := _quota.wanted(humans, slots)
 
 	while _bot_keys.size() < wanted:
-		_bot_keys.append(bridge.call("add_bot", "Hauler %d" % (_bot_keys.size() + 1)))
+		_bot_keys.append(bridge.call("add_bot", _bot_name(world)))
 
 	# Newest first, so the stand-ins that have been driving longest keep driving.
 	while _bot_keys.size() > wanted:
 		bridge.call("remove_bot", _bot_keys.pop_back())
+
+
+## A name for a stand-in from dot-bot's pool that nobody on the mountain has, so the board
+## and the feed read like people ("Hauler 2" read like a placeholder in the first play test).
+static func _bot_name(world: DdGame) -> String:
+	var taken: Array = []
+	for key: StringName in world.drivers:
+		taken.append((world.drivers[key] as DdGame.Driver).name)
+	return DotBotNames.pick(taken, world.drivers.size())
 
 
 func _on_say_requested(peer_id: int, channel_id: StringName, text: String) -> void:

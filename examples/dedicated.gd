@@ -8,7 +8,7 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 
 const SECTIONS := 8
-const CHECKS := 49
+const CHECKS := 51
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -216,10 +216,33 @@ func _test_stand_ins() -> void:
 	var bots_after: int = (module.get("_bot_keys") as Array).size()
 	_check(bots_after == bots_before, "and a stand-in comes back when they leave",
 		"%d -> %d" % [bots_with, bots_after])
+	# Named from dot-bot's pool, never a numbered placeholder; driven at `bot_difficulty`.
+	var names: Array = []
+	for k: StringName in game.drivers:
+		names.append((game.drivers[k] as DdGame.Driver).name)
+	_check(names.size() == 2 and names.all(func(n: String) -> bool: return DotBotNames.POOL.has(n)),
+		"stand-ins are named from dot-bot's pool", str(names))
+	var stand_in: DdGame.Driver = game.drivers[_bot_keys_of(module)[0]]
+	var medium_pace := stand_in.autopilot.target_speed
+	var medium_brake := stand_in.autopilot.brake_gain
+	var _hard := _run_command("bot_difficulty nightmare")
+	game.tune_stand_in(stand_in.autopilot)
+	var fast_pace := stand_in.autopilot.target_speed
+	var _easy := _run_command("bot_difficulty easy")
+	game.tune_stand_in(stand_in.autopilot)
+	_check(is_equal_approx(medium_pace, DdGame.STAND_IN_SPEED) and is_equal_approx(medium_brake, DdGame.STAND_IN_BRAKE)
+			and fast_pace > medium_pace and stand_in.autopilot.target_speed < medium_pace and stand_in.autopilot.brake_gain < medium_brake,
+		"bot_difficulty sets how a stand-in drives: medium as before, nightmare faster, easy slower and braking late",
+		"%.1f / %.1f / %.1f m/s" % [stand_in.autopilot.target_speed, medium_pace, fast_pace])
+	var _back := _run_command("bot_difficulty medium")
 	var _none := _run_command("dd_bots 0")
 	await _seconds(2.5)
 	_check(game.drivers.is_empty(), "dd_bots 0 takes them away")
 	_finished_section()
+
+
+static func _bot_keys_of(module: Object) -> Array:
+	return module.get("_bot_keys") as Array
 
 
 ## The players' vote decides the next mountain, end to end through what a player types, on

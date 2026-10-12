@@ -442,8 +442,8 @@ func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 
 	if is_bot:
 		driver.autopilot = DotVehicleDriver.new()
-		driver.autopilot.target_speed = 11.0
 		driver.autopilot.waypoint_radius = 7.0
+		tune_stand_in(driver.autopilot)
 
 	driver_joined.emit(key)
 	return driver
@@ -525,6 +525,8 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 	_refresh_exceptions()
 
 	if driver.autopilot != null:
+		if driver.is_bot:
+			tune_stand_in(driver.autopilot)
 		driver.autopilot.set_route(_global_points(route_id, 0.0))
 
 	trip_started.emit(key, route_id)
@@ -1008,6 +1010,27 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 
 
 # --- Stand-ins ---------------------------------------------------------------
+
+## A stand-in's cruising speed and corner braking at `bot_difficulty medium`, m/s and gain.
+const STAND_IN_SPEED := 11.0
+const STAND_IN_BRAKE := 1.5
+
+
+## How a stand-in drives, from dot-bot's settings on this game (`bot_difficulty` and the
+## `bot_*` cvars the module binds), read again at the start of every trip so a changed preset
+## reaches the next one.
+##
+## [b]A driver's skill is its pace and when it reacts to a corner, not its aim.[/b] Two of the
+## settings mean the same thing on a road: `bot_aggression` is how hard it pushes (the speed it
+## holds on a straight, 0.92 to 1.12 of the medium pace), and `bot_reaction` is how soon it
+## brakes for a corner it is going too fast for (the brake gain, scaled by medium's reaction
+## over this one's: an easy stand-in brakes late and soft, a nightmare one early and hard).
+## Medium is exactly the numbers this game drove with before it had presets.
+func tune_stand_in(autopilot: DotVehicleDriver) -> void:
+	var p := DotBotSettings.of(self).profile
+	var medium := DotBotProfile.new()
+	autopilot.target_speed = STAND_IN_SPEED * (1.0 + 0.4 * (p.aggression - medium.aggression))
+	autopilot.brake_gain = clampf(STAND_IN_BRAKE * medium.reaction / maxf(p.reaction, 0.05), 0.5, 4.0)
 
 func _drive_bot(driver: Driver, delta: float) -> void:
 	# Somebody assisted only has the wheel taken; choosing a route and going home are theirs.

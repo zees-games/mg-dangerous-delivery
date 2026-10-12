@@ -20,4 +20,4 @@
 
 ## Operator surface
 
-Cvars include `bot_quota` (through `DotBotQuota`; `dd_bots` is its deprecated alias), `dd_solo`, `dd_skip`, `dd_rocks`, `dd_collide`; commands `dd_status`, `dd_bank`, `dd_weather`, `dd_give`. The Tab board's money, deliveries and truck come from the bank through `_game_board_fields`, server only.
+Cvars include `bot_quota` (through `DotBotQuota`; `dd_bots` is its deprecated alias), dot-bot's `bot_difficulty` and `bot_*` (stand-ins named from `DotBotNames`; a road reads `bot_aggression` as the pace on a straight and `bot_reaction` as how hard it brakes for a corner, medium being the old 11 m/s and gain 1.5: `DdGame.tune_stand_in`, applied at each trip's start), `dd_solo`, `dd_skip`, `dd_rocks`, `dd_collide`; commands `dd_status`, `dd_bank`, `dd_weather`, `dd_give`. The Tab board's money, deliveries and truck come from the bank through `_game_board_fields`, server only.
