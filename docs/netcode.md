@@ -17,7 +17,7 @@
 
 ## Names
 
-`DdModule._make_identity` is dot-platform's `DotPlatformIdentity` with no avatar schema (nobody is drawn; a player is their truck): it gives the site's name over the session's, and admission; authentication is the host's. Admission finishes after the seat, so `player_admitted` and `player_renamed` end in `DdNetBridge.rename`, a DRIVER sent again.
+`DdModule._make_identity` is dot-platform's `DotPlatformIdentity` with no avatar schema (a person on foot is drawn as one of the family's people picked from their key, `DdClient.look_of`; at the wheel, as their truck): it gives the site's name over the session's, and admission; authentication is the host's. Admission finishes after the seat, so `player_admitted` and `player_renamed` end in `DdNetBridge.rename`, a DRIVER sent again.
 
 ## Operator surface
 

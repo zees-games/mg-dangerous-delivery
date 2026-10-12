@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "range",
+	"name": "The Whole Range",
+	"blurb": "Every route this server has, side by side, a road from the lot to each.",
+	"order": 10,
+	"routes": []
+}

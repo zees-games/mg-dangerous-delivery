@@ -32,6 +32,7 @@ const DdBank := preload("dd_bank.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdMountains := preload("dd_mountains.gd")
+const DdMapDoc := preload("dd_map_doc.gd")
 const DdLot := preload("dd_lot.gd")
 const DdLand := preload("dd_land.gd")
 const DdGate := preload("dd_gate.gd")
@@ -47,19 +48,12 @@ const NET_SNAPSHOT_RATE := 30
 const NET_WORLD_EXTENT := 4096.0
 const SERVICE := &"delivery.game"
 
-## Metres between routes when they are laid side by side.
-const ROUTE_GAP := 160.0
-
 ## Seconds a truck that was just put down passes through other trucks, so two put on one
 ## checkpoint do not explode apart.
 const GHOST_SECONDS := 3.0
 
 ## Seconds a truck put back on a checkpoint is held on its brakes before it is the driver's.
 const SETTLE_SECONDS := 0.4
-
-## Metres of sea kept between an island's road and the lot's edge: the lot is laid out south
-## of every route, this far past the furthest south any road reaches.
-const LOT_CLEARANCE := 170.0
 
 ## Metres from a truck's side a person on foot can get in from.
 const GET_IN_REACH := 4.5
@@ -173,6 +167,10 @@ var library: Dictionary = {}
 ## The mountain the world holds (`DdMountains`). A client learns it from HELLO and MOUNTAIN.
 var mountain_id: StringName = DdMountains.DEFAULT
 
+## Every map this world can be laid out as: the game's own (`maps/`) and any a server's map
+## packs brought ([method load_directory]); a client adds the one it is sent. See [DdMapDoc].
+var maps: Array[Dictionary] = []
+
 ## route id -> DdRoute (in the tree, offset).
 var routes: Dictionary = {}
 
@@ -221,6 +219,7 @@ var _now: float = 0.0
 ## is in the tree: the first suite to try wrote to a null config.
 func _init() -> void:
 	config = DdConfig.new()
+	maps.assign(DdMountains.shipped())
 
 
 func _ready() -> void:
@@ -251,7 +250,7 @@ func _ready() -> void:
 
 	if authoritative:
 		var wanted := StringName(config.mountain)
-		mountain_id = wanted if not DdMountains.by_id(wanted).is_empty() else DdMountains.DEFAULT
+		mountain_id = wanted if not DdMountains.by_id(wanted, maps).is_empty() else DdMountains.DEFAULT
 		var _read := load_directory(DdPaths.rebase("res://%s" % config.route_directory) if not config.route_directory.begins_with("res://") and not config.route_directory.begins_with("user://") else config.route_directory)
 		build_routes()
 
@@ -276,7 +275,8 @@ func _apply_gravity() -> void:
 
 # --- Routes ------------------------------------------------------------------
 
-## Reads every `.json` in [param directory]. Returns how many were accepted.
+## Reads every `.json` in [param directory]: a route, or a map (its `kind` says which; a map
+## pack keeps both in its `routes/`). Returns how many routes were accepted.
 func load_directory(directory: String) -> int:
 	var dir := DirAccess.open(directory)
 
@@ -292,6 +292,16 @@ func load_directory(directory: String) -> int:
 
 		var path := directory.path_join(file)
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+
+		if parsed is Dictionary and str((parsed as Dictionary).get("kind", "")) == "map":
+			var added := add_map(parsed)
+
+			if not added.ok:
+				refused[file] = added.error.message
+				DotLog.warn(CHANNEL, "a map was refused", {"file": file, "why": added.error.message})
+
+			continue
+
 		var normal := DdRouteDoc.normalise(parsed)
 
 		if not normal.ok:
@@ -314,7 +324,7 @@ func load_directory(directory: String) -> int:
 ## [member documents] from [member library]: the routes [member mountain_id] holds, or every
 ## route when it holds none of the ones loaded (a mountain is a choice, never an empty world).
 func _select_mountain() -> void:
-	var ids := DdMountains.routes_of(DdMountains.by_id(mountain_id), library)
+	var ids := DdMountains.routes_of(DdMountains.by_id(mountain_id, maps), library)
 
 	if ids.is_empty():
 		ids = DdMountains.routes_of({}, library)
@@ -330,7 +340,7 @@ func _select_mountain() -> void:
 ## module hands it to dot-vote's map menu), so both say the same.
 func mountain_rows() -> Array:
 	var out: Array = []
-	for mountain in DdMountains.allowed(library):
+	for mountain in DdMountains.allowed(library, maps):
 		var names := PackedStringArray()
 		for route_id in DdMountains.routes_of(mountain, library):
 			var doc: Variant = library.get(route_id)
@@ -345,7 +355,7 @@ func mountain_rows() -> Array:
 ## [signal mountain_changed] tells the bridge to send the routes on. Already on it is a
 ## success that changes nothing. Server side.
 func set_mountain(id: StringName) -> DotResult:
-	var mountain := DdMountains.by_id(id)
+	var mountain := DdMountains.by_id(id, maps)
 
 	if mountain.is_empty():
 		return DotResult.fail(DotError.CODE_INVALID, "No mountain '%s'." % id)
@@ -392,7 +402,34 @@ func set_mountain(id: StringName) -> DotResult:
 
 ## The mountain's display name.
 func mountain_name() -> String:
-	return str(DdMountains.by_id(mountain_id).get("name", String(mountain_id)))
+	return str(map_doc().get("name", String(mountain_id)))
+
+
+## The map the world is laid out as now: the catalogue's document for [member mountain_id], or
+## the whole range laid out as ever when it has none.
+func map_doc() -> Dictionary:
+	var doc := DdMountains.by_id(mountain_id, maps)
+	return doc if not doc.is_empty() else DdMapDoc.fallback(String(mountain_id), String(mountain_id))
+
+
+## Adds (or replaces, by id) one map document, checked. A server's map packs, and a client
+## being sent the map it is on.
+func add_map(doc: Variant) -> DotResult:
+	var normal := DdMapDoc.normalise(doc)
+
+	if not normal.ok:
+		return normal
+
+	var map: Dictionary = normal.value
+
+	for i in maps.size():
+		if str(maps[i]["id"]) == str(map["id"]):
+			maps[i] = map
+			return normal
+
+	maps.append(map)
+	DdMountains.sort(maps)
+	return normal
 
 
 ## Builds every document as a route, side by side along +X. Rebuilds from scratch.
@@ -416,6 +453,9 @@ func build_routes() -> void:
 		var lb := int(documents[b]["level"])
 		return la < lb if la != lb else String(a) < String(b))
 
+	var layout: Dictionary = map_doc()["layout"]
+	var gap := float(layout["gap"])
+	var place: Dictionary = layout["place"]
 	var next_x := 0.0
 
 	for id: StringName in ids:
@@ -435,13 +475,20 @@ func build_routes() -> void:
 
 		lo = minf(lo, -DdRoute.PAD_SIZE.x * 0.5)
 		hi = maxf(hi, DdRoute.PAD_SIZE.x * 0.5)
-		route.position = Vector3(next_x - lo, 0.0, 0.0)
-		next_x += (hi - lo) + ROUTE_GAP
+
+		# Where the map puts its start line, or the next place west to east.
+		if place.has(String(id)):
+			var at: Array = place[String(id)]
+			route.position = Vector3(float(at[0]), 0.0, float(at[1]))
+		else:
+			route.position = Vector3(next_x - lo, 0.0, 0.0)
+			next_x += (hi - lo) + gap
+
 		routes[id] = route
 		route_order.append(id)
 
-		if next_x > NET_WORLD_EXTENT:
-			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": next_x})
+		if absf(route.position.x) + (hi - lo) > NET_WORLD_EXTENT:
+			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": route.position.x})
 
 	_build_lot()
 	_build_land()
@@ -458,10 +505,14 @@ func documents_in_order() -> Array:
 	return out
 
 
-## Builds the routes a server sent, on [param mountain] when it names one. Client side.
-func adopt_documents(docs: Array, mountain: StringName = &"") -> void:
+## Builds the routes a server sent, on [param mountain] when it names one, laid out as
+## [param map] (the server's document for it) when sent. Client side.
+func adopt_documents(docs: Array, mountain: StringName = &"", map: Variant = null) -> void:
 	if mountain != &"":
 		mountain_id = mountain
+
+	if map is Dictionary:
+		var _added := add_map(map)
 
 	documents.clear()
 
@@ -793,7 +844,8 @@ func garage_view(key: StringName) -> Dictionary:
 # --- The lot and walking -----------------------------------------------------
 
 ## The lot, south of every route: centred under their starts, past the furthest south any of
-## their roads reaches by [constant LOT_CLEARANCE]. Rebuilt with the routes.
+## their roads reaches by the map's `clearance` (170 m unless it says), or where the map puts
+## it. Rebuilt with the routes.
 func _build_lot() -> void:
 	if lot == null:
 		lot = DdLot.new()
@@ -813,7 +865,10 @@ func _build_lot() -> void:
 	if not routes.is_empty():
 		centre /= float(routes.size())
 
-	lot.position = Vector3(centre.x, 0.0, south + LOT_CLEARANCE + DdLot.SIZE.y * 0.5)
+	var layout: Dictionary = map_doc()["layout"]
+	var at: Array = layout["lot"]
+	lot.position = Vector3(float(at[0]), 0.0, float(at[1])) if at.size() == 2 \
+		else Vector3(centre.x, 0.0, south + float(layout["clearance"]) + DdLot.SIZE.y * 0.5)
 	var names := {}
 
 	for id: StringName in trucks.order:
@@ -853,6 +908,8 @@ func _build_land() -> void:
 	var order := routes_west_to_east()
 	var exits := lot.exit_points()
 	var lines := {}
+	var map := map_doc()
+	var via_of: Dictionary = map["layout"]["roads"]
 
 	for i in order.size():
 		var road: DdRoute = routes[order[i]]
@@ -865,7 +922,12 @@ func _build_land() -> void:
 		gate.build(order[i], gate_words(order[i]), draws)
 		gates[order[i]] = gate
 		# On to the route's pad, under the barrier: the deck meets the start, the gate stops it.
-		lines[order[i]] = _road_line(exits[i] if i < exits.size() else lot.global_position, at.origin, at.origin - at.basis.z * (GATE_SETBACK + 0.5))
+		var via: Array[Vector3] = []
+
+		for p: Array in via_of.get(String(order[i]), []):
+			via.append(Vector3(float(p[0]), lot.global_position.y, float(p[1])))
+
+		lines[order[i]] = _road_line(exits[i] if i < exits.size() else lot.global_position, at.origin, at.origin - at.basis.z * (GATE_SETBACK + 0.5), via)
 
 	var samples := PackedVector3Array()
 
@@ -875,6 +937,8 @@ func _build_land() -> void:
 		for k in range(0, road.points.size(), 3):
 			samples.append(road.points[k] + road.position)
 
+	land.hill_height = float(map["land"]["hills"])
+	land.coast = float(map["land"]["coast"])
 	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
 
 	# Each mountain held under the roads that cross its ground, now they are known.
@@ -892,9 +956,33 @@ func _build_land() -> void:
 ## A road from [param from] (a lot exit) to [param to] (a gate) and on to [param beyond] (the
 ## route's pad): straight out of the lot, a smooth bend, straight up to the gate. Both ends face
 ## north, so a cubic between them never turns back on itself.
-func _road_line(from: Vector3, to: Vector3, beyond: Vector3) -> PackedVector3Array:
+func _road_line(from: Vector3, to: Vector3, beyond: Vector3, via: Array[Vector3] = []) -> PackedVector3Array:
 	var a := from + Vector3(0.0, 0.0, -ROAD_OUT)
 	var b := to + Vector3(0.0, 0.0, ROAD_IN)
+
+	# Through the map's own points, by a Catmull-Rom curve that passes every one.
+	if not via.is_empty():
+		var knots: Array[Vector3] = [a + Vector3(0.0, 0.0, ROAD_OUT), a]
+		knots.append_array(via)
+		knots.append_array([b, b + Vector3(0.0, 0.0, -ROAD_IN)])
+		var curve := PackedVector3Array([from])
+
+		for k in range(1, knots.size() - 2):
+			var p0 := knots[k - 1]
+			var p1 := knots[k]
+			var p2 := knots[k + 1]
+			var p3 := knots[k + 2]
+			var pieces := maxi(int(p1.distance_to(p2) / 6.0), 2)
+
+			for j in pieces:
+				var t := float(j) / float(pieces)
+				curve.append(0.5 * (2.0 * p1 + (p2 - p0) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t + (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t))
+
+		curve.append(b)
+		curve.append(to)
+		curve.append(beyond)
+		return curve
+
 	var reach := a.distance_to(b) * 0.4
 	var c1 := a + Vector3(0.0, 0.0, -reach)
 	var c2 := b + Vector3(0.0, 0.0, reach)

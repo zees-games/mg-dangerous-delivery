@@ -280,7 +280,7 @@ func _test_the_mountain_vote() -> void:
 	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
 		ids.append(String(choice.id))
 
-	_check(ids == ["range", "low_country", "high_country"], "it offers every mountain", str(ids))
+	_check(ids == ["range", "low_country", "high_country", "long_haul"], "it offers every mountain (maps/, in their order)", str(ids))
 	_check(_said(_run_command("dd_mountain"), "low_country") and server.games.current_map() == "range",
 		"dd_mountain lists them, and the server reports the one it is on as its map", server.games.current_map())
 	_check(director.current_id() == &"range" and is_equal_approx(director.clock.duration, game.config.mountain_minutes * 60.0) \

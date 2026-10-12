@@ -31,8 +31,8 @@ const CHANNEL := "delivery.terrain"
 ## vertices; at 2.5 m the build took four times as long for detail the fog hides.
 const CELL := 5.0
 
-## How far the grid runs past the road on every side. Routes are [code]DdGame.ROUTE_GAP[/code]
-## (160 m) apart, so a neighbour's grid can overlap this one's edge but stops 50 m short of its
+## How far the grid runs past the road on every side. Routes are a map's `layout.gap` apart (160
+## m unless it says, and never under 120, [DdMapDoc]), so a neighbour's grid can overlap this one's edge but stops 50 m short of its
 ## road; where two overlap both are falling to the water and whichever is higher is the hill.
 ## At 80 m, the most that never overlaps, the last 35 m had to drop sixty metres and every route
 ## stood in the lake on a dark cliff of its own.

@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "high_country",
+	"name": "High Country",
+	"blurb": "The three hardest routes, from Snowline Pass up to the Devil's Spine.",
+	"order": 30,
+	"routes": ["dd_snowline", "dd_wind_ridge", "dd_devils_spine"]
+}

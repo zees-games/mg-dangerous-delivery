@@ -23,9 +23,10 @@ const DdLot := preload("res://game/dd_lot.gd")
 const DdNetBridge := preload("res://game/net/dd_net_bridge.gd")
 const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
+const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 24
-const CHECKS := 170
+const SECTIONS := 25
+const CHECKS := 176
 
 var _passed := 0
 var _failed := 0
@@ -63,6 +64,7 @@ func _ready() -> void:
 	await _test_buying_and_driving()
 	await _test_roads_and_gates()
 	_test_every_mountain()
+	_test_maps_are_documents()
 	await _test_a_delivery()
 	await _test_a_fall()
 	_test_solo()
@@ -562,18 +564,18 @@ func _test_every_mountain() -> void:
 	_section("every mountain on the ballot")
 	var named_all := true
 
-	for mountain in DdMountains.ALL:
+	for mountain in DdMountains.shipped():
 		var wanted: Array = mountain["routes"]
 		named_all = named_all and DdMountains.routes_of(mountain, game.library).size() == (wanted.size() if not wanted.is_empty() else game.library.size())
 
-	_check(named_all and DdMountains.allowed(game.library).size() == DdMountains.ALL.size(),
+	_check(named_all and DdMountains.allowed(game.library, game.maps).size() == DdMountains.shipped().size(),
 		"every mountain names only routes this game ships, and all are offered")
 
 	var built := true
 	var names_clean := true
 
-	for mountain in DdMountains.ALL:
-		var moved := game.set_mountain(mountain["id"])
+	for mountain in DdMountains.shipped():
+		var moved := game.set_mountain(StringName(str(mountain["id"])))
 		built = built and moved.ok and game.routes.size() == DdMountains.routes_of(mountain, game.library).size() \
 			and str(game.garage_view(&"anyone").get("mountain", "")) == mountain["name"]
 
@@ -590,8 +592,86 @@ func _test_every_mountain() -> void:
 		narrowed[StringName(id)] = game.library[StringName(id)]
 
 	var offered: Array = DdMountains.allowed(narrowed).map(func(m: Dictionary) -> String: return String(m["id"]))
-	_check(offered == ["range", "high_country"],
-		"a server narrowed to Low Country's routes offers it once, not under two names", str(offered))
+	_check(offered == ["range", "high_country", "long_haul"],
+		"a server narrowed to Low Country's routes offers that world once, not under two names (The Long Haul lays it out apart)", str(offered))
+	_finished_section()
+
+
+## The map system: a map is a document (`maps/`, or a map pack's `routes/` beside its routes)
+## saying which routes the world holds and how it is laid out; a bad one is refused in words; one
+## that places a route, the lot and a road's bends by hand is built exactly so; every shipped map
+## builds with every road reaching its gate and none crossing.
+func _test_maps_are_documents() -> void:
+	_section("maps are documents")
+	var files := DirAccess.get_files_at("res://maps")
+	var json_files := Array(files).filter(func(f: String) -> bool: return f.get_extension() == "json")
+	_check(json_files.size() == DdMountains.shipped().size() and json_files.size() >= 4 and str(DdMountains.shipped()[0]["id"]) == "range",
+		"every map in maps/ is read, in its order, the whole range first", "%d files" % json_files.size())
+	var bad := [
+		{"format": 1, "kind": "route", "id": "x"},
+		{"format": 1, "kind": "map", "id": "x", "layout": {"gap": 50}},
+		{"format": 1, "kind": "map", "id": "x", "layout": {"lot": [9000, 0]}},
+		{"format": 1, "kind": "map", "id": "x", "layout": {"roads": {"dd_foothills": [[1, 2, 3]]}}},
+		{"format": 1, "kind": "map", "id": "x", "routes": ["dd_foothills"], "layout": {"place": {"dd_snowline": [0, 0]}}},
+	]
+	var refused := bad.filter(func(d: Dictionary) -> bool: return not DdMapDoc.normalise(d).ok)
+	_check(refused.size() == bad.size(), "a map that is not one, too tight, off the world, a bend that is not a point, or a place for a route it does not hold, is refused",
+		"%d of %d" % [refused.size(), bad.size()])
+
+	var mine := {"format": 1, "kind": "map", "id": "test_map", "name": "Test Map", "routes": ["dd_foothills", "dd_river_cut"],
+		"layout": {"place": {"dd_river_cut": [-700, 260]}, "lot": [250, 1000], "roads": {"dd_foothills": [[120, 640]]}}, "land": {"hills": 10}}
+	var added := game.add_map(mine)
+	var moved := game.set_mountain(&"test_map")
+	var cut: DdRoute = game.routes.get(&"dd_river_cut", null)
+	_check(added.ok and moved.ok and game.routes.size() == 2 and cut != null and cut.position.is_equal_approx(Vector3(-700.0, 0.0, 260.0))
+		and game.lot.global_position.is_equal_approx(Vector3(250.0, 0.0, 1000.0)),
+		"a map that places a route and the lot by hand is built just so", str(cut.position) if cut != null else "")
+	var bend := INF
+	for p: Vector3 in game.land.roads[&"dd_foothills"]:
+		bend = minf(bend, Vector2(p.x - 120.0, p.z - 640.0).length())
+	_check(bend < 6.0 and game.gates.size() == 2, "and its road bends through the point it names", "%.1f m" % bend)
+
+	var every_map_sound := true
+	var why := ""
+	for mountain in DdMountains.shipped():
+		var _m := game.set_mountain(StringName(str(mountain["id"])))
+		for id: StringName in game.land.roads:
+			var line: PackedVector3Array = game.land.roads[id]
+			var gate: Node3D = game.gates[id]
+			if not game.lot.contains(line[0], 2.0) or line[line.size() - 1].distance_to(gate.global_position) > 3.0:
+				every_map_sound = false
+				why = "%s: %s does not join the lot to its gate" % [mountain["id"], id]
+		var keys: Array = game.land.roads.keys()
+		for i in keys.size():
+			for j in range(i + 1, keys.size()):
+				var a: PackedVector3Array = game.land.roads[keys[i]]
+				var b: PackedVector3Array = game.land.roads[keys[j]]
+				for m in range(2, a.size() - 1, 2):
+					for n in range(2, b.size() - 1, 2):
+						if Geometry2D.segment_intersects_segment(Vector2(a[m - 2].x, a[m - 2].z), Vector2(a[m].x, a[m].z), Vector2(b[n - 2].x, b[n - 2].z), Vector2(b[n].x, b[n].z)) != null:
+							every_map_sound = false
+							why = "%s: %s crosses %s" % [mountain["id"], keys[i], keys[j]]
+		for id: StringName in game.routes:
+			var road: DdRoute = game.routes[id]
+			for p in road.points:
+				if absf(p.x + road.position.x) > DdGame.NET_WORLD_EXTENT or absf(p.z + road.position.z) > DdGame.NET_WORLD_EXTENT:
+					every_map_sound = false
+					why = "%s: %s is past what the netcode places" % [mountain["id"], id]
+	_check(every_map_sound, "every shipped map builds: each road joins the lot to its gate, none cross, all within the netcode's reach", why)
+
+	# A map pack keeps its maps beside its routes: the document's kind says which it is.
+	var pack := "user://dd_test_map_pack"
+	DirAccess.make_dir_recursive_absolute(pack)
+	var file := FileAccess.open(pack.path_join("pack_map.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify({"format": 1, "kind": "map", "id": "pack_map", "name": "From A Pack", "routes": ["dd_snowline"], "order": 90}))
+	file.close()
+	DirAccess.copy_absolute("res://routes/dd_snowline.json", pack.path_join("dd_snowline.json"))
+	var read := game.load_directory(pack)
+	_check(read == 1 and not DdMountains.by_id(&"pack_map", game.maps).is_empty() and game.mountain_rows().any(func(r: Dictionary) -> bool: return r["id"] == "pack_map"),
+		"a map pack's routes/ brings its maps too, and they are on the M list", "%d routes" % read)
+	DirAccess.remove_absolute(pack.path_join("pack_map.json"))
+	DirAccess.remove_absolute(pack.path_join("dd_snowline.json"))
+	var _back := game.set_mountain(DdMountains.DEFAULT)
 	_finished_section()
 
 

@@ -290,7 +290,7 @@ func _admit(peer_id: int) -> void:
 	_tell(peer_id, DdEvents.Kind.HELLO, {
 		"you": String(key), "seed": game.seed_value, "tick_rate": game.tick_rate, "tick": net.clock.tick,
 		"routes": game.documents_in_order(), "weather": game.forced_weather,
-		"mountain": String(game.mountain_id), "mountain_name": game.mountain_name(),
+		"mountain": String(game.mountain_id), "mountain_name": game.mountain_name(), "map": game.map_doc(),
 		"config": {
 			"snow_grip": game.config.snow_grip, "rain_grip": game.config.rain_grip,
 			"weather_frequency": game.config.weather_frequency, "allow_solo": game.config.allow_solo,
@@ -537,7 +537,7 @@ func trip_view_of(key: StringName) -> Dictionary:
 ## with its own TRIP and DRIVER, before the world was rebuilt.
 func _on_mountain_changed(id: StringName) -> void:
 	_broadcast(DdEvents.Kind.MOUNTAIN, {
-		"mountain": String(id), "name": game.mountain_name(), "routes": game.documents_in_order(),
+		"mountain": String(id), "name": game.mountain_name(), "routes": game.documents_in_order(), "map": game.map_doc(),
 	})
 
 	for peer_id: int in _ready_peers.keys():
@@ -749,7 +749,7 @@ func _on_event(message: DotNetMessage) -> void:
 			_apply_body(data)
 		DdEvents.Kind.MOUNTAIN:
 			var id := StringName(str(data.get("mountain", "")))
-			game.adopt_documents(data.get("routes", []), id)
+			game.adopt_documents(data.get("routes", []), id, data.get("map", null))
 			mountain_received.emit(id, str(data.get("name", "")))
 		DdEvents.Kind.ROCK:
 			# On the mirror world, where the client listens for it offline too.
@@ -780,7 +780,7 @@ func _apply_hello(data: Dictionary) -> void:
 
 	var forced: Variant = data.get("weather", {})
 	game.forced_weather = forced if forced is Dictionary else {}
-	game.adopt_documents(data.get("routes", []), StringName(str(data.get("mountain", ""))))
+	game.adopt_documents(data.get("routes", []), StringName(str(data.get("mountain", ""))), data.get("map", null))
 	hello_received.emit(local_key)
 
 

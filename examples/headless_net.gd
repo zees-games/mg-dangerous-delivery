@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 15
-const CHECKS := 55
+const CHECKS := 56
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -520,6 +520,20 @@ func _test_another_mountain() -> void:
 		"the trip it was on ended, on both ends", str(_client_bridge.trip_view.get("on_road", "?")))
 	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 3 and str(_client_bridge.garage_view.get("mountain", "")) == "Low Country",
 		"and its garage lists the mountain's routes under its name", str(_client_bridge.garage_view.get("mountain", "")))
+	# A map only the server has (a map pack's): the client builds it from the document it is sent.
+	var only_here := {"format": 1, "kind": "map", "id": "server_only", "name": "Server Only", "routes": ["dd_foothills", "dd_wind_ridge"],
+		"layout": {"place": {"dd_wind_ridge": [-500, 200]}, "lot": [300, 900]}}
+	var _added := _server_game.add_map(only_here)
+	var _moved := _server_game.set_mountain(&"server_only")
+	_exchange()
+	await _steps(4)
+	var same_gates := _client_game.gates.size() == 2
+	for id: StringName in _server_game.gates:
+		same_gates = same_gates and _client_game.gates.has(id) \
+			and (_client_game.gates[id] as Node3D).global_position.distance_to((_server_game.gates[id] as Node3D).global_position) < 0.01
+	_check(_client_game.mountain_id == &"server_only" and _client_game.lot.global_position.is_equal_approx(_server_game.lot.global_position)
+		and (_client_game.routes[&"dd_wind_ridge"] as Node3D).position.is_equal_approx(Vector3(-500.0, 0.0, 200.0)) and same_gates,
+		"a map only the server has is sent with its routes, and the client lays the world out the same: the lot, the routes, the gates")
 	var _back := _server_game.set_mountain(&"range")
 	_exchange()
 	await _steps(2)

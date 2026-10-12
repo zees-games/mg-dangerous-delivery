@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "low_country",
+	"name": "Low Country",
+	"blurb": "The three gentlest routes, close together: a short drive from the lot to any of them.",
+	"order": 20,
+	"routes": ["dd_foothills", "dd_river_cut", "dd_snowline"]
+}

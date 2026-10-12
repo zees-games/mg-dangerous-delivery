@@ -32,8 +32,14 @@ const DdPaths := preload("dd_paths.gd")
 
 const CHANNEL := "delivery.land"
 
-## Metres between the heightfield's samples.
-const CELL := 8.0
+## Metres between the heightfield's samples at the finest, and the most samples across: a map
+## laid out wider than that many cells has coarser land, so the browser's frame and the
+## build's time stay what one ordinary map costs.
+const MIN_CELL := 8.0
+const MAX_ACROSS := 400
+
+## Metres between the heightfield's samples on this land.
+var cell: float = MIN_CELL
 
 ## Metres of margin round everything the land is built for.
 const MARGIN := 220.0
@@ -46,6 +52,11 @@ const SEA_FAR := 200.0
 ## the coast wanders either side of that.
 const COAST := 280.0
 const COAST_WANDER := 110.0
+
+## This land's hills and coast: the map's `land` ([DdMapDoc]), [constant HILL_HEIGHT] and
+## [constant COAST] unless it says.
+var hill_height: float = HILL_HEIGHT
+var coast: float = COAST
 
 ## The sea's floor under the land's edge (the routes draw the water itself, at their own level).
 const SEA_FLOOR := -66.0
@@ -125,9 +136,10 @@ func build(route_points: PackedVector3Array, lot_centre: Vector3, lot_size: Vect
 		lo.x = minf(lo.x, p.x)
 		hi.x = maxf(hi.x, p.x)
 
-	origin = (lo - Vector2(MARGIN, MARGIN)).snapped(Vector2(CELL, CELL))
-	nx = int(ceil((hi.x - lo.x + MARGIN * 2.0) / CELL)) + 1
-	nz = int(ceil((hi.y - lo.y + MARGIN * 2.0) / CELL)) + 1
+	cell = maxf(MIN_CELL, ceilf((hi.x - lo.x + MARGIN * 2.0) / float(MAX_ACROSS)))
+	origin = (lo - Vector2(MARGIN, MARGIN)).snapped(Vector2(cell, cell))
+	nx = int(ceil((hi.x - lo.x + MARGIN * 2.0) / cell)) + 1
+	nz = int(ceil((hi.y - lo.y + MARGIN * 2.0) / cell)) + 1
 
 	to_route = _distance_from(route_points, Rect2())
 	var road_points := PackedVector3Array()
@@ -157,8 +169,8 @@ func height_at(x: float, z: float) -> float:
 	if nx < 2 or nz < 2:
 		return SEA_FLOOR
 
-	var fx := (x - origin.x) / CELL
-	var fz := (z - origin.y) / CELL
+	var fx := (x - origin.x) / cell
+	var fz := (z - origin.y) / cell
 
 	if fx < 0.0 or fz < 0.0 or fx > float(nx - 1) or fz > float(nz - 1):
 		return SEA_FLOOR
@@ -218,22 +230,22 @@ func _distance_from(points: PackedVector3Array, area: Rect2) -> PackedFloat32Arr
 	out.fill(INF)
 
 	for p in points:
-		var gx := int(round((p.x - origin.x) / CELL))
-		var gz := int(round((p.z - origin.y) / CELL))
+		var gx := int(round((p.x - origin.x) / cell))
+		var gz := int(round((p.z - origin.y) / cell))
 
 		if gx < 0 or gz < 0 or gx >= nx or gz >= nz:
 			continue
 
 		var k := _index(gx, gz)
-		var v := Vector2(origin.x + float(gx) * CELL, origin.y + float(gz) * CELL)
+		var v := Vector2(origin.x + float(gx) * cell, origin.y + float(gz) * cell)
 		out[k] = minf(out[k], v.distance_to(Vector2(p.x, p.z)))
 
 	if area.has_area():
 		for k in count:
-			if area.has_point(Vector2(origin.x + float(k % nx) * CELL, origin.y + float(k / nx) * CELL)):
+			if area.has_point(Vector2(origin.x + float(k % nx) * cell, origin.y + float(k / nx) * cell)):
 				out[k] = 0.0
 
-	var diag := CELL * sqrt(2.0)
+	var diag := cell * sqrt(2.0)
 
 	for gz in nz:
 		for gx in nx:
@@ -241,9 +253,9 @@ func _distance_from(points: PackedVector3Array, area: Rect2) -> PackedFloat32Arr
 			var best := out[k]
 
 			if gx > 0:
-				best = minf(best, out[k - 1] + CELL)
+				best = minf(best, out[k - 1] + cell)
 			if gz > 0:
-				best = minf(best, out[k - nx] + CELL)
+				best = minf(best, out[k - nx] + cell)
 				if gx > 0:
 					best = minf(best, out[k - nx - 1] + diag)
 				if gx < nx - 1:
@@ -257,9 +269,9 @@ func _distance_from(points: PackedVector3Array, area: Rect2) -> PackedFloat32Arr
 			var best := out[k]
 
 			if gx < nx - 1:
-				best = minf(best, out[k + 1] + CELL)
+				best = minf(best, out[k + 1] + cell)
 			if gz < nz - 1:
-				best = minf(best, out[k + nx] + CELL)
+				best = minf(best, out[k + nx] + cell)
 				if gx < nx - 1:
 					best = minf(best, out[k + nx + 1] + diag)
 				if gx > 0:
@@ -286,14 +298,14 @@ func _distance_to_roads() -> void:
 			# No round end at the route's start: past the road's end is the route's own pad
 			# and the sea, and a bank there was a slope a truck could take round its gate.
 			var open_end := i == line.size() - 2
-			var x0 := maxi(int(floor((minf(a.x, b.x) - ROAD_REACH - origin.x) / CELL)), 0)
-			var x1 := mini(int(ceil((maxf(a.x, b.x) + ROAD_REACH - origin.x) / CELL)), nx - 1)
-			var z0 := maxi(int(floor((minf(a.y, b.y) - ROAD_REACH - origin.y) / CELL)), 0)
-			var z1 := mini(int(ceil((maxf(a.y, b.y) + ROAD_REACH - origin.y) / CELL)), nz - 1)
+			var x0 := maxi(int(floor((minf(a.x, b.x) - ROAD_REACH - origin.x) / cell)), 0)
+			var x1 := mini(int(ceil((maxf(a.x, b.x) + ROAD_REACH - origin.x) / cell)), nx - 1)
+			var z0 := maxi(int(floor((minf(a.y, b.y) - ROAD_REACH - origin.y) / cell)), 0)
+			var z1 := mini(int(ceil((maxf(a.y, b.y) + ROAD_REACH - origin.y) / cell)), nz - 1)
 
 			for gz in range(z0, z1 + 1):
 				for gx in range(x0, x1 + 1):
-					var v := Vector2(origin.x + float(gx) * CELL, origin.y + float(gz) * CELL)
+					var v := Vector2(origin.x + float(gx) * cell, origin.y + float(gz) * cell)
 					if open_end and (v - a).dot(b - a) > (b - a).length_squared():
 						continue
 
@@ -328,21 +340,21 @@ func _shape(lot_centre: Vector3, lot_size: Vector2) -> void:
 	var half_road := ROAD_WIDTH * 0.5 + SHOULDER
 
 	for k in count:
-		var x := origin.x + float(k % nx) * CELL
-		var z := origin.y + float(k / nx) * CELL
+		var x := origin.x + float(k % nx) * cell
+		var z := origin.y + float(k / nx) * cell
 		# Away from the lot, how far out of its rect.
 		var out := Vector2(maxf(absf(x - lot_centre.x) - lot_size.x * 0.5, 0.0), maxf(absf(z - lot_centre.z) - lot_size.y * 0.5, 0.0)).length()
 		var clear := minf(out, maxf(to_road[k] - half_road, 0.0))
 		var hills := _noise(x, z, HILL_CELL, 1) * 0.75 + _noise(x, z, HILL_CELL * 0.35, 2) * 0.25
-		var h := base_y - 0.6 + HILL_HEIGHT * hills * smoothstep(10.0, 140.0, clear)
+		var h := base_y - 0.6 + hill_height * hills * smoothstep(10.0, 140.0, clear)
 		# The sea round every island, and the coast a wandering way out from the lot and roads.
 		var land := smoothstep(SEA_NEAR, SEA_FAR, to_route[k])
-		var coast := COAST + _noise(x, z, 160.0, 3) * COAST_WANDER * 2.0
-		land *= 1.0 - smoothstep(coast - 70.0, coast + 70.0, to_core[k])
+		var shore := coast + _noise(x, z, 160.0, 3) * COAST_WANDER * 2.0
+		land *= 1.0 - smoothstep(shore - 70.0, shore + 70.0, to_core[k])
 		# And off the grid's edge.
 		var gx := k % nx
 		var gz := k / nx
-		var edge := float(mini(mini(gx, nx - 1 - gx), mini(gz, nz - 1 - gz))) * CELL
+		var edge := float(mini(mini(gx, nx - 1 - gx), mini(gz, nz - 1 - gz))) * cell
 		land *= smoothstep(0.0, 120.0, edge)
 		h = lerpf(SEA_FLOOR, h, land)
 
@@ -403,13 +415,13 @@ func _build_collision() -> void:
 	data.resize(nx * nz)
 
 	for k in nx * nz:
-		data[k] = heights[k] / CELL
+		data[k] = heights[k] / cell
 
 	shape.map_data = data
 	var collider := CollisionShape3D.new()
 	collider.shape = shape
-	collider.scale = Vector3(CELL, CELL, CELL)
-	collider.position = Vector3(origin.x + float(nx - 1) * CELL * 0.5, 0.0, origin.y + float(nz - 1) * CELL * 0.5)
+	collider.scale = Vector3(cell, cell, cell)
+	collider.position = Vector3(origin.x + float(nx - 1) * cell * 0.5, 0.0, origin.y + float(nz - 1) * cell * 0.5)
 	body.add_child(collider)
 	add_child(body)
 
@@ -430,12 +442,12 @@ func _build_ground() -> void:
 	for k in count:
 		var gx := k % nx
 		var gz := k / nx
-		vertices[k] = Vector3(origin.x + float(gx) * CELL, heights[k], origin.y + float(gz) * CELL)
+		vertices[k] = Vector3(origin.x + float(gx) * cell, heights[k], origin.y + float(gz) * cell)
 		var hl := heights[_index(maxi(gx - 1, 0), gz)]
 		var hr := heights[_index(mini(gx + 1, nx - 1), gz)]
 		var hd := heights[_index(gx, maxi(gz - 1, 0))]
 		var hu := heights[_index(gx, mini(gz + 1, nz - 1))]
-		normals[k] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
+		normals[k] = Vector3(hl - hr, 2.0 * cell, hd - hu).normalized()
 		var up := normals[k].y
 		var ground := DdTerrain.ROCK.lerp(DdTerrain.GRASS, smoothstep(0.8, 0.92, up))
 		ground = DdTerrain.SHORE.lerp(ground, smoothstep(SEA_FLOOR + 40.0, SEA_FLOOR + 60.0, heights[k]))
@@ -621,4 +633,4 @@ static func _resample(line: PackedVector3Array, step: float) -> PackedVector3Arr
 
 
 func describe() -> Dictionary:
-	return {"grid": "%dx%d" % [nx, nz], "cell": CELL, "roads": roads.size()}
+	return {"grid": "%dx%d" % [nx, nz], "cell": cell, "roads": roads.size()}

@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "long_haul",
+	"name": "The Long Haul",
+	"blurb": "Every route, far apart across open country: a long drive from the lot to each gate.",
+	"order": 40,
+	"routes": [],
+	"layout": {
+		"gap": 360,
+		"clearance": 420,
+		"roads": {
+			"dd_devils_spine": [[1900, 590], [2450, 430], [2330, 230]]
+		}
+	},
+	"land": {
+		"hills": 34,
+		"coast": 420
+	}
+}

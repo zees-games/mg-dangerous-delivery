@@ -221,7 +221,7 @@ func _build_vote(world: DdGame) -> void:
 	vote.mountains_fn = func() -> Array:
 		var out: Array = []
 
-		for mountain in DdMountains.allowed(world.library):
+		for mountain in DdMountains.allowed(world.library, world.maps):
 			out.append([mountain["id"], mountain["name"]])
 
 		return out
@@ -474,7 +474,7 @@ func _cmd_mountain(ctx: DotCmdContext) -> void:
 	var id := ctx.arg(0)
 
 	if id == "":
-		for mountain in DdMountains.allowed(world.library):
+		for mountain in DdMountains.allowed(world.library, world.maps):
 			ctx.reply("%s %-14s %s" % ["*" if mountain["id"] == world.mountain_id else " ", String(mountain["id"]), mountain["name"]])
 
 		return

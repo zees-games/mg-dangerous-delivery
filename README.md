@@ -10,13 +10,13 @@ This project, along with every asset it is built on, was built initially with **
 I intend on reviewing code, testing, and editing documentation regularly. If you're interested in helping out, please let me know!
 
 ## How it plays
-You start in the lot with a box truck and no money. Pick a route, set off, and get the load to the depot at the far end. Every route is a level, and the next level opens once you have delivered on the one below it. Routes are split into stages by checkpoints. Go over the edge and you are put back at the last checkpoint, with some of the load gone.
+You start on foot in the lot, among everybody else and a truck of every model on show, each with somebody selling it. Walk up to a salesperson and press **E** to buy their truck (or have yours brought round), then drive it out of the lot: a road leaves for every route, across open country and out over the water to the route's gate. Drive up to a gate and press **E** to accept the delivery; the load is put on your truck past the barrier, and the route is yours. Nobody gets through a gate on foot. Get the load to the depot at the far end. Every route is a level, and the next level opens once you have delivered on the one below it. Routes are split into stages by checkpoints. Go over the edge and you are put back at the last checkpoint, with some of the load gone.
 
 **The weather belongs to the mountain.** Each route is split into zones, and every couple of minutes each zone rolls its own sky: snow (the road turns white and grip drops to 40%), rain (70% grip), or gusts of wind that push the truck toward the edge. Everybody in a zone gets the same weather. There is also rock falling off the cliffs, black ice, fallen rock blocking a lane, roadworks closing one, loose gravel that shakes the load, and cars coming down the other lane (keep right). Hairpins have a rail round the outside and a sign before them; the danger is the speed you bring into one. Each route is cut into a mountain of its own, which climbs behind the cliffs and falls away to a lake under the drop, and the snow lies on it wherever it is snowing on the road.
 
 **Pay** starts from the route's pay, goes up with its level and with the truck you drive (harder trucks pay more), and goes up again for every kind of bad weather and every rockfall you actually drove through. It is scaled by how much of the load arrived, with a bonus for a run with no falls and no skips. The HUD shows what the trip pays right now.
 
-**The players vote for the mountain.** A server is on one mountain at a time: the whole range (every route), Low Country (the first three levels) or High Country (the last three). Every 15 minutes a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A change sends every truck back to the lot.
+**The players vote for the mountain.** A server is on one mountain (a map) at a time: the whole range (every route), Low Country (the first three levels), High Country (the last three) or The Long Haul (every route, far apart across open country, with long roads between). Every 15 minutes a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A change sends every truck back to the lot.
 
 **Money buys trucks and upgrades.** There are five trucks: the Box Truck (free), the Flatbed, the Hauler, the Semi (with an articulated trailer) and the Bulk Carrier. Each has its own engine, gearbox and weight, so each is quicker or slower off the line, up a climb and to a stop, and nothing is capped: a truck runs as fast as its engine, the road's slope and the air let it, up to a governor on the flat. Each has three levels of engine, brakes and tyres.
 
@@ -26,15 +26,18 @@ You start in the lot with a box truck and no money. Pick a route, set off, and g
 
 | Key | Action |
 | --- | --- |
-| **W** / **S** (or arrows) | Accelerate / brake, then reverse once stopped |
-| **A** / **D** | Steer |
-| **Space** | Handbrake |
+| **W** / **S** (or arrows) | Accelerate / brake, then reverse once stopped; on foot, walk |
+| **A** / **D** | Steer; on foot, step sideways |
+| **Space** | Handbrake; on foot, jump |
+| **Shift** | Run, on foot |
+| **E** | Buy from a salesperson, get in or out of your truck, accept the delivery at a gate |
+| **Mouse** | Look round, on foot |
 | **R** | Back to the last checkpoint (costs what a fall costs) |
 | **T** | Restart the trip |
 | **N** | Skip a stage (costs part of the pay) |
 | **K** | Solo: nobody sees you, nothing of yours collides, and you see nobody |
-| **C** | Camera: chase, cab or high |
-| **G** / **Esc** | Back to the lot |
+| **F5** | Camera: chase, cab or high; on foot, over the shoulder or through the eyes |
+| **G** / **Esc** | The lot's panel (trucks, upgrades, routes, and DRIVE TO THE GATE); from a road, back to the lot |
 | **O** | Menu: settings (every key above can be rebound), help, and leave. The lot's Settings button opens it too |
 | **H** | Help: the rules and every key as you have it bound |
 | **Tab** (hold) | Scoreboard |
@@ -104,6 +107,28 @@ The mountain vote itself (how many options, how votes are counted, rock the vote
 To change a truck, put it in `user://cfg/delivery_trucks.json` by id, with the same fields as `game/dd_trucks.gd` (for example `{"hauler": {"price": 5000}}`). A new id adds a new truck.
 
 **Where the money is kept.** By default in one JSON file, `user://delivery_accounts.json`. It can also go in SQLite, PostgreSQL or MySQL, in one table called `delivery_accounts` with money and deliveries as columns (so a web panel can sort by them).
+
+## Making a map
+
+A map (a mountain, on the vote and the **M** list) is one JSON file in `maps/`, or in a map pack's `routes/` beside the routes it needs. It says which routes the world holds and how it is laid out; everything but the id is optional, and a map that says nothing about its layout gets the usual one: the routes west to east, the lot south of them, a road from the lot to every route's gate.
+
+```json
+{
+	"format": 1, "kind": "map", "id": "my_valley", "name": "My Valley", "author": "you",
+	"blurb": "One line for the vote.", "order": 50,
+	"routes": ["dd_foothills", "my_pass"],
+	"layout": {
+		"gap": 300,
+		"place": {"my_pass": [900, -200]},
+		"lot": [400, 650],
+		"clearance": 170,
+		"roads": {"my_pass": [[700, 450], [880, 200]]}
+	},
+	"land": {"hills": 30, "coast": 350}
+}
+```
+
+`routes` is the route ids the world holds (none: every route loaded). `gap` is the metres between routes laid out west to east, `place` puts a route's start line at an x and z of your choosing (every route still starts facing north), `lot` puts the lot's middle (otherwise it goes under the routes, `clearance` metres south of them), and `roads` lists points a route's road passes through on the way from the lot to its gate. `land` sets the height of the plain's hills and how far its coast reaches from the lot and the roads. A layout that is too tight, off the world or names a route the map does not hold is refused with the reason, and the test suite checks every shipped map builds with every road reaching its gate and none crossing. See [docs/world.md](docs/world.md).
 
 ## Writing a route
 
