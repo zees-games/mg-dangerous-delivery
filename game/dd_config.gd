@@ -38,6 +38,10 @@ extends DotConfig
 ## Seconds a truck may sit still on its back or side before it is put back on the road.
 @export_range(1.0, 30.0, 0.5) var flipped_respawn_seconds: float = 4.0
 
+## Seconds a truck may sit hung up (two or more wheels off the road, hardly moving: over an
+## open edge on its belly) before it is put back. A fall: it costs what a fall costs.
+@export_range(1.0, 30.0, 0.5) var hung_respawn_seconds: float = 3.5
+
 ## Whether a route is locked until the one before it (by level) has been delivered.
 @export var levels_unlock_in_order: bool = true
 
@@ -96,6 +100,13 @@ extends DotConfig
 
 ## Chaos a windy zone adds.
 @export_range(0.0, 3.0, 0.05) var wind_chaos: float = 0.3
+
+## Grip on loose gravel, whatever the sky.
+@export_range(0.05, 1.0, 0.01) var gravel_grip: float = 0.62
+
+## The washboard's jolt on gravel, m/s up per m/s of speed, every 0.22 s. At 70 km/h it is a
+## knock a crate shrugs off and glass does not; at 25 km/h glass does not feel it either.
+@export_range(0.0, 0.5, 0.005) var gravel_jolt: float = 0.09
 
 ## Grip on black ice, whatever the sky.
 @export_range(0.05, 1.0, 0.01) var ice_grip: float = 0.3

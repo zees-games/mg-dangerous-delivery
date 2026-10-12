@@ -57,6 +57,34 @@ const RAIL_HEIGHT := 0.9
 ## The flat pad at each end, metres. The lot is where a trip starts; the depot where it ends.
 const PAD_SIZE := Vector2(36.0, 44.0)
 
+## A segment that turns this much or more is a hairpin: signed ahead, chevrons round it.
+const HAIRPIN_TURN := 120.0
+
+## Samples either side of a change of width that the road eases over (2 m each: 10 m).
+const WIDTH_EASE := 5
+
+## Roadworks close this fraction of the road's width, for this many metres.
+const WORKS_LANE := 0.42
+const WORKS_LENGTH := 27.0
+const BARRIER_SCALE := 7.7
+
+## A gravel stretch's longest.
+const GRAVEL_LENGTH := 40.0
+
+## The oncoming cars: Kenney Car Kit models, the box a truck meets, and the seconds between one
+## car's run and the next.
+const CARS := ["sedan", "suv"]
+const CAR_SIZE := Vector3(2.1, 1.7, 3.8)
+const TRAFFIC_GAP := 6.0
+
+## Metres a car's run stays clear of each end of its segment (where checkpoints put trucks).
+const TRAFFIC_CLEAR := 20.0
+
+## A car stops for a truck less than this far ahead of it, metres, and nearer its lane's centre
+## than [constant TRAFFIC_LANE]: a truck's half width and the car's, and a little.
+const TRAFFIC_YIELD := 14.0
+const TRAFFIC_LANE := 2.3
+
 var doc: Dictionary = {}
 
 ## Whether the scenery is built: off on a server, which has nobody to show a pine tree to.
@@ -67,6 +95,11 @@ var points: PackedVector3Array = PackedVector3Array()
 var yaws: PackedFloat32Array = PackedFloat32Array()
 var distances: PackedFloat32Array = PackedFloat32Array()
 var segment_of: PackedInt32Array = PackedInt32Array()
+
+## The road's width at each sample, eased over [constant WIDTH_EASE] samples either side of a
+## change: a segment narrower than the one before used to start with a 0.75 m step in each edge,
+## and where that edge was a cliff the step was a corner of rock square to the road.
+var widths: PackedFloat32Array = PackedFloat32Array()
 
 ## Distance along the road of each checkpoint, in order. The finish is [method length].
 var checkpoints: PackedFloat32Array = PackedFloat32Array()
@@ -81,6 +114,26 @@ var ice: Array = []
 
 ## Fallen rock on the road: [code]{"d", "lateral", "size"}[/code]. Solid; a truck goes round.
 var debris: Array = []
+
+## Roadworks: one lane closed by barriers for [code]length[/code] metres, coned at both ends:
+## [code]{"d", "lateral", "length", "width"}[/code]. Solid. The road's narrowest stretches.
+var works: Array = []
+
+## Loose gravel across the whole road: [code]{"d", "length"}[/code]. Less grip, and a washboard
+## that knocks the load harder the faster it is crossed.
+var gravel: Array = []
+
+## Oncoming traffic: a car coming down the other lane of one segment, over and over, at a
+## pace that is a pure function of the tick (so every machine draws it in the same place):
+## [code]{"from", "to", "lateral", "speed", "phase", "model"}[/code]. Solid and kinematic: it
+## does not stop, and a truck in its lane meets it.
+var traffic: Array = []
+
+## The cars of [member traffic], in order, and where the ones on the road are.
+var _cars: Array[AnimatableBody3D] = []
+var _car_at := PackedVector3Array()
+## Per car: the scheduled run it is on, where along the road it is, whether it is on the road.
+var _car_state: Array[Dictionary] = []
 
 ## Zone id -> the StandardMaterial3D every road surface in it shares, so weather recolours a
 ## zone with one assignment.
@@ -121,10 +174,17 @@ func clear() -> void:
 	yaws = PackedFloat32Array()
 	distances = PackedFloat32Array()
 	segment_of = PackedInt32Array()
+	widths = PackedFloat32Array()
 	checkpoints = PackedFloat32Array()
 	boulder_sites = []
 	ice = []
 	debris = []
+	works = []
+	gravel = []
+	traffic = []
+	_cars = []
+	_car_at = PackedVector3Array()
+	_car_state = []
 	zone_materials = {}
 	terrain = null
 	_terrain_node = null
@@ -184,6 +244,30 @@ func _sample() -> void:
 			for r in rocks:
 				boulder_sites.append({"d": start + length_m * (float(r) + 0.5) / float(rocks), "side": side, "index": boulder_sites.size()})
 
+	_ease_widths()
+
+
+## [member widths] from the segments: each sample its segment's width, then a moving average
+## over [constant WIDTH_EASE] samples each way, so a change of width is a taper, not a step.
+func _ease_widths() -> void:
+	var raw := PackedFloat32Array()
+	raw.resize(points.size())
+
+	for i in points.size():
+		raw[i] = float((doc["segments"] as Array)[segment_of[i]]["width"])
+
+	widths.resize(points.size())
+
+	for i in points.size():
+		var lo := maxi(i - WIDTH_EASE, 0)
+		var hi := mini(i + WIDTH_EASE, points.size() - 1)
+		var sum := 0.0
+
+		for j in range(lo, hi + 1):
+			sum += raw[j]
+
+		widths[i] = sum / float(hi - lo + 1)
+
 
 ## Ice and debris along one segment, spaced evenly and moved by a hash so they are not in a
 ## line. Debris takes one lane and leaves the other, always: a pile across the whole road is a
@@ -207,6 +291,33 @@ func _place_hazards(index: int, seg: Dictionary, start: float, length_m: float) 
 			"lateral": side * width * 0.27, "size": Vector3(width * 0.36, 1.1 + roll, 2.5 + roll * 2.0),
 		})
 
+	# Roadworks close the lane on the side away from the debris of the same stretch, so the two
+	# never leave a gap narrower than one lane between them.
+	for k in int(seg["works"]):
+		var roll := DdWeather.unit("%s|works|%d|%d" % [id_text, index, k])
+		var side := 1.0 if roll < 0.5 else -1.0
+		var closed := width * WORKS_LANE
+		works.append({
+			"d": start + length_m * (float(k) + 0.5) / float(int(seg["works"])),
+			"lateral": side * (width * 0.5 - closed * 0.5), "length": minf(WORKS_LENGTH, length_m * 0.6), "width": closed,
+		})
+
+	for k in int(seg["gravel"]):
+		var n := float(int(seg["gravel"]))
+		gravel.append({"d": start + length_m * (float(k) + 0.5) / n, "length": minf(GRAVEL_LENGTH, length_m / n * 0.8)})
+
+	# Oncoming cars keep to the left lane (the drop or the cliff, whichever is there) and run the
+	# segment downhill, against the trucks, clear of both ends: a checkpoint's truck is put down
+	# 2 m into the segment after it, and a car that ran to the segment's start drove into it.
+	for k in int(seg["traffic"]):
+		var roll := DdWeather.unit("%s|traffic|%d|%d" % [id_text, index, k])
+		traffic.append({
+			"from": start + TRAFFIC_CLEAR, "to": start + length_m - TRAFFIC_CLEAR,
+			# Hard over to its own edge, leaving the truck all the rest.
+			"lateral": -(width * 0.5 - CAR_SIZE.x * 0.5 - 0.2),
+			"speed": 7.0 + roll * 4.0, "phase": roll, "model": CARS[k % CARS.size()],
+		})
+
 
 ## Whether [param position] (route-local) is on a patch of black ice.
 func on_ice(position: Vector3, hint: int = -1) -> bool:
@@ -222,6 +333,157 @@ func on_ice(position: Vector3, hint: int = -1) -> bool:
 			return true
 
 	return false
+
+
+## Whether [param position] (route-local) is on loose gravel.
+func on_gravel(position: Vector3, hint: int = -1) -> bool:
+	if gravel.is_empty():
+		return false
+
+	var d := distance_at(position, hint)
+
+	for patch: Dictionary in gravel:
+		if absf(d - float(patch["d"])) <= float(patch["length"]) * 0.5:
+			return true
+
+	return false
+
+
+## Everything along the road a driver has to deal with, in order: [code]{"d", "kind"}[/code]
+## for rock that can come down, ice, debris, roadworks, gravel, oncoming traffic, a narrowing
+## (a segment narrower than the route) and a hairpin. What the lot counts and a suite measures
+## the gaps between.
+func challenges() -> Array:
+	var out: Array = []
+
+	for site: Dictionary in boulder_sites:
+		out.append({"d": float(site["d"]), "kind": "rock"})
+	for patch: Dictionary in ice:
+		out.append({"d": float(patch["d"]), "kind": "ice"})
+	for pile: Dictionary in debris:
+		out.append({"d": float(pile["d"]), "kind": "debris"})
+	for job: Dictionary in works:
+		out.append({"d": float(job["d"]), "kind": "works"})
+	for patch: Dictionary in gravel:
+		out.append({"d": float(patch["d"]), "kind": "gravel"})
+	for car: Dictionary in traffic:
+		out.append({"d": (float(car["from"]) + float(car["to"])) * 0.5, "kind": "traffic"})
+
+	var start := 0.0
+	var route_width := float(doc.get("width", 7.5))
+
+	for seg: Dictionary in doc.get("segments", []):
+		var length_m := float(seg["length"])
+		if float(seg["width"]) < route_width - 0.25:
+			out.append({"d": start + length_m * 0.5, "kind": "narrow"})
+		if absf(float(seg["turn"])) >= HAIRPIN_TURN:
+			out.append({"d": start + length_m * 0.5, "kind": "hairpin"})
+		start += length_m
+
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	return out
+
+
+## How many [method challenges] there are, plus each weather zone: the lot's one number.
+func challenge_count() -> int:
+	return challenges().size() + (doc.get("zones", {}) as Dictionary).size()
+
+
+## A point [param d] along the road, between samples rather than on one: position and heading.
+## What a car moving a few metres a second is placed with; a sample every 2 m stepped visibly.
+func pose_at(d: float) -> Transform3D:
+	var dd := clampf(d, 0.0, length())
+	var i := clampi(distances.bsearch(dd) - 1, 0, points.size() - 2)
+	var span := maxf(distances[i + 1] - distances[i], 0.001)
+	var t := clampf((dd - distances[i]) / span, 0.0, 1.0)
+	var yaw := lerp_angle(yaws[i], yaws[i + 1], t)
+	return Transform3D(Basis(Vector3.UP, yaw), points[i].lerp(points[i + 1], t))
+
+
+## Moves every oncoming car on: down its lane at its speed, then out of the world for
+## [constant TRAFFIC_GAP] seconds, then back at the top.
+##
+## [b]Each run starts on the tick's schedule[/b] (a run every cycle, offset by the car's phase),
+## so every machine starts the same run at the same moment, and one that joins mid-run puts the
+## car where the arithmetic says. [b]Within a run the car stops for a truck in its lane[/b]
+## ([param trucks], route-local positions of every truck and trailer): a kinematic car does not
+## stop for anything by itself, and the first version shoved a truck straddling the line thirty
+## metres back down a snowy road at 11 m/s. A machine sees the same trucks (a client's are the
+## server's, interpolated), so a hold is a hold everywhere, a beat apart at most, and the next
+## run starts in step again.
+func step_traffic(tick: int, tick_rate: int, trucks: PackedVector3Array = PackedVector3Array()) -> void:
+	var now := float(tick) / float(maxi(tick_rate, 1))
+	_car_at = PackedVector3Array()
+
+	if _car_state.size() != _cars.size():
+		_car_state.clear()
+		for k in _cars.size():
+			_car_state.append({"run": -1, "d": 0.0, "active": false, "at": now})
+
+	for k in _cars.size():
+		var car := _cars[k]
+		var spec: Dictionary = traffic[k]
+		var state: Dictionary = _car_state[k]
+		var from := float(spec["from"])
+		var to := float(spec["to"])
+		var speed := float(spec["speed"])
+		var travel := (to - from) / speed
+		var cycle := travel + TRAFFIC_GAP
+		var x := now + float(spec["phase"]) * cycle
+		var run := floori(x / cycle)
+		var t := x - float(run) * cycle
+		var dt := now - float(state["at"])
+		state["at"] = now
+
+		# A new run, or a clock that jumped (a world rebuilt, a suite's skip): where the schedule says.
+		if int(state["run"]) != run or dt < 0.0 or dt > 0.5:
+			state["run"] = run
+			state["active"] = t < travel
+			state["d"] = to - speed * t
+		elif bool(state["active"]):
+			if not _car_blocked(spec, float(state["d"]), trucks):
+				state["d"] = float(state["d"]) - speed * dt
+			if float(state["d"]) <= from:
+				state["active"] = false
+
+		if not bool(state["active"]):
+			# Gone: below the mountain and solid to nothing, until its next run.
+			if car.collision_layer != 0:
+				car.collision_layer = 0
+				car.visible = false
+				car.position = Vector3(0.0, _lowest_y - SKIRT_DEPTH - 50.0, 0.0)
+			continue
+
+		var pose := pose_at(float(state["d"]))
+		var where := Transform3D(pose.basis.rotated(Vector3.UP, PI), pose.origin + right_of(pose.basis.get_euler().y) * float(spec["lateral"]) + Vector3(0.0, CAR_SIZE.y * 0.5 + 0.15, 0.0))
+		car.transform = where
+		_car_at.append(where.origin)
+
+		if car.collision_layer == 0:
+			car.collision_layer = 1
+			car.visible = true
+
+
+## Whether a truck stands in the car's lane within [constant TRAFFIC_YIELD] metres ahead of it
+## (down the road, the way it is going).
+func _car_blocked(spec: Dictionary, d: float, trucks: PackedVector3Array) -> bool:
+	for p in trucks:
+		var i := nearest_index(p, index_at_distance(d))
+		var along := distances[i] + forward_of(yaws[i]).dot(p - points[i])
+		var lateral := right_of(yaws[i]).dot(p - points[i])
+		var ahead := d - along
+
+		if ahead > -2.0 and ahead < TRAFFIC_YIELD and absf(lateral - float(spec["lateral"])) < TRAFFIC_LANE:
+			return true
+
+	return false
+
+
+## Where each oncoming car on the road is as of the last [method step_traffic], route-local:
+## for the stand-ins and a suite. From the arithmetic, not the bodies, which a kinematic body
+## synced to physics moves only on the next physics step.
+func car_positions() -> PackedVector3Array:
+	return _car_at
 
 
 static func forward_of(yaw: float) -> Vector3:
@@ -357,6 +619,22 @@ func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Arr
 			if absf(float(pile["d"]) - d) < 16.0:
 				p -= right_of(yaws[i]) * signf(float(pile["lateral"])) * width_at(d) * 0.26
 
+		# And round roadworks, the length of them.
+		for job: Dictionary in works:
+			if absf(float(job["d"]) - d) < float(job["length"]) * 0.5 + 12.0:
+				p -= right_of(yaws[i]) * signf(float(job["lateral"])) * width_at(d) * 0.26
+
+		# Swing wide round a hairpin, as a long truck must: on the centreline a stand-in's rear
+		# wheels and a trailer cut in and ground along the cliff on the inside.
+		var seg_here := segment_at(d)
+		if absf(float(seg_here["turn"])) >= HAIRPIN_TURN:
+			p += right_of(yaws[i]) * signf(-float(seg_here["turn"])) * width_at(d) * 0.22
+
+		# Keep right where a car comes the other way.
+		for car: Dictionary in traffic:
+			if d > float(car["from"]) - 10.0 and d < float(car["to"]) + 10.0:
+				p += right_of(yaws[i]) * width_at(d) * 0.24
+
 		out.append(p)
 		d += spacing
 
@@ -416,16 +694,24 @@ func _build_geometry() -> void:
 
 	if draws:
 		terrain = make_terrain()
-		_terrain_node = terrain.make_node(_noise(0.05, 0.6))
+		_terrain_node = terrain.make_node(texture("rock_cliff", _noise(0.05, 0.6)))
 		add_child(_terrain_node)
 		_build_camera_mountain()
 		_build_scenery()
 	_build_ice()
 	_build_debris()
+	_build_works()
+	_build_gravel()
+	_build_traffic()
+
+	if draws:
+		_build_signs()
+
 	_build_water()
 
 
-func _edge(i: int, side: float, width: float, bank_deg: float) -> Vector3:
+func _edge(i: int, side: float, _segment_width: float, bank_deg: float) -> Vector3:
+	var width := widths[i] if i < widths.size() else _segment_width
 	# Banking raises the outside edge: positive bank tilts the road down to the right.
 	var rise := -side * tan(deg_to_rad(bank_deg)) * width * 0.5
 	return points[i] + right_of(yaws[i]) * side * width * 0.5 + Vector3(0.0, rise, 0.0)
@@ -595,9 +881,11 @@ func _zone_material(zone: String) -> StandardMaterial3D:
 	material.albedo_color = ASPHALT
 	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.9
-	material.albedo_texture = _noise(0.4, 0.25)
+	# Asphalt, photographed (assets/polyhaven, CC0), greyed and levelled so the zone's colour
+	# still says what the weather did to it: white is snow, dark is wet.
+	material.albedo_texture = texture("asphalt", _noise(0.4, 0.25))
 	material.uv1_triplanar = true
-	material.uv1_scale = Vector3(0.25, 0.25, 0.25)
+	material.uv1_scale = Vector3(0.18, 0.18, 0.18)
 	zone_materials[zone] = material
 	return material
 
@@ -615,13 +903,28 @@ func _rock_material() -> StandardMaterial3D:
 
 		_rock.roughness = 1.0
 		_rock.cull_mode = BaseMaterial3D.CULL_DISABLED
-		# Noise, projected from all three axes, so a cliff reads as rock at any angle without a
-		# UV anybody had to lay out. Generated, so the game carries no texture for it.
-		_rock.albedo_texture = _noise(0.035, 0.55)
+		# Layered cliff rock, photographed (assets/polyhaven, CC0), projected from all three axes
+		# so a cliff reads as rock at any angle without a UV anybody had to lay out. Mostly grey,
+		# so the colour above is still the mountain's. The noise it replaced read as felt.
+		_rock.albedo_texture = texture("rock_cliff", _noise(0.035, 0.55))
 		_rock.uv1_triplanar = true
-		_rock.uv1_scale = Vector3(0.12, 0.12, 0.12)
+		_rock.uv1_scale = Vector3(0.08, 0.08, 0.08)
 
 	return _rock
+
+
+static var _textures: Dictionary = {}
+
+
+## One of the photographed surfaces in `assets/polyhaven/` ([param id].jpg), or [param fallback]
+## where it is missing (a pack built without it still draws).
+static func texture(id: String, fallback: Texture2D) -> Texture2D:
+	if _textures.has(id):
+		return _textures[id]
+	var path := DdPaths.rebase("res://assets/polyhaven/%s.jpg" % id)
+	var found: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	_textures[id] = found if found != null else fallback
+	return _textures[id]
 
 
 ## A tiling grey noise: [param frequency] is the grain, [param contrast] how far it strays
@@ -735,14 +1038,21 @@ func _build_gate(d: float, label: String) -> void:
 		solid.add_child(_camera_box(Vector3(width + 1.6, 0.9, 0.2), Vector3(0.0, 6.2, 0.0)))
 		gate.add_child(solid)
 
-	var text := Label3D.new()
-	text.text = label
-	text.font_size = 96
-	text.pixel_size = 0.01
-	text.modulate = Color(0.1, 0.1, 0.1)
-	text.position = Vector3(0.0, 6.2, 0.15)
-	text.rotation.y = PI
-	gate.add_child(text)
+	# One label on each face, each one-sided. A Label3D faces +Z, which in the road's frame is
+	# back toward a truck coming up it (forward is -Z); the one label this had was turned to face
+	# -Z and double-sided, so from the driving side it read backwards ("TOꟼƎD", the first play
+	# test). The back face's label is for a truck that turned round.
+	for face: float in [1.0, -1.0]:
+		var text := Label3D.new()
+		text.name = "Label" if face > 0.0 else "LabelBack"
+		text.text = label
+		text.font_size = 96
+		text.pixel_size = 0.01
+		text.double_sided = false
+		text.modulate = Color(0.1, 0.1, 0.1)
+		text.position = Vector3(0.0, 6.2, 0.12 * face)
+		text.rotation.y = 0.0 if face > 0.0 else PI
+		gate.add_child(text)
 
 
 static func _camera_box(size: Vector3, at: Vector3) -> CollisionShape3D:
@@ -910,6 +1220,221 @@ func _build_debris() -> void:
 		body.add_child(mesh)
 		add_child(body)
 		body.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]) + Vector3(0.0, size.y * 0.5, 0.0))
+
+
+## Roadworks: a row of barriers down the closed lane, a cone at each end and two more angled in
+## before it, and a solid box the length of it (layer 1 and the camera's).
+func _build_works() -> void:
+	for job: Dictionary in works:
+		var d := float(job["d"])
+		var half_len := float(job["length"]) * 0.5
+		var lateral := float(job["lateral"])
+		var body := StaticBody3D.new()
+		body.name = "Works"
+		body.collision_layer = 1 | CAMERA_LAYER
+		add_child(body)
+		var step := 3.0
+		var k := -half_len
+
+		while k <= half_len + 0.01:
+			var at := pose_at(d + k)
+			var place := Transform3D(at.basis, at.origin + right_of(at.basis.get_euler().y) * lateral)
+			var collider := CollisionShape3D.new()
+			var shape := BoxShape3D.new()
+			shape.size = Vector3(float(job["width"]) * 0.85, 1.1, step + 0.2)
+			collider.shape = shape
+			collider.transform = Transform3D(place.basis, place.origin + Vector3(0.0, 0.55, 0.0))
+			body.add_child(collider)
+
+			if draws:
+				# Kenney's barrier is 13 cm tall (a city kit's scale): 7.7 times is a metre, a row of
+				# them down the inside edge of the closed lane, where a driver looks.
+				var inner := place.origin - right_of(at.basis.get_euler().y) * signf(lateral) * (float(job["width"]) * 0.5 - 0.6)
+				for half: float in [-0.75, 0.75]:
+					var spot: Vector3 = inner - at.basis.z * half
+					_prop(body, "roads/construction-barrier.glb", Transform3D(at.basis.scaled(Vector3.ONE * BARRIER_SCALE), spot), _works_fallback())
+			k += step
+
+		if draws:
+			# Cones taper the lane in before the barriers, on the side the truck comes from.
+			for c in 4:
+				var back := half_len + 3.0 + float(c) * 3.0
+				var at := pose_at(d + back)
+				var in_by := float(job["width"]) * (0.5 - float(c) * 0.12)
+				var spot := at.origin + right_of(at.basis.get_euler().y) * (signf(lateral) * (width_at(d) * 0.5 - in_by))
+				_prop(self, "trucks/cone.glb", Transform3D(at.basis.scaled(Vector3(1.4, 1.4, 1.4)), spot), _cone_fallback())
+
+
+## Loose gravel: a brown sheet over the full width, a hair above the asphalt.
+func _build_gravel() -> void:
+	if gravel.is_empty() or not draws:
+		return
+
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.62, 0.55, 0.46)
+	material.albedo_texture = texture("gravel", _noise(0.6, 0.4))
+	material.uv1_triplanar = true
+	material.uv1_scale = Vector3(0.25, 0.25, 0.25)
+	material.roughness = 1.0
+
+	for patch: Dictionary in gravel:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var d0 := float(patch["d"]) - float(patch["length"]) * 0.5
+		var d1 := float(patch["d"]) + float(patch["length"]) * 0.5
+		var d := d0
+
+		while d < d1:
+			var a := pose_at(d)
+			var b := pose_at(minf(d + STEP, d1))
+			var wa := width_at(d) * 0.5
+			var wb := width_at(minf(d + STEP, d1)) * 0.5
+			var lift := Vector3(0.0, 0.035, 0.0)
+			var ra := right_of(a.basis.get_euler().y)
+			var rb := right_of(b.basis.get_euler().y)
+			_quad(st, false, a.origin - ra * wa + lift, a.origin + ra * wa + lift, b.origin + rb * wb + lift, b.origin - rb * wb + lift, false)
+			d += STEP
+
+		st.generate_normals()
+		var sheet := MeshInstance3D.new()
+		sheet.name = "Gravel"
+		sheet.mesh = st.commit()
+		sheet.material_override = material
+		sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(sheet)
+
+
+## The oncoming cars: kinematic bodies a truck collides with, each a Kenney car where something
+## draws. Placed by [method step_traffic].
+func _build_traffic() -> void:
+	for spec: Dictionary in traffic:
+		var car := AnimatableBody3D.new()
+		car.name = "Car"
+		car.sync_to_physics = true
+		car.collision_layer = 0
+		car.collision_mask = 0
+		var collider := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = CAR_SIZE
+		collider.shape = shape
+		car.add_child(collider)
+
+		if draws:
+			# Car Kit's sedan is 1.5 m wide: at 1.4 it is a 2.1 m car, the size of the box below.
+			_prop(car, "trucks/%s.glb" % str(spec["model"]), Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * 1.4), Vector3(0.0, -CAR_SIZE.y * 0.5 - 0.15, 0.0)), _car_fallback())
+
+		add_child(car)
+		_cars.append(car)
+
+	step_traffic(0, 60)
+
+
+## Warning boards before every hairpin, on the right, and chevrons round its outside: a careful
+## driver sees the bend coming and which way it goes. Drawn only; nothing to hit.
+func _build_signs() -> void:
+	var start := 0.0
+	var board := StandardMaterial3D.new()
+	board.albedo_color = Color(1.0, 0.82, 0.1)
+	var pole := StandardMaterial3D.new()
+	pole.albedo_color = Color(0.55, 0.56, 0.58)
+
+	for seg: Dictionary in doc.get("segments", []):
+		var length_m := float(seg["length"])
+		var turn := float(seg["turn"])
+
+		if absf(turn) >= HAIRPIN_TURN:
+			var arrow := "<<<" if turn < 0.0 else ">>>"
+			# The warning, 45 m before the bend, on whichever edge is not a cliff (the right when
+			# neither is), just past the edge with its pole running down the drop.
+			var before_d := maxf(start - 45.0, 4.0)
+			var before := segment_at(before_d)
+			var wall := str(before["wall"])
+			var side := -1.0 if wall == "right" else 1.0
+			var edge := width_at(before_d) * 0.5 + (0.25 if wall != "both" else -0.4)
+			var ahead := pose_at(before_d)
+			_sign(ahead, right_of(ahead.basis.get_euler().y) * side * edge, "HAIRPIN\n%s" % arrow, board, pole)
+			# Chevrons on the rail round the outside of the bend, facing the truck coming round.
+			var outside := 1.0 if turn < 0.0 else -1.0
+			for f in [0.2, 0.4, 0.6, 0.8]:
+				var at := pose_at(start + length_m * f)
+				_sign(at, right_of(at.basis.get_euler().y) * outside * (float(seg["width"]) * 0.5 + 0.15), arrow, board, pole)
+
+		start += length_m
+
+
+## One board on a pole at [param offset] from [param at], its text facing a truck coming up
+## the road (+Z in the road's frame; see the gate's labels).
+func _sign(at: Transform3D, offset: Vector3, text: String, board: Material, pole: Material) -> void:
+	var node := Node3D.new()
+	node.name = "Sign"
+	add_child(node)
+	node.transform = Transform3D(at.basis, at.origin + offset)
+	var post := MeshInstance3D.new()
+	var post_mesh := CylinderMesh.new()
+	post_mesh.top_radius = 0.06
+	post_mesh.bottom_radius = 0.06
+	# Long enough to reach into the slope below an open edge.
+	post_mesh.height = 5.4
+	post.mesh = post_mesh
+	post.material_override = pole
+	post.position = Vector3(0.0, -0.3, 0.0)
+	node.add_child(post)
+	var plate := MeshInstance3D.new()
+	var plate_mesh := BoxMesh.new()
+	plate_mesh.size = Vector3(1.5, 0.9 if "\n" in text else 0.6, 0.06)
+	plate.mesh = plate_mesh
+	plate.material_override = board
+	plate.position = Vector3(0.0, 2.5, 0.0)
+	node.add_child(plate)
+	var label := Label3D.new()
+	label.name = "Label"
+	label.text = text
+	label.font_size = 64
+	label.pixel_size = 0.0075
+	label.double_sided = false
+	label.modulate = Color(0.08, 0.08, 0.08)
+	label.outline_size = 0
+	label.position = Vector3(0.0, 2.5, 0.04)
+	node.add_child(label)
+
+
+## A Kenney model at [param where] under [param parent], or [param fallback] when the model is
+## missing (a pack built without it).
+func _prop(parent: Node3D, model: String, where: Transform3D, fallback: Mesh) -> void:
+	var path := DdPaths.rebase("res://assets/kenney/%s" % model)
+	var node: Node3D = null
+
+	if ResourceLoader.exists(path):
+		node = (load(path) as PackedScene).instantiate() as Node3D
+	else:
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = fallback
+		node = mesh
+
+	parent.add_child(node)
+	# In the parent's own frame: the route for a cone, a body at the route's origin for a barrier,
+	# the car itself for a car.
+	node.transform = where
+
+
+static func _works_fallback() -> Mesh:
+	var box := BoxMesh.new()
+	box.size = Vector3(1.4, 1.0, 0.3)
+	return box
+
+
+static func _cone_fallback() -> Mesh:
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.02
+	cone.bottom_radius = 0.25
+	cone.height = 0.7
+	return cone
+
+
+static func _car_fallback() -> Mesh:
+	var box := BoxMesh.new()
+	box.size = CAR_SIZE
+	return box
 
 
 func _build_water() -> void:

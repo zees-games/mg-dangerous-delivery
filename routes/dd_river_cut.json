@@ -8,7 +8,7 @@
 	"level": 2,
 	"pay": 380,
 	"width": 7.5,
-	"cargo": "crates",
+	"cargo": "timber",
 	"zones": {
 		"gorge": {
 			"name": "The Gorge",
@@ -30,7 +30,8 @@
 			"climb": 10.0,
 			"wall": "left",
 			"rail": "none",
-			"zone": "gorge"
+			"zone": "gorge",
+			"traffic": 1
 		},
 		{
 			"length": 110.0,
@@ -69,6 +70,7 @@
 			"wall": "left",
 			"rail": "none",
 			"zone": "gorge",
+			"works": 1,
 			"width": 6.8
 		},
 		{
@@ -78,7 +80,8 @@
 			"wall": "left",
 			"rail": "none",
 			"zone": "gorge",
-			"checkpoint": true
+			"checkpoint": true,
+			"gravel": 1
 		},
 		{
 			"length": 90.0,

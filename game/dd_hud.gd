@@ -136,10 +136,14 @@ func show_trip(facts: Dictionary) -> void:
 
 	_bar.value = clampf(float(facts.get("fraction", 0.0)), 0.0, 1.0)
 	var cargo := float(facts.get("cargo", 1.0))
-	_cargo.text = "CARGO %d%%" % int(round(cargo * 100.0))
+	var load_name := str(facts.get("cargo_name", ""))
+	_cargo.text = ("%s %d%%" % [load_name.to_upper(), int(round(cargo * 100.0))]) if load_name != "" else "CARGO %d%%" % int(round(cargo * 100.0))
 	_cargo.add_theme_color_override("font_color", Color(1, 1, 1) if cargo > 0.6 else (Color(1.0, 0.75, 0.3) if cargo > 0.3 else Color(1.0, 0.35, 0.3)))
 	_offer.text = "Pays $%d on delivery" % int(facts.get("offer", 0)) if state != "delivered" else ""
-	_speed.text = "%d km/h" % int(round(absf(float(facts.get("speed", 0.0))) * 3.6))
+	# The gear beside the speed: a climb taken in third is a climb, not a cap.
+	var gear := int(facts.get("gear", 0))
+	var gear_text := "" if not facts.has("gear") else ("   R" if gear < 0 else ("   N" if gear == 0 else "   %d" % gear))
+	_speed.text = "%d km/h%s" % [int(round(absf(float(facts.get("speed", 0.0))) * 3.6)), gear_text]
 
 	var weather: Dictionary = facts.get("weather", {})
 	var words := PackedStringArray()

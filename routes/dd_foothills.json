@@ -30,7 +30,8 @@
 			"climb": 6.0,
 			"wall": "left",
 			"rail": "right",
-			"zone": "valley"
+			"zone": "valley",
+			"gravel": 1
 		},
 		{
 			"length": 100.0,
@@ -39,7 +40,8 @@
 			"wall": "left",
 			"rail": "right",
 			"zone": "valley",
-			"checkpoint": true
+			"checkpoint": true,
+			"works": 1
 		},
 		{
 			"length": 140.0,
@@ -47,7 +49,8 @@
 			"climb": 12.0,
 			"wall": "left",
 			"rail": "none",
-			"zone": "valley"
+			"zone": "valley",
+			"traffic": 1
 		},
 		{
 			"length": 110.0,
@@ -56,7 +59,8 @@
 			"wall": "right",
 			"rail": "left",
 			"zone": "valley",
-			"checkpoint": true
+			"checkpoint": true,
+			"ice": 1
 		},
 		{
 			"length": 120.0,
@@ -74,7 +78,8 @@
 			"climb": 4.0,
 			"wall": "left",
 			"rail": "none",
-			"checkpoint": true
+			"checkpoint": true,
+			"gravel": 1
 		},
 		{
 			"length": 100.0,

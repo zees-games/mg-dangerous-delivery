@@ -18,7 +18,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "routes")
 
 
-def seg(length, turn=0, climb=0, wall="left", rail="none", zone="", checkpoint=False, boulders=0, width=None, bank=0, ice=0, debris=0):
+def seg(length, turn=0, climb=0, wall="left", rail="none", zone="", checkpoint=False, boulders=0, width=None, bank=0, ice=0, debris=0,
+        works=0, gravel=0, traffic=0):
     s = {"length": float(length), "turn": float(turn), "climb": float(climb), "wall": wall, "rail": rail}
     if zone:
         s["zone"] = zone
@@ -30,6 +31,12 @@ def seg(length, turn=0, climb=0, wall="left", rail="none", zone="", checkpoint=F
         s["ice"] = int(ice)
     if debris:
         s["debris"] = int(debris)
+    if works:
+        s["works"] = int(works)
+    if gravel:
+        s["gravel"] = int(gravel)
+    if traffic:
+        s["traffic"] = int(traffic)
     if width is not None:
         s["width"] = float(width)
     if bank:
@@ -37,15 +44,24 @@ def seg(length, turn=0, climb=0, wall="left", rail="none", zone="", checkpoint=F
     return s
 
 
-def hairpin(direction, climb, zone="", width=None):
+def hairpin(direction, climb, width, zone=""):
     """A 180-degree bend: 95 m, about a 30 m radius, which a long truck takes at walking pace.
 
     The cliff is on the INSIDE, always: a switchback turns uphill, and the inside of the bend is
     the mountain. The first version took the side as an argument and put the drop on the inside
     of three of them, where a truck cutting the corner (which every truck does) went over —
     found by a stand-in falling 41 times in one hairpin of Devil's Spine.
+
+    And a rail round the OUTSIDE, on a road widened by HAIRPIN_WIDEN, as real switchbacks are: the
+    first play test rolled off the outside of a snowy hairpin at walking pace with nothing there.
+    The danger of a hairpin is the speed you bring into it, not a lottery at 5 km/h. `width` is
+    the road's own; the bend is wider.
     """
-    return seg(95, 180 * direction, climb, wall="right" if direction > 0 else "left", zone=zone, width=width)
+    return seg(95, 180 * direction, climb, wall="right" if direction > 0 else "left",
+               rail="left" if direction > 0 else "right", zone=zone, width=width + HAIRPIN_WIDEN)
+
+
+HAIRPIN_WIDEN = 1.5
 
 
 def route(rid, name, level, pay, blurb, width, zones, segments, cargo="crates"):
@@ -62,12 +78,12 @@ ROUTES = [
           {"valley": {"name": "The Valley", "rain": 0.35, "wind": 0.1}},
           [
               seg(80, wall="none", rail="both"),
-              seg(120, 25, 6, wall="left", rail="right", zone="valley"),
-              seg(100, -30, 8, wall="left", rail="right", zone="valley", checkpoint=True),
-              seg(140, 0, 12, wall="left", rail="none", zone="valley"),
-              seg(110, 45, 6, wall="right", rail="left", zone="valley", checkpoint=True),
+              seg(120, 25, 6, wall="left", rail="right", zone="valley", gravel=1),
+              seg(100, -30, 8, wall="left", rail="right", zone="valley", checkpoint=True, works=1),
+              seg(140, 0, 12, wall="left", rail="none", zone="valley", traffic=1),
+              seg(110, 45, 6, wall="right", rail="left", zone="valley", checkpoint=True, ice=1),
               seg(120, -20, 10, wall="left", zone="valley", boulders=1, debris=1),
-              seg(90, 30, 4, wall="left", checkpoint=True),
+              seg(90, 30, 4, wall="left", checkpoint=True, gravel=1),
               seg(100, 0, 2, wall="none", rail="both"),
           ]),
     route("dd_river_cut", "River Cut", 2, 380,
@@ -75,43 +91,43 @@ ROUTES = [
           {"gorge": {"name": "The Gorge", "rain": 0.7, "wind": 0.25}},
           [
               seg(70, wall="left"),
-              seg(140, -35, 10, wall="left", zone="gorge"),
+              seg(140, -35, 10, wall="left", zone="gorge", traffic=1),
               seg(110, 40, 8, wall="left", zone="gorge", boulders=1, checkpoint=True),
               seg(160, -20, 14, wall="left", zone="gorge", width=7.0, debris=1),
               seg(120, 50, 6, wall="left", zone="gorge", boulders=2, checkpoint=True),
-              seg(140, -45, 12, wall="left", zone="gorge", width=6.8),
-              seg(120, 20, 8, wall="left", zone="gorge", checkpoint=True),
+              seg(140, -45, 12, wall="left", zone="gorge", width=6.8, works=1),
+              seg(120, 20, 8, wall="left", zone="gorge", checkpoint=True, gravel=1),
               seg(90, 0, 0, wall="none", rail="both"),
-          ]),
+          ], cargo="timber"),
     route("dd_snowline", "Snowline Pass", 3, 480,
           "Switchbacks up into the snow. Brake before the bend, not in it.", 7.0,
           {"lower": {"name": "Lower Pass", "rain": 0.4}, "upper": {"name": "Snowline", "snow": 0.8, "wind": 0.3}},
           [
               seg(80, wall="left"),
-              seg(130, 0, 14, wall="left", zone="lower"),
-              hairpin(-1, 6, zone="lower"),
-              seg(140, 0, 16, wall="right", zone="lower", boulders=1, checkpoint=True),
-              hairpin(1, 6, zone="upper"),
+              seg(130, 0, 14, wall="left", zone="lower", traffic=1),
+              hairpin(-1, 6, 7.0, zone="lower"),
+              seg(140, 0, 16, wall="right", zone="lower", boulders=1, checkpoint=True, works=1),
+              hairpin(1, 6, 7.0, zone="upper"),
               seg(140, 0, 16, wall="left", zone="upper", boulders=1, ice=2),
-              hairpin(-1, 6, zone="upper", width=6.8),
-              seg(120, 10, 12, wall="right", zone="upper", checkpoint=True),
+              hairpin(-1, 6, 6.8, zone="upper"),
+              seg(120, 10, 12, wall="right", zone="upper", checkpoint=True, gravel=1),
               seg(150, -30, 6, wall="right", zone="upper", boulders=1, ice=1, debris=1),
               seg(100, 20, 0, wall="none", zone="upper", checkpoint=True),
               seg(90, 0, -4, wall="none", rail="both"),
-          ]),
+          ], cargo="fuel"),
     route("dd_wind_ridge", "Wind Ridge", 4, 560,
           "Along the top of a ridge with a drop on both sides, in a wind that comes in gusts.", 6.8,
           {"ridge": {"name": "The Ridge", "wind": 0.9, "rain": 0.3}, "saddle": {"name": "The Saddle", "wind": 0.6, "snow": 0.3}},
           [
               seg(80, wall="left"),
-              seg(140, 15, 14, wall="left", zone="saddle"),
-              seg(160, -20, 8, wall="none", zone="ridge", width=6.5, checkpoint=True),
-              seg(140, 30, 4, wall="none", zone="ridge", width=6.2),
-              seg(120, -35, -6, wall="none", zone="ridge", width=6.2, checkpoint=True),
+              seg(140, 15, 14, wall="left", zone="saddle", traffic=1),
+              seg(160, -20, 8, wall="none", zone="ridge", width=6.5, checkpoint=True, gravel=1),
+              seg(140, 30, 4, wall="none", zone="ridge", width=6.2, works=1),
+              seg(120, -35, -6, wall="none", zone="ridge", width=6.2, checkpoint=True, ice=1),
               seg(150, 25, 10, wall="right", zone="saddle", boulders=2, ice=1),
-              seg(130, -20, 6, wall="none", zone="ridge", width=6.0, checkpoint=True),
+              seg(130, -20, 6, wall="none", zone="ridge", width=6.0, checkpoint=True, gravel=1),
               seg(90, 0, 0, wall="none", rail="both"),
-          ]),
+          ], cargo="glass"),
     route("dd_devils_spine", "Devil's Spine", 5, 700,
           "Everything at once, and narrow. The pay is for the people who get there.", 6.5,
           {"gate": {"name": "The Gate", "rain": 0.5, "wind": 0.4},
@@ -119,18 +135,18 @@ ROUTES = [
            "summit": {"name": "Summit", "snow": 0.9, "wind": 0.5}},
           [
               seg(70, wall="left"),
-              seg(140, -25, 16, wall="left", zone="gate", boulders=2),
-              hairpin(1, 8, zone="gate"),
+              seg(140, -25, 16, wall="left", zone="gate", boulders=2, traffic=1),
+              hairpin(1, 8, 6.5, zone="gate"),
               seg(130, 0, 18, wall="left", zone="gate", boulders=1, checkpoint=True),
-              hairpin(-1, 8, zone="spine", width=6.2),
+              hairpin(-1, 8, 6.2, zone="spine"),
               seg(150, 20, 16, wall="none", zone="spine", width=6.0, ice=2),
               seg(120, -40, 8, wall="left", zone="spine", boulders=2, checkpoint=True),
-              hairpin(1, 6, zone="summit", width=6.2),
-              seg(140, -15, 14, wall="none", zone="summit", width=5.8, boulders=1),
+              hairpin(1, 6, 6.2, zone="summit"),
+              seg(140, -15, 14, wall="none", zone="summit", width=5.8, boulders=1, gravel=1),
               seg(110, 35, 6, wall="right", zone="summit", checkpoint=True, debris=1, ice=1),
-              seg(130, -10, 4, wall="none", zone="summit", width=5.8),
+              seg(130, -10, 4, wall="none", zone="summit", width=5.8, works=1),
               seg(90, 0, 0, wall="none", rail="both"),
-          ]),
+          ], cargo="explosives"),
 ]
 
 

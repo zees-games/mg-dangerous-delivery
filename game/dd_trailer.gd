@@ -22,11 +22,16 @@ var height: float = 2.9
 var hitch_on_truck: Vector3 = Vector3.ZERO
 
 var joint: Generic6DOFJoint3D = null
+
+## Metres from the hitch to where the box's drawbar meets it: the tractor's tail overhang.
+var lead: float = 0.0
 var _wheels: Array[VehicleWheel3D] = []
 
 
 ## Builds it from [param spec] ({length, mass, colour}); [param draws] adds the mesh.
-func configure(spec: Dictionary, truck_half_length: float, truck_width: float, draws: bool) -> void:
+## [param hitch_z] is where on the truck (its own frame, +Z back) the hitch is: over its rear
+## axle, as a fifth wheel is. INF puts it behind the truck's tail, where it was.
+func configure(spec: Dictionary, truck_half_length: float, truck_width: float, draws: bool, hitch_z: float = INF) -> void:
 	name = "Trailer"
 	length = float(spec.get("length", 7.0))
 	width = minf(float(spec.get("width", truck_width)), 2.8)
@@ -34,17 +39,29 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 	mass = float(spec.get("mass", 3000.0))
 	continuous_cd = true
 	can_sleep = false
+	# The load sits just ahead of the rear axles, so the hitch carries about an eighth of it. At the
+	# hitch itself (where it was when the trailer was empty and 2.6 t) a full 9 t load stood the
+	# tractor on its back wheels and the joint fought it to a standstill.
+	# The hitch over the tractor's rear axle, not behind its tail: hung out behind, the hitch's
+	# load was a lever that lifted the tractor's front wheels off a climb (two wheels down, the
+	# steering gone). The box starts where it always did, past the tail, and a drawbar reaches
+	# forward from it to the hitch.
+	var tail := truck_half_length + 0.35
+	var hitch := minf(hitch_z, tail)
+	lead = tail - hitch
+	hitch_on_truck = Vector3(0, 0.9, hitch)
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, 0.4, 0)
-	# The hitch sits a little behind the truck's rear and the trailer's front just past it, so
-	# the two boxes never touch when it swings.
-	hitch_on_truck = Vector3(0, 0.9, truck_half_length + 0.35)
+	center_of_mass = Vector3(0, 0.9, lead + length * 0.62 + 0.4)
+	# No damping proportional to speed; the tyres' rolling resistance is applied instead
+	# ([method _physics_process]), as the tractor's drivetrain does.
+	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	linear_damp = 0.0
 
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(width, height - 0.9, length)
 	var collider := CollisionShape3D.new()
 	collider.shape = shape
-	collider.position = Vector3(0, 0.9 + (height - 0.9) * 0.5, length * 0.5 + 0.4)
+	collider.position = Vector3(0, 0.9 + (height - 0.9) * 0.5, lead + length * 0.5 + 0.4)
 	add_child(collider)
 
 	for z in [length - 1.6, length - 0.5]:
@@ -58,7 +75,7 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 			wheel.wheel_friction_slip = 3.0
 			wheel.damping_compression = 0.6
 			wheel.damping_relaxation = 0.8
-			wheel.position = Vector3(x, 0.5 + 0.3, z + 0.4)
+			wheel.position = Vector3(x, 0.5 + 0.3, lead + z + 0.4)
 			add_child(wheel)
 			_wheels.append(wheel)
 
@@ -95,6 +112,17 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 		red.albedo_color = Color(0.75, 0.15, 0.12)
 		stripe.material_override = red
 		add_child(stripe)
+
+		if lead > 0.05:
+			var bar := MeshInstance3D.new()
+			var beam := BoxMesh.new()
+			beam.size = Vector3(0.35, 0.25, lead + 0.45)
+			bar.mesh = beam
+			bar.position = Vector3(0, 0.95, (lead + 0.45) * 0.5)
+			var dark := StandardMaterial3D.new()
+			dark.albedo_color = Color(0.12, 0.12, 0.13)
+			bar.material_override = dark
+			add_child(bar)
 
 
 ## Hitches it to [param truck], both already in the tree and placed.
@@ -152,6 +180,37 @@ func rehitch(truck: VehicleBody3D) -> void:
 ## The angle between truck and trailer, degrees: what a jack-knife is.
 func angle_to(truck: Node3D) -> float:
 	return rad_to_deg(truck.global_basis.z.signed_angle_to(global_basis.z, Vector3.UP))
+
+
+## Rolling resistance and the air behind the tractor (the tractor's drivetrain takes the front).
+func _physics_process(_delta: float) -> void:
+	if freeze:
+		return
+	var v := linear_velocity
+	var speed := v.length()
+	if speed > 0.05:
+		var resist := ROLLING * mass * 9.8 * clampf(speed / 0.5, 0.0, 1.0) + 0.5 * 1.2 * DRAG_AREA * speed * speed
+		apply_central_force(-v / speed * resist)
+
+
+const ROLLING := 0.008
+
+## About the share of its mass the trailer puts on the hitch, with its load where
+## [method configure] puts the centre of mass.
+const HITCH_SHARE := 0.25
+const DRAG_AREA := 1.5
+
+
+## The trailer's own brakes, worked with the tractor's: [param fraction] of [constant BRAKE_DECEL]
+## for its mass. A trailer that only rolled pushed nine tonnes into the tractor at every stop.
+## Godot reads a wheel's brake as an impulse per step (see [DdDrivetrain]), hence the delta.
+func set_braking(fraction: float, delta: float) -> void:
+	var each := fraction * mass * BRAKE_DECEL * delta / float(maxi(_wheels.size(), 1))
+	for wheel in _wheels:
+		wheel.brake = each
+
+
+const BRAKE_DECEL := 5.0
 
 
 func set_grip(grip: float) -> void:

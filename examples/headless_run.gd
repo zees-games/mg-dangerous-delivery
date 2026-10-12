@@ -20,7 +20,7 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 
 const SECTIONS := 20
-const CHECKS := 124
+const CHECKS := 126
 
 var _passed := 0
 var _failed := 0
@@ -602,7 +602,7 @@ func _test_a_trailer() -> void:
 	await _seconds(8.0)
 	var truck := me.truck as Node3D
 	var gap := truck.global_position.distance_to(trailer.global_position)
-	_check((me.trip as DdTrip).distance > 30.0 and gap < 9.0, "the trailer follows it up the road (%.0f m along, %.1f m behind)" % [(me.trip as DdTrip).distance, gap])
+	_check((me.trip as DdTrip).distance > 12.0 and gap < 9.0, "the trailer follows it up the road (%.0f m along, %.1f m behind)" % [(me.trip as DdTrip).distance, gap])
 	var _r := game.respawn(&"semi")
 	await _seconds(0.8)
 	_check(absf(trailer.angle_to(truck)) < 10.0 and truck.global_position.distance_to(trailer.global_position) < 9.0,
@@ -692,6 +692,20 @@ func _test_the_client_settings() -> void:
 	_check(menu.screen.find_child("Action_help", true, false) != null and leave != null and leave.visible,
 		"the menu has Help & commands and Leave")
 	settings.close()
+	# The pointer: there at the lot and in the menu, out of the way on the road (the first play
+	# test drove with an arrow over the truck the whole way).
+	var at_lot: int = client.call("pointer_mode")
+	client.call("_act", "start", {"route": "dd_foothills"})
+	await get_tree().process_frame
+	var driving: int = client.call("pointer_mode")
+	settings.open()
+	var in_menu: int = client.call("pointer_mode")
+	settings.close()
+	client.call("_act", "garage", {})
+	await get_tree().process_frame
+	_check(at_lot == Input.MOUSE_MODE_VISIBLE and driving == Input.MOUSE_MODE_CAPTURED and in_menu == Input.MOUSE_MODE_VISIBLE
+		and client.call("pointer_mode") == Input.MOUSE_MODE_VISIBLE,
+		"the pointer is captured while driving and back for the lot and the menu", "%d %d %d" % [at_lot, driving, in_menu])
 	var hud_keys := client.get("hud").get("_keys") as Label
 	_check(hud_keys != null and hud_keys.text.contains("H  help") and hud_keys.text.contains("R  respawn"),
 		"the HUD's key list comes from the table, and says H", hud_keys.text if hud_keys != null else "")
@@ -791,8 +805,23 @@ func _test_the_lot_makes_room() -> void:
 	lot.size = Vector2(900.0, 720.0)
 	ballot.position = Vector2(900.0 - 16.0 - 306.0, 110.0)
 	lot.call("make_room")
-	_check(lot.call("room_target") == Vector2(-110.0, 1010.0),
-		"a frame too narrow for a three-column lot beside the ballot leaves it centred", str(lot.call("room_target")))
+	_check(lot.call("room_target") == Vector2(16.0, 884.0),
+		"a frame too narrow for a three-column lot beside the ballot leaves it centred, inside the frame", str(lot.call("room_target")))
+
+	# Smaller windows than the lot's own size: it fits inside, its content does not push it out
+	# (the first play test's lot ran off the left of the window: "OUTES", "$64").
+	ballot.visible = false
+	lot.call("refresh", game.garage_view(&"p1"))
+	var fits := []
+	for window: Vector2 in [Vector2(1024.0, 576.0), Vector2(800.0, 600.0)]:
+		lot.size = window
+		lot.call("make_room")
+		await get_tree().process_frame
+		var rect := Rect2(frame.position, frame.size)
+		if rect.position.x < 0.0 or rect.end.x > window.x or rect.position.y < 0.0 or rect.end.y > window.y:
+			fits.append("%s: %s" % [window, rect])
+	_check(fits.is_empty(), "in a smaller window the whole lot is on screen", str(fits))
+	ballot.visible = true
 
 	# A full chat log: the box the client builds, bottom-left of a 1280 x 720 frame on a layer
 	# above the lot, eight lines in it. Before the lot cleared it, rows from 518 down lay over

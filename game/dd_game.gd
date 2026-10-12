@@ -23,6 +23,7 @@ const DdRouteDoc := preload("dd_route_doc.gd")
 const DdTruck := preload("dd_truck.gd")
 const DdTrailer := preload("dd_trailer.gd")
 const DdTrucks := preload("dd_trucks.gd")
+const DdCargo := preload("dd_cargo.gd")
 const DdTrip := preload("dd_trip.gd")
 const DdBank := preload("dd_bank.gd")
 const DdWeather := preload("dd_weather.gd")
@@ -46,6 +47,9 @@ const ROUTE_GAP := 160.0
 ## Seconds a truck that was just put down passes through other trucks, so two put on one
 ## checkpoint do not explode apart.
 const GHOST_SECONDS := 3.0
+
+## Seconds a truck put back on a checkpoint is held on its brakes before it is the driver's.
+const SETTLE_SECONDS := 0.4
 
 signal trip_started(key: StringName, route_id: StringName)
 signal stage_reached(key: StringName, stage: int)
@@ -101,6 +105,7 @@ class Driver:
 
 var config: DdConfig = null
 var trucks: DdTrucks = null
+var cargo: DdCargo = null
 var bank: DdBank = null
 
 ## route id -> normalised document for the routes the world holds now (the mountain's), and
@@ -165,6 +170,10 @@ func _ready() -> void:
 	if trucks == null:
 		trucks = DdTrucks.new()
 		var _over := trucks.load_overrides("user://cfg/delivery_trucks.json")
+
+	if cargo == null:
+		cargo = DdCargo.new()
+		var _cover := cargo.load_overrides("user://cfg/delivery_cargo.json")
 
 	if bank == null:
 		bank = DdBank.new()
@@ -473,7 +482,10 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 
 	var truck := DdTruck.new()
 	truck.owner_key = key
-	var made := truck.configure(truck_id, trucks.get_truck(truck_id), trucks.tunables_for(truck_id, bank.upgrades_of(key, truck_id)), draws)
+	var doc: Dictionary = documents[route_id]
+	var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
+	var levels := bank.upgrades_of(key, truck_id)
+	var made := truck.configure(truck_id, trucks.effective(truck_id, levels), trucks.tunables_for(truck_id, levels, load_def), draws, load_def)
 
 	if not made.ok:
 		truck.free()
@@ -486,14 +498,21 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 
 	if config.trailers and trailer_spec is Dictionary:
 		var trailer := DdTrailer.new()
-		trailer.configure(trailer_spec, truck.half_length, 2.5, draws)
+		var spec := (trailer_spec as Dictionary).duplicate()
+		spec["mass"] = trucks.trailer_mass(truck_id, load_def)
+		trailer.configure(spec, truck.half_length, 2.5, draws, truck.rear_axle_z())
+
+		if truck.chassis is DdTruck.DdDrivetrain:
+			(truck.chassis as DdTruck.DdDrivetrain).hitch_mass = float(spec["mass"]) * DdTrailer.HITCH_SHARE
 		trailer.name = "Trailer_%s" % String(key)
 		add_child(trailer)
 		driver.trailer = trailer
 
 	var trip := DdTrip.new()
-	var doc: Dictionary = documents[route_id]
 	trip.route_id = route_id
+	trip.cargo_id = StringName(str(load_def.get("id", "crates")))
+	trip.cargo_pay = float(load_def.get("pay", 1.0))
+	trip.fragile = maxf(float(load_def.get("fragile", 1.0)), 0.1)
 	trip.truck_id = truck_id
 	trip.level = int(doc["level"])
 	trip.base_pay = float(doc["pay"])
@@ -629,10 +648,12 @@ func garage_view(key: StringName) -> Dictionary:
 	for id in route_order:
 		var doc: Dictionary = documents[id]
 		var road: DdRoute = routes[id]
+		var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
 		out_routes.append({
 			"id": String(id), "name": doc["name"], "level": int(doc["level"]), "blurb": doc["blurb"],
-			"length": int(road.length()), "stages": road.stages(),
-			"pay": int(round(float(doc["pay"]) * (1.0 + config.level_pay_step * float(int(doc["level"]) - 1)))),
+			"length": int(road.length()), "stages": road.stages(), "cargo": str(load_def.get("name", "")),
+			"challenges": road.challenge_count(),
+			"pay": int(round(float(doc["pay"]) * float(load_def.get("pay", 1.0)) * (1.0 + config.level_pay_step * float(int(doc["level"]) - 1)))),
 			"locked": not is_unlocked(key, id), "delivered": bank.has_delivered(key, id),
 		})
 
@@ -670,6 +691,22 @@ func step(delta: float) -> void:
 	tick += 1
 	_now += delta
 	_refresh_weather(false)
+
+	# The oncoming cars run on the tick's schedule and stop for trucks, which a mirror has too,
+	# so a mirror moves them as well.
+	var bodies := PackedVector3Array()
+	for key: StringName in drivers:
+		var driver: Driver = drivers[key]
+		for body: Node in [driver.truck, driver.trailer]:
+			if body != null and is_instance_valid(body) and (body as Node3D).is_inside_tree():
+				bodies.append((body as Node3D).global_position)
+
+	for id: StringName in routes:
+		var road := routes[id] as DdRoute
+		var local := PackedVector3Array()
+		for p in bodies:
+			local.append(p - road.position)
+		road.step_traffic(tick, tick_rate, local)
 
 	if not authoritative:
 		return
@@ -724,6 +761,9 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	trip.seconds += delta
 	truck.drive(driver.command, delta)
 
+	if driver.trailer != null:
+		(driver.trailer as DdTrailer).set_braking(driver.command.brake, delta)
+
 	trip.hint = road.nearest_index(local, trip.hint)
 	trip.distance = road.distance_at(local, trip.hint)
 	trip.furthest = maxf(trip.furthest, trip.distance)
@@ -739,6 +779,17 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		if not trip.met.has("ice"):
 			trip.met["ice"] = true
 			trip.chaos_units += config.ice_chaos
+
+	# Gravel: less grip, and a washboard that jolts the truck harder the faster it crosses, which
+	# the knock test below then charges to the load (glass feels it, gravel does not).
+	if road.on_gravel(local, trip.hint):
+		grip = minf(grip, config.gravel_grip)
+		trip.washboard -= delta
+
+		if trip.washboard <= 0.0:
+			trip.washboard = 0.22
+			var jolt := config.gravel_jolt * absf(truck.forward_speed())
+			truck.apply_central_impulse(Vector3.UP * jolt * truck.mass)
 
 	truck.set_grip(grip)
 
@@ -756,8 +807,11 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	var dv := (truck.linear_velocity - trip.last_velocity).length()
 	trip.last_velocity = truck.linear_velocity
 
-	if dv > config.knock_threshold:
-		trip.cargo = maxf(trip.cargo - (dv - config.knock_threshold) * config.knock_loss_per_speed, 0.0)
+	# A fragile load feels a smaller knock and loses more to it.
+	var threshold := config.knock_threshold / trip.fragile
+
+	if dv > threshold:
+		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
 
 	# Checkpoints.
 	var reached := road.stage_of(trip.distance)
@@ -770,6 +824,18 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	if truck.global_position.y < road.position.y + road.road_height_at(local, trip.hint) - config.fall_depth:
 		_fall(driver, "fell")
 		return
+
+	# Hung up: off the road's edge on its belly, or wedged on a rail, with wheels in the air and
+	# going nowhere. The first play test sat at 0 to 1 km/h on the River Cut's open edge with two
+	# wheels over it until R; nothing let it fall and nothing put it back.
+	if truck.wheels_on_ground() < truck.wheel_count() - 1 and truck.linear_velocity.length() < 1.0:
+		trip.hung_for += delta
+
+		if trip.hung_for >= config.hung_respawn_seconds:
+			_fall(driver, "hung")
+			return
+	else:
+		trip.hung_for = 0.0
 
 	# On its back.
 	if truck.is_flipped() and truck.linear_velocity.length() < 2.0:
@@ -800,6 +866,7 @@ func _fall(driver: Driver, why: String) -> void:
 	trip.state = DdTrip.State.FALLEN
 	trip.wait = config.respawn_seconds
 	trip.flipped_for = 0.0
+	trip.hung_for = 0.0
 	fell.emit(driver.key, why)
 
 
@@ -832,6 +899,11 @@ func _put_at(driver: Driver, stage: int) -> void:
 	trip.furthest = maxf(trip.furthest, d)
 	trip.hint = road.index_at_distance(d)
 	trip.last_velocity = Vector3.ZERO
+	# Held on the brakes for a moment: put down on a steep snowy grade and driven at once, a
+	# loaded Semi rolled back before its tyres had settled onto the road and went over.
+	if trip.state != DdTrip.State.HOLD:
+		trip.state = DdTrip.State.HOLD
+		trip.wait = SETTLE_SECONDS
 	driver.ghost_until = _now + GHOST_SECONDS
 	_refresh_exceptions()
 

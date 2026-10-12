@@ -8,7 +8,7 @@
 	"level": 3,
 	"pay": 480,
 	"width": 7.0,
-	"cargo": "crates",
+	"cargo": "fuel",
 	"zones": {
 		"lower": {
 			"name": "Lower Pass",
@@ -34,15 +34,17 @@
 			"climb": 14.0,
 			"wall": "left",
 			"rail": "none",
-			"zone": "lower"
+			"zone": "lower",
+			"traffic": 1
 		},
 		{
 			"length": 95.0,
 			"turn": -180.0,
 			"climb": 6.0,
 			"wall": "left",
-			"rail": "none",
-			"zone": "lower"
+			"rail": "right",
+			"zone": "lower",
+			"width": 8.5
 		},
 		{
 			"length": 140.0,
@@ -52,15 +54,17 @@
 			"rail": "none",
 			"zone": "lower",
 			"checkpoint": true,
-			"boulders": 1
+			"boulders": 1,
+			"works": 1
 		},
 		{
 			"length": 95.0,
 			"turn": 180.0,
 			"climb": 6.0,
 			"wall": "right",
-			"rail": "none",
-			"zone": "upper"
+			"rail": "left",
+			"zone": "upper",
+			"width": 8.5
 		},
 		{
 			"length": 140.0,
@@ -77,9 +81,9 @@
 			"turn": -180.0,
 			"climb": 6.0,
 			"wall": "left",
-			"rail": "none",
+			"rail": "right",
 			"zone": "upper",
-			"width": 6.8
+			"width": 8.3
 		},
 		{
 			"length": 120.0,
@@ -88,7 +92,8 @@
 			"wall": "right",
 			"rail": "none",
 			"zone": "upper",
-			"checkpoint": true
+			"checkpoint": true,
+			"gravel": 1
 		},
 		{
 			"length": 150.0,

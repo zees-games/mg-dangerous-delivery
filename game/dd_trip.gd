@@ -17,6 +17,11 @@ var truck_id: StringName = &""
 var level: int = 1
 var base_pay: float = 300.0
 var truck_pay: float = 1.0
+
+## The load ([DdCargo]): which, what it adds to the pay, and how much harder a knock hits it.
+var cargo_id: StringName = &"crates"
+var cargo_pay: float = 1.0
+var fragile: float = 1.0
 var stages: int = 1
 
 var state: State = State.HOLD
@@ -44,6 +49,12 @@ var boulders: int = 0
 
 ## Seconds on its side or back.
 var flipped_for: float = 0.0
+
+## Seconds hung up with wheels off the road and not moving.
+var hung_for: float = 0.0
+
+## Seconds to the next jolt on gravel.
+var washboard: float = 0.0
 
 ## Seconds since it set off, held time excluded.
 var seconds: float = 0.0
@@ -73,6 +84,7 @@ func reset_to_start(hold_seconds: float) -> void:
 	skips = 0
 	boulders = 0
 	flipped_for = 0.0
+	hung_for = 0.0
 	seconds = 0.0
 	met = {}
 	chaos_units = 0.0
@@ -110,6 +122,7 @@ func pay_now(config: Object) -> int:
 	var amount := base_pay
 	amount *= 1.0 + float(config.get("level_pay_step")) * float(level - 1)
 	amount *= truck_pay
+	amount *= cargo_pay
 	amount *= 1.0 + float(config.get("chaos_pay")) * chaos_units
 
 	if bool(config.get("cargo_condition_pays")):
@@ -132,7 +145,7 @@ func state_name() -> String:
 
 func describe() -> Dictionary:
 	return {
-		"route": String(route_id), "truck": String(truck_id), "state": state_name(),
+		"route": String(route_id), "truck": String(truck_id), "cargo_id": String(cargo_id), "state": state_name(),
 		"stage": "%d/%d" % [stage, stages], "at": "%.0f m" % distance, "cargo": "%.0f%%" % (cargo * 100.0),
 		"falls": falls, "skips": skips, "chaos": "%.2f" % chaos_units, "seconds": "%.0f" % seconds,
 	}

@@ -1,0 +1,10 @@
+Textures from Poly Haven (https://polyhaven.com), released under CC0 1.0 Universal (public domain).
+https://polyhaven.com/license
+
+Each was downloaded at 1K, resized to 512 x 512, and greyed and levelled for this game (the
+colour comes from the material, so the weather can still paint the road white or wet):
+
+rock_cliff.jpg  <- "Cliff Side"   https://polyhaven.com/a/cliff_side
+                   Photography: James Ray Cock, Dario Barresi; processing: Jenelle van Heerden
+asphalt.jpg     <- "Asphalt 02"   https://polyhaven.com/a/asphalt_02    by Rob Tuytel
+gravel.jpg      <- "Gravel Road"  https://polyhaven.com/a/gravel_road   by Amal Kumar

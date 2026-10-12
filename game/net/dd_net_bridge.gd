@@ -441,7 +441,8 @@ func trip_view_of(key: StringName) -> Dictionary:
 		"fraction": trip.distance / maxf(road.length(), 1.0), "cargo": trip.cargo,
 		"offer": trip.pay_now(game.config), "falls": trip.falls, "paid": trip.paid,
 		"zone": str((road.doc.get("zones", {}) as Dictionary).get(zone_id, {}).get("name", "")),
-		"solo": driver.solo,
+		"solo": driver.solo, "cargo_name": str(game.cargo.get_load(trip.cargo_id).get("name", "")),
+		"gear": int((driver.truck as DdTruck).gauge().get("gear", 0)) if driver.truck is DdTruck else 0,
 	}
 
 
@@ -729,7 +730,11 @@ func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
 		return
 
 	var trailer := DdTrailer.new()
-	trailer.configure((def as Dictionary)["trailer"], (driver.truck as DdTruck).half_length if driver.truck != null else 2.8, 2.5, game.draws)
+	# The hitch where the server put it (over the tractor's rear axle), or the box is drawn a
+	# drawbar's length out of place on the replicated body.
+	var tractor := driver.truck as DdTruck
+	trailer.configure((def as Dictionary)["trailer"], tractor.half_length if tractor != null else 2.8, 2.5, game.draws,
+		tractor.rear_axle_z() if tractor != null else INF)
 	trailer.freeze = true
 	trailer.name = "Trailer_%s" % String(driver.key)
 	game.add_child(trailer)

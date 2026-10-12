@@ -194,9 +194,12 @@ func refresh(view: Dictionary) -> void:
 		button.button_pressed = id == _picked_route
 		button.disabled = bool(r.get("locked", false))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.text = "L%d  %s  —  %d m, %d stages, from $%d%s\n      %s" % [
+		var load_name := str(r.get("cargo", ""))
+		button.text = "L%d  %s  —  %d m, %d stages, from $%d%s\n      %s%s%s" % [
 			int(r["level"]), r["name"], int(r["length"]), int(r["stages"]), int(r["pay"]),
-			"   LOCKED" if bool(r.get("locked", false)) else "", r.get("blurb", "")]
+			"   LOCKED" if bool(r.get("locked", false)) else "",
+			("Carrying %s. " % load_name.to_lower()) if load_name != "" else "",
+			("%d challenges. " % int(r["challenges"])) if r.has("challenges") else "", r.get("blurb", "")]
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.pressed.connect(func() -> void:
 			_picked_route = id
@@ -271,8 +274,12 @@ func make_room(delta: float = 0.0) -> void:
 	if _frame == null or size.x <= 0.0:
 		return
 
-	var width := LOT_SIZE.x
-	var home := Rect2((size - Vector2(width, LOT_SIZE.y)) * 0.5, Vector2(width, LOT_SIZE.y))
+	# Never wider or taller than the window, less a margin: a fixed 1120 x 600 lot centred in a
+	# smaller window ran off both sides (the first play test's "OUTES", 1:16). Every column
+	# wraps and scrolls, so a smaller lot loses nothing but room.
+	var fit := fitted_size()
+	var width := fit.x
+	var home := Rect2((size - fit) * 0.5, fit)
 	var target := Vector2(home.position.x, home.end.x)
 	var cover := covered_rect()
 
@@ -298,7 +305,7 @@ func make_room(delta: float = 0.0) -> void:
 	if log_rect.has_area() and log_rect.position.y < home.end.y + ROOM_GAP \
 			and log_rect.position.x < target.y and log_rect.end.x > target.x:
 		var bottom := log_rect.position.y - ROOM_GAP
-		var top := maxf(ROOM_GAP, minf(home.position.y, bottom - LOT_SIZE.y))
+		var top := maxf(ROOM_GAP, minf(home.position.y, bottom - fit.y))
 		target_y = Vector2(top, maxf(bottom, top + LOT_MIN_HEIGHT))
 
 	_room_target_y = target_y
@@ -328,6 +335,12 @@ func chat_log_rect() -> Rect2:
 	var row := float(chat_window.get(&"line_height")) + float(chat_window.get(&"line_gap"))
 	var bottom := box.end.y - float(chat_window.get(&"entry_height"))
 	return Rect2(box.position.x, bottom - row * rows, box.size.x, row * rows)
+
+
+## The lot's size in this window: [constant LOT_SIZE], or the window less [constant ROOM_GAP]
+## each side where the window is smaller.
+func fitted_size() -> Vector2:
+	return Vector2(minf(LOT_SIZE.x, maxf(size.x - ROOM_GAP * 2.0, 200.0)), minf(LOT_SIZE.y, maxf(size.y - ROOM_GAP * 2.0, 200.0)))
 
 
 ## The lot's left and right edges where they are going: for a check and a bug report.

@@ -78,6 +78,13 @@ var _probe: DotCameraProbe = null
 var _was_cab := true
 var _last_truck_at := Vector3.INF
 
+## Exponential fog density per sky. Half of what it was: at 0.006 a snowy stage was white on
+## white past 60 m (the first play test), so the next bend and the rock coming down were not
+## there to see. At these a bend 150 m off still reads in snow, and the far mountain fades.
+const FOG_CLEAR := 0.0006
+const FOG_RAIN := 0.0015
+const FOG_SNOW := 0.0028
+
 ## Metres a truck may move between two frames before it counts as a teleport (a respawn, a
 ## restart, a new route): the camera cuts to its place rather than easing across the map.
 const CUT_DISTANCE := 20.0
@@ -171,7 +178,7 @@ func _ready() -> void:
 			hud.say("CHECKPOINT %d" % stage, 2.0, Color(1.0, 0.85, 0.3)))
 	game.fell.connect(func(key: StringName, why: String) -> void:
 		if key == local_key:
-			hud.say({"fell": "OVER THE EDGE", "flipped": "ON ITS SIDE", "respawn": "BACK TO THE CHECKPOINT"}.get(why, why.to_upper()), 2.0, Color(1.0, 0.4, 0.35)))
+			hud.say({"fell": "OVER THE EDGE", "flipped": "ON ITS SIDE", "hung": "HUNG UP", "respawn": "BACK TO THE CHECKPOINT"}.get(why, why.to_upper()), 2.0, Color(1.0, 0.4, 0.35)))
 	game.delivered.connect(func(key: StringName, _route: StringName, pay: int) -> void:
 		if key == local_key:
 			var _heard := audio.delivered() if audio != null else false
@@ -403,7 +410,7 @@ func _refresh_garage() -> void:
 func _show_garage(on: bool) -> void:
 	garage.visible = on
 	hud.visible = not on
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_apply_pointer()
 
 	if on:
 		_frame_garage_camera()
@@ -449,6 +456,9 @@ func _build_settings() -> void:
 	if settings.menu != null:
 		# Escape is the garage's; the menu still closes on it.
 		settings.menu.open_on_escape = false
+		# The pointer is this client's ([method pointer_mode]): the menu would capture it on
+		# closing even over the lot.
+		settings.menu.manage_pointer = false
 		settings.menu.busy = func() -> bool: return chat != null and chat.is_typing()
 		# The console (the key under Escape): net_stat and every other setting by name, and
 		# the server's console when one runs in this process. One of the menu's overlays, so
@@ -676,7 +686,19 @@ func _process(delta: float) -> void:
 	if net != null and net.is_running():
 		net.interpolate_frame(-1.0)
 
+	_apply_pointer()
+
 	var me := _driver()
+
+	# How many other engines are in earshot (60 m, the def's range): they share one level.
+	if audio != null:
+		var heard := 0
+		for k: StringName in game.drivers:
+			var other: DdGame.Driver = game.drivers[k]
+			if other != me and other.truck != null and is_instance_valid(other.truck) and other.on_road() and game.sees(me, other) \
+					and (other.truck as Node3D).global_position.distance_to(camera.global_position) < 60.0:
+				heard += 1
+		audio.others_heard = heard
 
 	for k: StringName in game.drivers:
 		var other: DdGame.Driver = game.drivers[k]
@@ -696,8 +718,11 @@ func _process(delta: float) -> void:
 
 		if not facts.is_empty():
 			audio.speed = float(facts.get("speed", 0.0))
-			audio.throttle = absf(command.throttle) if command != null else 0.0
-			audio.braking = command != null and command.brake > 0.1
+			# The wheel's own command, or the stand-in's when the wheel is handed over (a shot, a
+			# suite): sampled keys say nothing about a truck the autopilot is driving.
+			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
+			audio.throttle = absf(driven.throttle) if driven != null else 0.0
+			audio.braking = driven != null and driven.brake > 0.1
 			audio.weather = facts.get("weather", {})
 
 	if facts.is_empty():
@@ -735,7 +760,9 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 		var zone_id := road.zone_at(trip.distance)
 		return {
 			"stage": trip.stage, "stages": trip.stages, "fraction": trip.distance / maxf(road.length(), 1.0),
-			"cargo": trip.cargo, "speed": _speed_of(me), "offer": trip.pay_now(game.config),
+			"cargo": trip.cargo, "cargo_name": str(game.cargo.get_load(trip.cargo_id).get("name", "")),
+			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)),
+			"speed": _speed_of(me), "offer": trip.pay_now(game.config),
 			"weather": game.weather_at(trip.route_id, trip.distance), "state": trip.state_name(),
 			"zone": str((road.doc.get("zones", {}) as Dictionary).get(zone_id, {}).get("name", "")),
 		}
@@ -749,6 +776,31 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 	out["speed"] = _speed_of(me)
 	out["weather"] = game.weather_at(StringName(str(view.get("route", ""))), float(view.get("distance", 0.0)))
 	return out
+
+
+## What the mouse pointer should be now: out of the way while driving, there for the lot, the
+## menu, the console and a chat line.
+##
+## [b]The client owns it, every frame[/b], rather than dot-menu (its `manage_pointer` is off
+## here): the menu would capture the pointer when it closed even with the lot up, and nothing
+## hid it on the road at all, so the first play test drove with an arrow over the truck the
+## whole way. Captured on a desktop; hidden in a browser, where capture needs a click and the
+## mouse steers nothing here anyway.
+func pointer_mode() -> Input.MouseMode:
+	var me := _driver()
+	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
+	var typing := chat != null and chat.is_typing()
+
+	if me == null or me.truck == null or garage == null or garage.visible or menu_open or typing:
+		return Input.MOUSE_MODE_VISIBLE
+
+	return Input.MOUSE_MODE_HIDDEN if DotPlatform.is_web() else Input.MOUSE_MODE_CAPTURED
+
+
+func _apply_pointer() -> void:
+	var want := pointer_mode()
+	if Input.mouse_mode != want:
+		Input.mouse_mode = want
 
 
 ## The camera key: the next camera the server's `mp_forceview` allows, and a line when it
@@ -900,7 +952,7 @@ func _build_environment() -> void:
 	_env.fog_enabled = true
 	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	_env.fog_light_color = Color(0.78, 0.84, 0.9)
-	_env.fog_density = 0.0012
+	_env.fog_density = FOG_CLEAR
 
 
 ## What this machine draws of the light.
@@ -963,7 +1015,7 @@ func _set_weather(weather: Dictionary) -> void:
 	_snow.emitting = sky == DdWeather.SNOW
 	var dim := _clear_sun * (0.5 if sky != DdWeather.CLEAR else 1.0)
 	_sun.light_energy = lerpf(_sun.light_energy, dim, 0.02)
-	_env.fog_density = lerpf(_env.fog_density, 0.006 if sky == DdWeather.SNOW else (0.003 if sky == DdWeather.RAIN else 0.0012), 0.02)
+	_env.fog_density = lerpf(_env.fog_density, FOG_SNOW if sky == DdWeather.SNOW else (FOG_RAIN if sky == DdWeather.RAIN else FOG_CLEAR), 0.02)
 
 
 ## dot-game's chat box and microphone, with this game's channels and voice format. It also

@@ -21,7 +21,9 @@ extends RefCounted
 ## }
 ## [/codeblock]
 ##
-## `ice` and `debris` place patches and piles along a segment (see the README).
+## `ice` and `debris` place patches and piles along a segment, `works` closes one lane for a
+## stretch, `gravel` lays loose stone across it, and `traffic` sends that many cars down the
+## other lane, over and over (see the README).
 ##
 ## Every length is metres, every angle degrees (positive turns right), and a segment's
 ## `climb` is its whole rise (negative descends). `wall` is the cliff side: "left", "right",
@@ -39,6 +41,13 @@ const MAX_TURN_PER_METRE := 2.2
 ## The steepest a segment may climb, as rise over run. Fifteen percent is steep for a road
 ## and a loaded truck still makes it.
 const MAX_GRADE := 0.18
+
+## The least road roadworks may leave open, metres: a truck and a little.
+const MIN_OPEN_LANE := 3.3
+
+## Where oncoming traffic may run: this wide at least, and turning no more than this per metre.
+const MIN_TRAFFIC_WIDTH := 6.4
+const MAX_TRAFFIC_TURN := 0.7
 
 
 ## Checks [param doc] and returns it normalised (every optional field filled, every number a
@@ -133,6 +142,20 @@ static func normalise(doc: Variant) -> DotResult:
 		if seg_width < 4.0 or seg_width > 30.0:
 			return DotResult.fail(DotError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
 
+		# Roadworks close 42% of the road, and what is left has to be a lane a truck fits.
+		var works := clampi(int(seg.get("works", 0)), 0, 32)
+
+		if works > 0 and seg_width * 0.58 < MIN_OPEN_LANE:
+			return DotResult.fail(DotError.CODE_INVALID,
+				"segment %d: roadworks on a %.1f m road leave %.1f m; a truck needs %.1f." % [i, seg_width, seg_width * 0.58, MIN_OPEN_LANE])
+
+		# Oncoming cars only on a road wide enough to pass them and straight enough to see them.
+		var traffic := clampi(int(seg.get("traffic", 0)), 0, 8)
+
+		if traffic > 0 and (seg_width < MIN_TRAFFIC_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 80.0):
+			return DotResult.fail(DotError.CODE_INVALID,
+				"segment %d: oncoming traffic needs 80 m of road %.1f m wide turning at most %.1f degrees a metre." % [i, MIN_TRAFFIC_WIDTH, MAX_TRAFFIC_TURN])
+
 		var checkpoint := bool(seg.get("checkpoint", false))
 
 		if checkpoint:
@@ -144,6 +167,9 @@ static func normalise(doc: Variant) -> DotResult:
 			"boulders": clampi(int(seg.get("boulders", 0)), 0, 32),
 			"ice": clampi(int(seg.get("ice", 0)), 0, 32),
 			"debris": clampi(int(seg.get("debris", 0)), 0, 32),
+			"works": works,
+			"gravel": clampi(int(seg.get("gravel", 0)), 0, 32),
+			"traffic": traffic,
 			"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
 		})
 

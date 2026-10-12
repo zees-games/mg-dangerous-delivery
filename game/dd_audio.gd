@@ -48,6 +48,29 @@ const SILENT_DB := -60.0
 ## The speed (m/s) the engine's pitch tops out at.
 const TOP_SPEED := 22.0
 
+## How many other trucks' engines are being fed this frame: their share of one level.
+var others_heard: int = 0
+
+## The levels, in dB before the def's gain: your engine idling and at full throttle, another
+## truck at a crawl (it gains 6 dB at speed), rain and wind.
+##
+## [b]Nine decibels under where they were.[/b] The first play test's recording of the snow stage
+## sat at -7.6 LUFS with peaks over full scale, the 66 Hz of the engine on top, where the other
+## games in the same recording sat near -25: a bed of engine, wind and snow that never stops,
+## at the level of an effect. Down 9 dB it is about -16 LUFS on that recording's scale and
+## about -36 on tools/loudness.sh's (which records the Master bus here; the two differ by the
+## play test's capture gain). The one-shots came down 5 dB, so a rockfall, the brakes and the
+## depot's chime stand out of the bed by more than before. Rain is 5 dB under the wind: its
+## noise is broadband, and at the same level a rainy stage measured 6 LU louder than a snowy one.
+const OWN_IDLE_DB := -23.0
+const OWN_FULL_DB := -15.0
+const OTHER_DB := -22.0
+const RAIN_DB := -28.0
+const WIND_DB := -22.0
+
+## The one-shots' gain in the catalogue: the brakes, rock, the chime.
+const SHOT_DB := -9.0
+
 ## m/s, signed: forward is positive.
 var speed: float = 0.0
 ## 0 to 1: how hard the engine is being asked.
@@ -86,10 +109,9 @@ static func sound_catalogue() -> DotAudioCatalogue:
 	c.add(_def(RAIN, 1, 50, true))
 	c.add(_def(WIND, 1, 50, true))
 
-	# The one-shots were four decibels down; so they are here.
 	for id: StringName in [BRAKE_HISS, ROCKFALL, DELIVERED]:
 		var shot := _def(id, 1, 70, false)
-		shot.gain_db = -4.0
+		shot.gain_db = SHOT_DB
 		c.add(shot)
 
 	return c
@@ -158,10 +180,10 @@ func _process(delta: float) -> void:
 	var k := 1.0 - exp(-delta * 8.0)
 	var sky := int(weather.get("sky", 0))
 	# Idle at a little over half pitch, climbing with speed: a diesel never revs like a car.
-	_shape(&"own", ENGINE, (-14.0 + 8.0 * clampf(throttle, 0.0, 1.0)) if driving else -80.0,
+	_shape(&"own", ENGINE, lerpf(OWN_IDLE_DB, OWN_FULL_DB, clampf(throttle, 0.0, 1.0)) if driving else -80.0,
 		0.55 + clampf(absf(speed) / TOP_SPEED, 0.0, 1.0) * 0.9, k)
-	_shape(&"rain", RAIN, -12.0 if driving and sky == 1 else -80.0, 1.0, k * 0.3)
-	_shape(&"wind", WIND, -10.0 if driving and bool(weather.get("wind", false)) else -80.0, 1.0, k * 0.3)
+	_shape(&"rain", RAIN, RAIN_DB if driving and sky == 1 else -80.0, 1.0, k * 0.3)
+	_shape(&"wind", WIND, WIND_DB if driving and bool(weather.get("wind", false)) else -80.0, 1.0, k * 0.3)
 
 	if braking and not _was_braking and absf(speed) > 3.0 and driving:
 		var _hissed := manager.play(BRAKE_HISS)
@@ -186,7 +208,13 @@ func feed_other(truck: Node3D, speed_ms: float, audible: bool, delta: float) -> 
 	var key := loop_key(truck)
 	_fed[key] = true
 	var pace := clampf(absf(speed_ms) / TOP_SPEED, 0.0, 1.0)
-	_shape(key, ENGINE_OTHER, (-10.0 + 6.0 * pace) if audible else -80.0, 0.55 + pace * 0.9,
+	# Each truck a little sharp or flat of the next: the same loop at the same speed summed in
+	# phase, two stand-ins beside you were one engine 6 dB louder than any of them. And the
+	# trucks heard share one level between them, so a convoy is a convoy, not a wall: the first
+	# play test's snow stage peaked at clipping with the 66 Hz of the engines on top of it.
+	var detune := 1.0 + (float(truck.get_instance_id() % 7) - 3.0) * 0.018
+	var crowd := 10.0 * log(float(maxi(others_heard, 1))) / log(10.0)
+	_shape(key, ENGINE_OTHER, (OTHER_DB + 6.0 * pace - crowd) if audible else -80.0, (0.55 + pace * 0.9) * detune,
 		1.0 - exp(-delta * 8.0), truck.global_position)
 
 

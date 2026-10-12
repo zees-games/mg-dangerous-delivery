@@ -12,13 +12,15 @@ I intend on reviewing code, testing, and editing documentation regularly. If you
 ## How it plays
 You start in the lot with a box truck and no money. Pick a route, set off, and get the load to the depot at the far end. Every route is a level, and the next level opens once you have delivered on the one below it. Routes are split into stages by checkpoints. Go over the edge and you are put back at the last checkpoint, with some of the load gone.
 
-**The weather belongs to the mountain.** Each route is split into zones, and every couple of minutes each zone rolls its own sky: snow (the road turns white and grip drops to 40%), rain (70% grip), or gusts of wind that push the truck toward the edge. Everybody in a zone gets the same weather. There is also rock falling off the cliffs, black ice, and fallen rock blocking a lane. Each route is cut into a mountain of its own, which climbs behind the cliffs and falls away to a lake under the drop, and the snow lies on it wherever it is snowing on the road.
+**The weather belongs to the mountain.** Each route is split into zones, and every couple of minutes each zone rolls its own sky: snow (the road turns white and grip drops to 40%), rain (70% grip), or gusts of wind that push the truck toward the edge. Everybody in a zone gets the same weather. There is also rock falling off the cliffs, black ice, fallen rock blocking a lane, roadworks closing one, loose gravel that shakes the load, and cars coming down the other lane (keep right). Hairpins have a rail round the outside and a sign before them; the danger is the speed you bring into one. Each route is cut into a mountain of its own, which climbs behind the cliffs and falls away to a lake under the drop, and the snow lies on it wherever it is snowing on the road.
 
 **Pay** starts from the route's pay, goes up with its level and with the truck you drive (harder trucks pay more), and goes up again for every kind of bad weather and every rockfall you actually drove through. It is scaled by how much of the load arrived, with a bonus for a run with no falls and no skips. The HUD shows what the trip pays right now.
 
 **The players vote for the mountain.** A server is on one mountain at a time: the whole range (every route), Low Country (the first three levels) or High Country (the last three). Every 15 minutes a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A change sends every truck back to the lot.
 
-**Money buys trucks and upgrades.** There are five trucks: the Box Truck (free), the Flatbed, the Hauler, the Semi (with an articulated trailer) and the Bulk Carrier. Each one is slower to stop, quicker to slide or longer round a hairpin than the last, and pays more for it. Each has three levels of engine, brakes and tyres.
+**Money buys trucks and upgrades.** There are five trucks: the Box Truck (free), the Flatbed, the Hauler, the Semi (with an articulated trailer) and the Bulk Carrier. Each has its own engine, gearbox and weight, so each is quicker or slower off the line, up a climb and to a stop, and nothing is capped: a truck runs as fast as its engine, the road's slope and the air let it, up to a governor on the flat. Each has three levels of engine, brakes and tyres.
+
+**Every route carries a load**: crates, timber (tall, leans in the bends, catches the wind), fuel (keeps moving in its tank after you stop turning), glass (every bump costs money) or explosives. The load is a share of what the truck can carry, so it is heavier in a bigger truck, and it pays more the harder it is to carry.
 
 ## Controls
 
@@ -121,7 +123,7 @@ A route is one JSON file in `routes/`, and every one in the directory is a level
 }
 ```
 
-Lengths are metres and angles degrees (positive turns right). `climb` is a segment's whole rise. `wall` is the side the cliff is on (`left`, `right`, `both`, `none`); the other side is the drop. `rail` puts a low barrier on a side. `checkpoint` ends a stage at the end of that segment. `boulders` is how many places along it rock can come down. `ice` lays that many patches of black ice (slippery in any weather, drawn as a pale sheet); `debris` that many piles of fallen rock, each blocking one lane. A bend tighter than a truck can take, or a climb steeper than 18%, is refused with the reason.
+Lengths are metres and angles degrees (positive turns right). `climb` is a segment's whole rise. `wall` is the side the cliff is on (`left`, `right`, `both`, `none`); the other side is the drop. `rail` puts a low barrier on a side. `checkpoint` ends a stage at the end of that segment. `boulders` is how many places along it rock can come down. `ice` lays that many patches of black ice (slippery in any weather, drawn as a pale sheet); `debris` that many piles of fallen rock, each blocking one lane; `works` that many roadworks closing one lane for 27 m; `gravel` that many 40 m stretches of loose stone; `traffic` that many cars coming down the other lane, over and over (only on a fairly straight segment at least 80 m long and 6.4 m wide). The route's `cargo` is its load (`crates`, `gravel`, `timber`, `fuel`, `glass`, `explosives`, or one of your own in `user://cfg/delivery_cargo.json`). A bend tighter than a truck can take, or a climb steeper than 18%, is refused with the reason.
 
 The shipped routes are written by `tools/build_routes.py` (`--check` fails if a file is not what it writes).
 
@@ -138,11 +140,14 @@ tools/drive.sh                  # a bot delivers on every route
 | `headless_run` | The game itself: routes, trucks, weather, hazards, pay and the bank |
 | `headless_net` | A server and a client in one process, over the network code |
 | `dedicated` | A real server: boots, loads the game, runs its commands, and the mountain vote from nomination to the rebuilt world |
+| `handling` | How the trucks drive, measured: every truck and every load on the flat and up a climb, stopping, a tanker's slosh, glass on gravel, every route's challenges, signs, oncoming cars, every start line, hairpins in the snow |
 
 [`CLAUDE.md`](CLAUDE.md) has the design decisions and the reasoning behind them.
 
 ## Credits
-The trucks are from Kenney's Car Kit and the pines and rocks from Kenney's Nature Kit ([kenney.nl](https://kenney.nl), CC0), in `assets/kenney/` with their licences. Everything else is drawn in code.
+The trucks, the oncoming cars and the cones are from Kenney's Car Kit, the roadworks barrier from Kenney's City Kit (Roads), and the pines and rocks from Kenney's Nature Kit ([kenney.nl](https://kenney.nl), CC0), in `assets/kenney/` with their licences.
+
+The rock, asphalt and gravel surfaces are photographs from [Poly Haven](https://polyhaven.com) (CC0), greyed and levelled for the game, in `assets/polyhaven/`: [Cliff Side](https://polyhaven.com/a/cliff_side) by James Ray Cock, Jenelle van Heerden and Dario Barresi; [Asphalt 02](https://polyhaven.com/a/asphalt_02) by Rob Tuytel; [Gravel Road](https://polyhaven.com/a/gravel_road) by Amal Kumar. Everything else is drawn in code.
 
 ## License
-MIT. See [LICENSE](LICENSE). The Kenney art is CC0, which is public domain.
+MIT. See [LICENSE](LICENSE). The Kenney art and the Poly Haven textures are CC0, which is public domain.

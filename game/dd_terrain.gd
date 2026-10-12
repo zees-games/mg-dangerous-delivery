@@ -157,7 +157,8 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	for i in n:
 		var seg: Dictionary = segments[segment_of[i]]
-		half[i] = float(seg["width"]) * 0.5
+		# The road's own eased width where it has one (DdRoute.widths), so the ground meets the edge.
+		half[i] = (float(route.widths[i]) if i < route.widths.size() else float(seg["width"])) * 0.5
 		bank_drop[i] = absf(tan(deg_to_rad(float(seg["bank"])))) * half[i]
 		var wall := str(seg["wall"])
 		raw_left[i] = 1.0 if wall == "left" or wall == "both" else 0.0

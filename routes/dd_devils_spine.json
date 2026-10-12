@@ -8,7 +8,7 @@
 	"level": 5,
 	"pay": 700,
 	"width": 6.5,
-	"cargo": "crates",
+	"cargo": "explosives",
 	"zones": {
 		"gate": {
 			"name": "The Gate",
@@ -41,15 +41,17 @@
 			"wall": "left",
 			"rail": "none",
 			"zone": "gate",
-			"boulders": 2
+			"boulders": 2,
+			"traffic": 1
 		},
 		{
 			"length": 95.0,
 			"turn": 180.0,
 			"climb": 8.0,
 			"wall": "right",
-			"rail": "none",
-			"zone": "gate"
+			"rail": "left",
+			"zone": "gate",
+			"width": 8.0
 		},
 		{
 			"length": 130.0,
@@ -66,9 +68,9 @@
 			"turn": -180.0,
 			"climb": 8.0,
 			"wall": "left",
-			"rail": "none",
+			"rail": "right",
 			"zone": "spine",
-			"width": 6.2
+			"width": 7.7
 		},
 		{
 			"length": 150.0,
@@ -95,9 +97,9 @@
 			"turn": 180.0,
 			"climb": 6.0,
 			"wall": "right",
-			"rail": "none",
+			"rail": "left",
 			"zone": "summit",
-			"width": 6.2
+			"width": 7.7
 		},
 		{
 			"length": 140.0,
@@ -107,6 +109,7 @@
 			"rail": "none",
 			"zone": "summit",
 			"boulders": 1,
+			"gravel": 1,
 			"width": 5.8
 		},
 		{
@@ -127,6 +130,7 @@
 			"wall": "none",
 			"rail": "none",
 			"zone": "summit",
+			"works": 1,
 			"width": 5.8
 		},
 		{
