@@ -17,7 +17,7 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["garage", "far", "seller", "roam"]
+	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "walk_gate"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -107,12 +107,35 @@ func _ready() -> void:
 			gentle.steer = 0.25
 			client.command_override = gentle
 
+	# SET OFF to a route's gate: the truck waiting at the barrier, the offer on screen. Or on
+	# foot at the barrier, where a person goes no further.
+	if view == "gate":
+		await get_tree().physics_frame
+		client._act("start", {"route": str(_args.get("route", "dd_foothills"))})
+
+	if view == "walk_gate":
+		await get_tree().physics_frame
+		var gate_node: Node3D = client.game.gates[StringName(str(_args.get("route", "dd_foothills")))]
+		var spot: Transform3D = gate_node.call("waiting_spot", 5.0)
+		spot.basis = Basis(Vector3.UP, 0.25)
+		client.game.drivers[client.local_key].walk_at = spot.origin
+		client._place_walker(spot)
+
 	if view == "cab":
 		client.camera_mode = DdClient.CameraMode.CAB
 	elif view == "high":
 		client.camera_mode = DdClient.CameraMode.HIGH
 
 	await get_tree().create_timer(float(_args.get("seconds", "6"))).timeout
+
+	if view == "land":
+		var lot_node: Node3D = client.game.lot
+		var cam_land := Camera3D.new()
+		cam_land.far = 6000.0
+		add_child(cam_land)
+		cam_land.global_position = lot_node.to_global(Vector3(-60.0, 230.0, 330.0))
+		cam_land.look_at(lot_node.to_global(Vector3(0.0, 0.0, -420.0)))
+		cam_land.current = true
 
 	if view == "far":
 		var lot: Node3D = client.game.lot

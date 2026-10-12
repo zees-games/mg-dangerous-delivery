@@ -21,9 +21,11 @@ const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 const DdLot := preload("res://game/dd_lot.gd")
 const DdNetBridge := preload("res://game/net/dd_net_bridge.gd")
+const DdWalker := preload("res://game/dd_walker.gd")
+const DdGate := preload("res://game/dd_gate.gd")
 
-const SECTIONS := 23
-const CHECKS := 158
+const SECTIONS := 24
+const CHECKS := 170
 
 var _passed := 0
 var _failed := 0
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_test_unlocking()
 	_test_on_foot()
 	await _test_buying_and_driving()
+	await _test_roads_and_gates()
 	_test_every_mountain()
 	await _test_a_delivery()
 	await _test_a_fall()
@@ -386,10 +389,13 @@ func _test_on_foot() -> void:
 	var long := game.walk(&"p1", me.walk_at + Vector3(30.0, 0.0, 0.0), 0.0)
 	_check(not long and placed == [&"p1"] and me.walk_at.distance_to(from + Vector3(0.0, 0.0, -1.0)) < 0.001,
 		"a step too long for a run is refused, and they are told where to stand")
+	var gate: Node3D = game.gates[&"dd_river_cut"]
+	var before_gate := gate.to_global(Vector3(0.0, 0.0, 1.5))
+	game.drivers[&"p1"].walk_at = before_gate
+	var past := game.walk(&"p1", gate.to_global(Vector3(0.0, 0.0, -1.5)), 0.0)
+	_check(not past and me.walk_at == before_gate and game.walkable(before_gate), "up to a gate on foot, and not a step past it")
 	var edge := game.lot.to_global(Vector3(DdLot.SIZE.x * 0.5 - 0.5, 0.0, 0.0))
 	game.drivers[&"p1"].walk_at = edge
-	var off := game.walk(&"p1", edge + Vector3(3.0, 0.0, 0.0), 0.0)
-	_check(not off and me.walk_at == edge, "a step off the lot is refused")
 	var fell := game.walk(&"p1", edge + Vector3(0.0, -20.0, 0.0), 0.0)
 	_check(not fell and game.lot.contains(me.walk_at) and me.walk_at.y > -1.0, "somebody who fell off the world is put back in the lot")
 	game.walker_placed.disconnect(on_placed)
@@ -447,6 +453,106 @@ func _test_buying_and_driving() -> void:
 	_check(me.truck != null and is_instance_valid(me.truck) and game.lot.contains((me.truck as Node3D).global_position),
 		"a truck that falls off the world is put back in a bay")
 	game.leave(key)
+	_finished_section()
+
+
+## The land: a road from the lot to every route, ending at the route's gate; the barrier stops a
+## truck and the people's wall a walker; at the gate the load is offered (or refused while the
+## route is locked), and accepted the trip starts past the barrier. SET OFF drives a truck to the
+## gate. The islands' mountains are held under the roads that cross them.
+func _test_roads_and_gates() -> void:
+	_section("roads to every route, and a gate on each")
+	_check(game.gates.size() == game.routes.size() and game.land.roads.size() == game.routes.size(), "every route has a gate and a road",
+		"%d gates, %d roads" % [game.gates.size(), game.land.roads.size()])
+	var ends_right := true
+	for id: StringName in game.land.roads:
+		var line: PackedVector3Array = game.land.roads[id]
+		var gate_at: Vector3 = (game.gates[id] as Node3D).global_position
+		ends_right = ends_right and game.lot.contains(line[0], 2.0) and line[line.size() - 1].distance_to(gate_at) < 3.0 \
+			and (game.gates[id] as Node3D).to_local(line[line.size() - 1]).z < 0.0
+	_check(ends_right, "each leaves the lot and ends at its route's gate")
+	var crossings := 0
+	var ids: Array = game.land.roads.keys()
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			var a: PackedVector3Array = game.land.roads[ids[i]]
+			var b: PackedVector3Array = game.land.roads[ids[j]]
+			for m in range(2, a.size() - 1):
+				for n in range(2, b.size() - 1):
+					if Geometry2D.segment_intersects_segment(Vector2(a[m - 1].x, a[m - 1].z), Vector2(a[m].x, a[m].z), Vector2(b[n - 1].x, b[n - 1].z), Vector2(b[n].x, b[n].z)) != null:
+						crossings += 1
+	_check(crossings == 0, "no two roads cross", "%d" % crossings)
+	await get_tree().physics_frame
+	var space := get_viewport().world_3d.direct_space_state
+	var solid := 0
+	var probes := 0
+	for id: StringName in game.land.roads:
+		var line: PackedVector3Array = game.land.roads[id]
+		# Every tenth sample, short of the gate's barrier at the end.
+		for k in range(0, line.size() - 4, 10):
+			probes += 1
+			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(line[k] + Vector3(0.0, 20.0, 0.0), line[k] - Vector3(0.0, 20.0, 0.0)))
+			if not hit.is_empty() and absf((hit["position"] as Vector3).y - line[k].y) < 0.05:
+				solid += 1
+	_check(solid == probes, "every road is solid underfoot and under a wheel, at the lot's height", "%d of %d" % [solid, probes])
+
+	var key := &"gater"
+	var me := game.join(key, "Gater")
+	var gate: DdGate = game.gates[&"dd_foothills"]
+	var walker := DdWalker.new()
+	add_child(walker)
+	walker.setup(key, null, false)
+	walker.put(gate.waiting_spot(4.0))
+	var ahead := DotPlayerIntent.new()
+	ahead.move = Vector2(0.0, 1.0)
+	for _i in 120:
+		walker.step(ahead.copy_intent(), 1.0 / 60.0)
+		await get_tree().physics_frame
+	_check(gate.to_local(walker.global_position).z > 0.0, "nobody walks past a gate", str(gate.to_local(walker.global_position)))
+	me.walk_at = walker.global_position
+	_check(str(game.use_choice(key, func(_id: StringName) -> bool: return true, 0)["text"]).contains("bring a truck"), "and on foot the gate says a route is driven")
+	walker.queue_free()
+
+	# Back in the lot, where SET OFF is.
+	me.walk_at = game.lot.global_position
+	var set_off := game.go_to_gate(key, &"dd_foothills")
+	var truck := me.truck as DdTruck
+	_check(set_off.ok and DdGame.roaming(me) and not me.on_foot and gate.at_gate(truck.global_position),
+		"SET OFF drives their truck to the route's gate", str(set_off.error) if not set_off.ok else "")
+	var go := DotVehicleCommand.new()
+	go.throttle = 1.0
+	game.set_command(key, go)
+	await _seconds(4.0)
+	_check(gate.to_local(truck.global_position).z > 0.0 and me.trip == null, "a truck driven into the barrier is stopped by it", str(gate.to_local(truck.global_position)))
+	game.set_command(key, DotVehicleCommand.new())
+	var offer := game.use_choice(key, func(_id: StringName) -> bool: return true, 0)
+	_check(offer["action"] == "accept" and offer["route"] == "dd_foothills", "at the barrier the delivery is offered", str(offer))
+	var locked: DdGate = game.gates[&"dd_devils_spine"]
+	truck.place(locked.waiting_spot(truck.half_length + 6.0) * Transform3D(Basis.IDENTITY, Vector3(0.0, truck.ride_height() + 0.02, 0.0)))
+	var refused := game.use_choice(key, func(_id: StringName) -> bool: return true, 0)
+	_check(refused["action"] == "" and str(refused["text"]).contains("closed"), "a route still locked is not offered", str(refused))
+	truck.place(gate.waiting_spot(truck.half_length + 6.0) * Transform3D(Basis.IDENTITY, Vector3(0.0, truck.ride_height() + 0.02, 0.0)))
+	var accepted := game.use(key)
+	await _seconds(0.3)
+	_check(accepted.ok and me.on_road() and (me.trip as DdTrip).route_id == &"dd_foothills" and gate.to_local((me.truck as Node3D).global_position).z < 0.0,
+		"E accepts it: the loaded truck is on the start line past the barrier", str(accepted.error) if not accepted.ok else "")
+	game.leave(key)
+
+	# The snowline loops back south toward the lot's roads: its mountain is held under them.
+	var snow: DdRoute = game.routes[&"dd_snowline"]
+	var keep := PackedVector3Array()
+	for id: StringName in game.land.roads:
+		for p: Vector3 in game.land.roads[id]:
+			keep.append(p - snow.position)
+	var ground := snow.make_terrain(keep)
+	var buried := 0
+	for p in keep:
+		var local_x := p.x - ground.origin.x
+		var local_z := p.z - ground.origin.y
+		if local_x > 0.0 and local_z > 0.0 and local_x < float(ground.nx - 1) * ground.CELL and local_z < float(ground.nz - 1) * ground.CELL:
+			if ground.height_at(p.x, p.z) > p.y - 1.0:
+				buried += 1
+	_check(buried == 0, "no island's mountain stands over a road of the land's", "%d samples" % buried)
 	_finished_section()
 
 
@@ -797,6 +903,7 @@ func _test_the_client_settings() -> void:
 	# in the menu, out of the way on the road (the first play test drove with an arrow over the
 	# truck the whole way).
 	var on_foot: int = client.call("pointer_mode")
+	(client.get("game") as DdGame).config.quick_start = true
 	client.call("_act", "garage", {})
 	var at_lot: int = client.call("pointer_mode")
 	client.call("_act", "garage", {})

@@ -359,6 +359,8 @@ func _build_showroom(names: Dictionary) -> void:
 		label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 		label.modulate = Color(1.0, 0.86, 0.35)
 		label.position = Vector3(0.0, size.y + 1.6, 0.0)
+		# Drawn near the lot only: from a road a kilometre off they are a speck nobody reads.
+		label.visibility_range_end = 260.0
 		spot.add_child(label)
 		_labels.append(label)
 
@@ -384,6 +386,7 @@ func _build_showroom(names: Dictionary) -> void:
 		tag.outline_size = 8
 		tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 		tag.position = Vector3(0.0, 2.15, 0.0)
+		tag.visibility_range_end = 70.0
 		seller.add_child(tag)
 		_labels.append(tag)
 

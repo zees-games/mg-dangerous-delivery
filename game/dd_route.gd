@@ -143,6 +143,15 @@ var zone_materials: Dictionary = {}
 var terrain: DdTerrain = null
 var _terrain_node: MeshInstance3D = null
 
+## Whether the mountain waits for [method finish_terrain]: [DdGame] builds every route first,
+## lays the land's roads between them, then has each mountain held clear of the roads that pass
+## through it. A route built alone (a suite, a tool) builds its mountain at once.
+var terrain_later: bool = false
+
+## Route-local points of the land's roads that cross this route's ground: the mountain is held
+## under them and nothing grows on them.
+var _keep := PackedVector3Array()
+
 var _body: StaticBody3D = null
 var _faces: PackedVector3Array = PackedVector3Array()
 var _lowest_y: float = 0.0
@@ -692,12 +701,8 @@ func _build_geometry() -> void:
 
 	_build_gate(length() - 1.0, "DEPOT")
 
-	if draws:
-		terrain = make_terrain()
-		_terrain_node = terrain.make_node(texture("rock_cliff", _noise(0.05, 0.6)))
-		add_child(_terrain_node)
-		_build_camera_mountain()
-		_build_scenery()
+	if draws and not terrain_later:
+		_build_mountain()
 	_build_ice()
 	_build_debris()
 	_build_works()
@@ -829,9 +834,28 @@ func _cap(rock: SurfaceTool, i: int, e0: Vector3, e1: Vector3, side: float, firs
 		_quad(rock, false, e1 + foot, o1 + sink, o1, e1, false)
 
 
-## The heightfield under this route, from its samples alone: what [method build] draws, and
-## what a suite asks without drawing.
-func make_terrain() -> DdTerrain:
+## The mountain, its camera body and its pines and rocks.
+func _build_mountain() -> void:
+	terrain = make_terrain(_keep)
+	_terrain_node = terrain.make_node(texture("rock_cliff", _noise(0.05, 0.6)))
+	add_child(_terrain_node)
+	_build_camera_mountain()
+	_build_scenery()
+
+
+## Builds the mountain a [member terrain_later] route waited with, held clear of [param keep]
+## (route-local points along the land's roads). Drawn routes only; once.
+func finish_terrain(keep: PackedVector3Array) -> void:
+	if not draws or terrain != null:
+		return
+
+	_keep = keep
+	_build_mountain()
+
+
+## The heightfield under this route, from its samples alone (and the land's roads through it,
+## [param keep]): what [method build] draws, and what a suite asks without drawing.
+func make_terrain(keep: PackedVector3Array = PackedVector3Array()) -> DdTerrain:
 	var made := DdTerrain.new()
 	var pads: Array = []
 
@@ -840,7 +864,7 @@ func make_terrain() -> DdTerrain:
 		var along := -PAD_SIZE.y * 0.5 + 2.0 if is_lot else PAD_SIZE.y * 0.5 - 2.0
 		pads.append({"centre": at.origin + at.basis * Vector3(0.0, 0.0, -along), "basis": at.basis})
 
-	made.compute(self, WALL_HEIGHT, SLAB, SKIRT_DEPTH / DROP_OUT, _lowest_y - SKIRT_DEPTH, pads, PAD_SIZE * 0.5)
+	made.compute(self, WALL_HEIGHT, SLAB, SKIRT_DEPTH / DROP_OUT, _lowest_y - SKIRT_DEPTH, pads, PAD_SIZE * 0.5, keep)
 	return made
 
 
@@ -1145,6 +1169,11 @@ func _build_scenery() -> void:
 
 
 func _place(placements: Dictionary, model: String, at: Vector3, turn: float, size: float) -> void:
+	# Nothing grows on a road of the land's that crosses this mountain.
+	for p in _keep:
+		if Vector2(p.x - at.x, p.z - at.z).length_squared() < 100.0:
+			return
+
 	if not placements.has(model):
 		placements[model] = []
 

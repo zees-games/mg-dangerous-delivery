@@ -1012,7 +1012,10 @@ class DdBridgeActs:
 
 		match action:
 			"start":
-				return world.start_trip(key, StringName(str(args.get("route", ""))))
+				# SET OFF: to the route's gate (or onto it, under `quick_start`).
+				return world.go_to_gate(key, StringName(str(args.get("route", ""))))
+			"accept":
+				return world.accept(key)
 			"buy_truck":
 				return world.buy_truck(key, StringName(str(args.get("truck", ""))))
 			"select_truck":

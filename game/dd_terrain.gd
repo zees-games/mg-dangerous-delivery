@@ -42,6 +42,10 @@ const MARGIN := 110.0
 ## cell's diagonal ([constant CELL] * 1.414 = 7.07); see the class description for why.
 const BAND := 8.0
 
+## Half a land road's width with its shoulder (DdLand.ROAD_WIDTH, SHOULDER): what [param keep]
+## holds the ground under, plus the band.
+const KEEP_HALF := 7.0
+
 ## How far under the slab's underside the ground is held inside [constant BAND].
 const CLEARANCE := 1.0
 
@@ -122,7 +126,9 @@ var _noise_cache: Dictionary = {}
 ## Builds the heightfield for [param route] (a built [DdRoute], untyped so the two scripts do
 ## not preload each other). [param pads] is [code][{"centre": Vector3, "basis": Basis}][/code]
 ## for the lot and the depot, [param pad_half] their half extents.
-func compute(route: Variant, wall_height: float, slab: float, drop_slope: float, p_water_y: float, pads: Array, pad_half: Vector2) -> void:
+## [param keep] is route-local points along the land's roads that cross this ground (DdLand):
+## held under like the road, a road's half width and the band either side.
+func compute(route: Variant, wall_height: float, slab: float, drop_slope: float, p_water_y: float, pads: Array, pad_half: Vector2, keep: PackedVector3Array = PackedVector3Array()) -> void:
 	var points: PackedVector3Array = route.points
 	var yaws: PackedFloat32Array = route.yaws
 	var segment_of: PackedInt32Array = route.segment_of
@@ -256,6 +262,9 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	for pad: Dictionary in pads:
 		_hold_under_pad(pad["centre"], pad["basis"], pad_half + Vector2(BAND, BAND), (pad["centre"] as Vector3).y - slab - CLEARANCE)
+
+	for p in keep:
+		_hold_under(Vector2(p.x, p.z), KEEP_HALF + BAND, p.y - slab - CLEARANCE)
 
 	_normals()
 	DotLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})

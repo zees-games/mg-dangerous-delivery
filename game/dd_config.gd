@@ -197,6 +197,12 @@ extends DotConfig
 ## A seed for everything drawn per trip. 0 takes one from the clock.
 @export var seed_value: int = 0
 
+## Whether SET OFF on the lot's panel puts the player straight onto the route's start line, the
+## way it was before the lot had roads. Off (the default) it drives their truck to the route's
+## gate, where E accepts the delivery: a route is entered through its gate. Suites and tools
+## that only want a trip turn it on.
+@export var quick_start: bool = false
+
 # --- The mountain vote -------------------------------------------------------
 
 @export_group("Mountain")

@@ -179,6 +179,12 @@ func _do(action: String, args: Dictionary) -> void:
 func refresh(view: Dictionary) -> void:
 	_view = view
 	_money.text = "$%d" % int(view.get("money", 0))
+	# SET OFF drives the truck to the route's gate, where E accepts; under the server's
+	# `quick_start` it is the trip itself.
+	var go := find_child("Start", true, false) as Button
+
+	if go != null:
+		go.text = "  SET OFF  " if bool(view.get("quick_start", false)) else "  DRIVE TO THE GATE  "
 	var mountain := str(view.get("mountain", ""))
 	_routes_heading.text = "ROUTES  —  %s" % mountain.to_upper() if mountain != "" else "ROUTES"
 

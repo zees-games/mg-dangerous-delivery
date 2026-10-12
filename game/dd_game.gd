@@ -33,6 +33,8 @@ const DdWeather := preload("dd_weather.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdMountains := preload("dd_mountains.gd")
 const DdLot := preload("dd_lot.gd")
+const DdLand := preload("dd_land.gd")
+const DdGate := preload("dd_gate.gd")
 
 const CHANNEL := "delivery.game"
 
@@ -64,6 +66,13 @@ const GET_IN_REACH := 4.5
 
 ## Metres a second under which a truck can be got out of.
 const GET_OUT_SPEED := 3.0
+
+## Metres past the end of a route's start pad that its gate's barrier stands.
+const GATE_SETBACK := 2.0
+
+## Metres a road runs straight out of the lot, and straight up to a gate, before it bends.
+const ROAD_OUT := 30.0
+const ROAD_IN := 60.0
 
 ## Metres a walker may move in one report. A run is 7.5 m/s, a report goes every tick, and
 ## the input is unreliable: a run of lost packets is one long step, not a cheat.
@@ -169,6 +178,11 @@ var routes: Dictionary = {}
 
 ## The lot: the spawn, the showroom, the bays. Rebuilt with the routes, south of them.
 var lot: DdLot = null
+
+## The plain round the lot and the roads from it to every route ([DdLand]), and each route's
+## gate where its road meets its start: route id -> [DdGate].
+var land: DdLand = null
+var gates: Dictionary = {}
 
 ## Spawns handed out, for the next person's.
 var _spawns: int = 0
@@ -408,6 +422,8 @@ func build_routes() -> void:
 		var route := DdRoute.new()
 		route.name = "Route_%s" % String(id)
 		route.draws = draws
+		# Its mountain once the land's roads are laid ([method _build_land]).
+		route.terrain_later = true
 		add_child(route)
 		var _built := route.build(documents[id])
 		var lo := INF
@@ -428,6 +444,7 @@ func build_routes() -> void:
 			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": next_x})
 
 	_build_lot()
+	_build_land()
 	_refresh_weather(true)
 
 
@@ -769,7 +786,8 @@ func garage_view(key: StringName) -> Dictionary:
 			"levels": int(DdTrucks.UPGRADES[kind]["levels"]), "cost": trucks.upgrade_cost(current, kind, level),
 		})
 
-	return {"money": int(acct["money"]), "mountain": mountain_name(), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades}
+	return {"money": int(acct["money"]), "mountain": mountain_name(), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades,
+		"quick_start": config.quick_start}
 
 
 # --- The lot and walking -----------------------------------------------------
@@ -802,7 +820,121 @@ func _build_lot() -> void:
 		var def := trucks.get_truck(id)
 		names[id] = {"name": def.get("name", id), "price": int(def.get("price", 0)), "model": def.get("model", "truck.glb"), "scale": def.get("scale", 1.8)}
 
-	lot.build(trucks.order, 0, names, draws)
+	# It stands on the land, which is built round it next, with a gap in its north fence for
+	# every road.
+	lot.island = false
+	lot.build(trucks.order, routes.size(), names, draws)
+
+
+## The routes west to east, as their roads leave the lot: the order that keeps roads from
+## crossing.
+func routes_west_to_east() -> Array[StringName]:
+	var out: Array[StringName] = []
+	out.assign(routes.keys())
+	out.sort_custom(func(a: StringName, b: StringName) -> bool: return (routes[a] as DdRoute).position.x < (routes[b] as DdRoute).position.x)
+	return out
+
+
+## The land, a road from the lot to every route and a gate where each meets its route, and
+## then each route's mountain, held clear of the roads that cross it.
+func _build_land() -> void:
+	for id: StringName in gates:
+		var old := gates[id] as Node
+		remove_child(old)
+		old.queue_free()
+
+	gates.clear()
+
+	if land == null:
+		land = DdLand.new()
+		land.name = "Land"
+		add_child(land)
+
+	var order := routes_west_to_east()
+	var exits := lot.exit_points()
+	var lines := {}
+
+	for i in order.size():
+		var road: DdRoute = routes[order[i]]
+		var start := road.transform_at(0.0, 0.0)
+		start.origin += road.position
+		var at := start * Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, DdRoute.PAD_SIZE.y - 2.0 + GATE_SETBACK))
+		var gate := DdGate.new()
+		add_child(gate)
+		gate.global_transform = at
+		gate.build(order[i], gate_words(order[i]), draws)
+		gates[order[i]] = gate
+		# On to the route's pad, under the barrier: the deck meets the start, the gate stops it.
+		lines[order[i]] = _road_line(exits[i] if i < exits.size() else lot.global_position, at.origin, at.origin - at.basis.z * (GATE_SETBACK + 0.5))
+
+	var samples := PackedVector3Array()
+
+	for id: StringName in routes:
+		var road: DdRoute = routes[id]
+
+		for k in range(0, road.points.size(), 3):
+			samples.append(road.points[k] + road.position)
+
+	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
+
+	# Each mountain held under the roads that cross its ground, now they are known.
+	for id: StringName in routes:
+		var road: DdRoute = routes[id]
+		var keep := PackedVector3Array()
+
+		for line_id: StringName in land.roads:
+			for p: Vector3 in land.roads[line_id]:
+				keep.append(p - road.position)
+
+		road.finish_terrain(keep)
+
+
+## A road from [param from] (a lot exit) to [param to] (a gate) and on to [param beyond] (the
+## route's pad): straight out of the lot, a smooth bend, straight up to the gate. Both ends face
+## north, so a cubic between them never turns back on itself.
+func _road_line(from: Vector3, to: Vector3, beyond: Vector3) -> PackedVector3Array:
+	var a := from + Vector3(0.0, 0.0, -ROAD_OUT)
+	var b := to + Vector3(0.0, 0.0, ROAD_IN)
+	var reach := a.distance_to(b) * 0.4
+	var c1 := a + Vector3(0.0, 0.0, -reach)
+	var c2 := b + Vector3(0.0, 0.0, reach)
+	var out := PackedVector3Array([from])
+	var steps := maxi(int(a.distance_to(b) / 6.0), 8)
+
+	for i in steps + 1:
+		var t := float(i) / float(steps)
+		var u := 1.0 - t
+		out.append(a * u * u * u + c1 * 3.0 * u * u * t + c2 * 3.0 * u * t * t + b * t * t * t)
+
+	out.append(to)
+	out.append(beyond)
+	return out
+
+
+## The words on [param route_id]'s gate: the route, its level, its load and what it pays.
+func gate_words(route_id: StringName) -> String:
+	var doc: Dictionary = documents.get(route_id, {})
+	var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
+	return "%s\nLEVEL %d · %s · FROM $%s\nDRIVE UP · E TO ACCEPT" % [str(doc.get("name", route_id)).to_upper(),
+		int(doc.get("level", 1)), str(load_def.get("name", "")).to_upper(), DdLot._thousands(route_pay(route_id))]
+
+
+## What [param route_id] pays before the weather and the load's condition: the garage's figure.
+func route_pay(route_id: StringName) -> int:
+	var doc: Dictionary = documents.get(route_id, {})
+	var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
+	return int(round(float(doc.get("pay", 0)) * float(load_def.get("pay", 1.0)) * (1.0 + config.level_pay_step * float(int(doc.get("level", 1)) - 1))))
+
+
+## The gate whose approach [param at] (world) is in, or null.
+func gate_at(at: Vector3) -> DdGate:
+	for id: StringName in gates:
+		var gate := gates[id] as DdGate
+
+		if gate.at_gate(at):
+			return gate
+
+	return null
 
 
 ## Where [param driver] spawns: the next free spot on the lot's spawn line.
@@ -864,9 +996,23 @@ func walk(key: StringName, at: Vector3, yaw: float) -> bool:
 	return true
 
 
-## Whether somebody on foot may stand at [param at] (world): on the lot.
+## Whether somebody on foot may stand at [param at] (world): on the lot, or on the land and its
+## roads, never past a gate's line toward a route.
 func walkable(at: Vector3) -> bool:
-	return lot != null and lot.contains(at, 1.0) and at.y > -3.0 and at.y < 40.0
+	if at.y < WALK_FLOOR or at.y > 80.0:
+		return false
+
+	if lot != null and lot.contains(at, 1.0):
+		return at.y > -3.0 and at.y < 40.0
+
+	if land == null or not land.on_land(at):
+		return false
+
+	for id: StringName in gates:
+		if (gates[id] as DdGate).beyond(at):
+			return false
+
+	return true
 
 
 # --- Trucks off the road: buying, getting in and out --------------------------
@@ -914,6 +1060,14 @@ func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vecto
 		# A salesperson: buy theirs, or drive it away if it is already yours.
 		var selling := lot.seller_near(here) if lot != null else &""
 
+		# Up to a gate on foot: a route is driven.
+		if selling == &"":
+			for id: StringName in gates:
+				var gate := gates[id] as DdGate
+
+				if gate.global_position.distance_to(here) < 30.0:
+					return {"action": "", "text": "On foot this is as far as you go: bring a truck to the gate"}
+
 		if selling != &"":
 			var def := trucks.get_truck(selling)
 			var label := str(def.get("name", selling))
@@ -932,6 +1086,18 @@ func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vecto
 
 	if roaming(driver):
 		var truck := driver.truck as DdTruck
+		var gate := gate_at(truck.global_position)
+
+		# At a gate: the route's load is offered, or what it takes to be offered it.
+		if gate != null:
+			var doc: Dictionary = documents.get(gate.route_id, {})
+
+			if not is_unlocked(key, gate.route_id):
+				return {"action": "", "text": "%s is closed to you: deliver a level %d route first" % [str(doc.get("name", gate.route_id)), int(doc.get("level", 1)) - 1]}
+
+			var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
+			return {"action": "accept", "route": String(gate.route_id),
+				"text": "E  Accept the delivery: %s, %s, from $%s" % [str(doc.get("name", gate.route_id)), str(load_def.get("name", "")).to_lower(), DdLot._thousands(route_pay(gate.route_id))]}
 
 		if absf(truck.forward_speed()) < GET_OUT_SPEED:
 			return {"action": "get_out", "text": "E  Get out"}
@@ -944,6 +1110,8 @@ func use(key: StringName) -> DotResult:
 	var choice := use_choice(key, func(id: StringName) -> bool: return bank.owns(key, id), bank.money(key))
 
 	match str(choice["action"]):
+		"accept":
+			return accept(key)
 		"get_in":
 			return get_in(key)
 		"get_out":
@@ -954,6 +1122,69 @@ func use(key: StringName) -> DotResult:
 			return buy_truck(key, StringName(str(choice["truck"])))
 
 	return DotResult.fail(DotError.CODE_STATE, str(choice.get("text", "")) if str(choice.get("text", "")) != "" else "Nothing to use here.")
+
+
+## The delivery at the gate [param key]'s truck is at, accepted: the route's own loaded truck
+## (and trailer) on its start line past the barrier, which is the trip as it always began.
+func accept(key: StringName) -> DotResult:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or driver.on_foot or not roaming(driver):
+		return DotResult.fail(DotError.CODE_STATE, "Drive up to a route's gate first.")
+
+	var gate := gate_at((driver.truck as Node3D).global_position)
+
+	if gate == null:
+		return DotResult.fail(DotError.CODE_STATE, "Drive up to a route's gate first.")
+
+	return start_trip(key, gate.route_id)
+
+
+## SET OFF on the lot's panel: [param key]'s truck put on [param route_id]'s road, facing its
+## gate, with them at the wheel (the quick way across the land; the gate still asks). With
+## `quick_start` it is the trip itself, as before the lot had roads.
+func go_to_gate(key: StringName, route_id: StringName) -> DotResult:
+	if config.quick_start:
+		return start_trip(key, route_id)
+
+	var driver: Driver = drivers.get(key, null)
+	var gate: DdGate = gates.get(route_id, null)
+
+	if driver == null or driver.walker == null:
+		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+
+	if gate == null:
+		return DotResult.fail(DotError.CODE_INVALID, "No route '%s'." % route_id)
+
+	if driver.trip != null:
+		return DotResult.fail(DotError.CODE_STATE, "You are on a delivery.")
+
+	if not is_unlocked(key, route_id):
+		return DotResult.fail(DotError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
+
+	if not in_lot(key):
+		return DotResult.fail(DotError.CODE_FORBIDDEN, "Set off from the lot, or drive there.")
+
+	var truck_id := StringName(str(bank.account(key)["truck"]))
+
+	if trucks.get_truck(truck_id).is_empty():
+		truck_id = trucks.starter()
+
+	_remove_truck(driver)
+	var made := _make_truck(driver, truck_id, {}, false)
+
+	if not made.ok:
+		return made
+
+	var truck := driver.truck as DdTruck
+	var at := gate.waiting_spot(truck.half_length + 6.0)
+	at.origin.y += truck.ride_height() + 0.02
+	truck.place(at)
+	_refresh_exceptions()
+	driver.on_foot = false
+	driver.command = _held()
+	seated.emit(key)
+	return DotResult.success(route_id)
 
 
 ## [param truck_id] (theirs) brought round to the nearest free bay and [param key] put at its

@@ -230,6 +230,8 @@ func _ready() -> void:
 	_place_walker(_on_foot_transform())
 
 	if auto_route != &"":
+		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
+		game.config.quick_start = true
 		_act("start", {"route": String(auto_route)})
 
 
@@ -425,7 +427,7 @@ func _act(action: String, args: Dictionary = {}) -> void:
 		if walker != null:
 			walker.visible = false
 
-		if autopilot:
+		if autopilot and _driver() != null and _driver().trip != null:
 			var me := _driver()
 			me.assisted = true
 			me.autopilot = DotVehicleDriver.new()
@@ -1105,6 +1107,7 @@ func _present_walkers(me: DdGame.Driver) -> void:
 			tag.outline_size = 8
 			tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 			tag.position = Vector3(0.0, 2.2, 0.0)
+			tag.visibility_range_end = 90.0
 			other.walker.add_child(tag)
 
 		var tag_node := other.walker.get_node_or_null("Name") as Label3D

@@ -9,7 +9,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/world.md](docs/world.md) | the lot, walking, the walker on the wire, the camera on foot, buying, getting in and out, a truck off the road |
+| [docs/world.md](docs/world.md) | the lot, walking, the walker on the wire, the camera on foot, buying, getting in and out, a truck off the road, the land, the roads, the gates |
 | [docs/design.md](docs/design.md) | routes and levels, hairpins, the drivetrain, loads, challenges and traffic, mountains and the vote, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound levels, the light, signs and the pointer |
 | [docs/terrain.md](docs/terrain.md) | `dd_route.gd`'s meshes or `dd_terrain.gd` |
 | [docs/netcode.md](docs/netcode.md) | `game/net/`, the module, anything sent, names |
@@ -27,7 +27,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
 | `game/dd_mountains.gd`, `dd_vote.gd` | the mountains (named route sets: this game's maps); the players' vote for the next one over dot-vote, on its own clock |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
-| `game/dd_lot.gd`, `dd_walker.gd`, `net/dd_walker_net.gd` | the lot (slab, fence, showroom, sellers, bays, spawn); the player's own body on foot (dot-player-controller's third-person motor, a dot-player-char person); a walker on the wire |
+| `game/dd_lot.gd`, `dd_land.gd`, `dd_gate.gd` | the lot (slab, fence, showroom, sellers, bays, spawn); the land round it and the roads to every route; a route's gate |
+| `game/dd_walker.gd`, `net/dd_walker_net.gd` | the player's own body on foot (dot-player-controller's third-person motor, a dot-player-char person); a walker on the wire |
 | `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot's panel (G); stats |
 | `game/dd_audio.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame through `DotAudioManager.shape` |
 | `routes/` | the route documents, written by `tools/build_routes.py` |
@@ -65,7 +66,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - Solo is collision exceptions (`_refresh_exceptions`, both ways, recomputed on every change) plus visibility (`sees`); it does not touch chat.
 - The chase and high cameras are swept against `DdRoute.CAMERA_LAYER` (the mountain, gates, road, debris); anything a camera must not enter goes on that layer, never on layer 1. [design](docs/design.md#the-cameras-stay-out-of-the-mountain-and-the-server-may-hold-one)
 - Every teleport re-hitches a trailer (`DdTrailer.rehitch`); a trailer shares its truck's collision exceptions.
-- **The road's trimesh is the only floor.** The mountain collides with nothing and is held under the road by `BAND` (8 m, more than a cell's diagonal); `headless_run` checks every half metre of every road. [terrain](docs/terrain.md)
+- **A route is entered at its gate, never past it**: the barrier stops a truck, E at it accepts (`DdGame.accept`, the trip's own truck put down past the barrier), a people-only wall and `walkable` stop walkers; SET OFF drives to the gate unless `quick_start`. The land (`DdLand`) collides, an island's mountain never does, and each mountain is held under the land's roads (`finish_terrain`). [world](docs/world.md#the-land-a-road-to-every-route-and-a-gate-on-each)
+- **The road's trimesh is the only floor** of a route. The mountain collides with nothing and is held under the road by `BAND` (8 m, more than a cell's diagonal); `headless_run` checks every half metre of every road. [terrain](docs/terrain.md)
 - `PackedVector3Array` is copy-on-write; Godot's front face is clockwise. [terrain](docs/terrain.md#the-road)
 - **Nothing is predicted.** The drive is four bytes a tick; bodies ride snapshots; everything else is JSON; HELLO carries what a client needs to compute weather and roads itself. [netcode](docs/netcode.md)
 - **A READY before the player is seated is kept** (`_ready_unseated` in the bridge) and answered by `add_player`: over ENet with loss it overtakes the link's `loaded`, and a dropped READY left the client waiting for ever. `headless_net` sends it first (armed). [history](docs/history.md)

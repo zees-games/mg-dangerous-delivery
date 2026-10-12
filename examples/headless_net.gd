@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 14
-const CHECKS := 52
+const SECTIONS := 15
+const CHECKS := 55
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -46,6 +46,7 @@ func _ready() -> void:
 		await _test_joining()
 		await _test_walkers()
 		await _test_buying_and_driving()
+		await _test_the_gate()
 		await _test_a_trip()
 		await _test_driving()
 		await _test_weather()
@@ -86,6 +87,8 @@ func _make_game(authoritative: bool, parent: Node) -> DdGame:
 	world.self_tick = false
 	world.config.start_hold_seconds = 0.2
 	world.config.seed_value = 4242
+	# SET OFF straight onto the route for the sections about trips; the gate is its own section.
+	world.config.quick_start = true
 	parent.add_child(world)
 	return world
 
@@ -278,6 +281,37 @@ func _test_buying_and_driving() -> void:
 	_check(server_me.on_foot and mirror.on_foot and mirror.truck != null and _heard.has("placed")
 		and (_heard["placed"] as Transform3D).origin.distance_to(truck.global_position) < 6.0,
 		"E gets them out, told where they stand beside it, and the truck stays parked")
+	_finished_section()
+
+
+## A route's gate over the wire: SET OFF drives the client's truck to it; the client's own world
+## (the gates built from the documents) offers the load the server would, E accepts it and the
+## trip starts on the server; back to the lot after.
+func _test_the_gate() -> void:
+	_section("a route's gate over the wire")
+	_server_game.config.quick_start = false
+	_client_bridge.ask_act("start", {"route": "dd_foothills"})
+	_exchange()
+	await _steps(6)
+	_exchange()
+	_client_net.interpolate_frame(1.0)
+	var server_me: DdGame.Driver = _server_game.drivers[_key]
+	var gate: Node3D = _server_game.gates[&"dd_foothills"]
+	_check(DdGame.roaming(server_me) and gate.call("at_gate", (server_me.truck as Node3D).global_position) and _client_game.gates.size() == 5,
+		"SET OFF drives the truck to the route's gate, and the client has every gate too")
+	var owns := func(_id: StringName) -> bool: return true
+	var mirror_offer := _client_game.use_choice(_key, owns, 0)
+	_check(mirror_offer.get("action", "") == "accept" and _server_game.use_choice(_key, owns, 0).get("action", "") == "accept",
+		"the client's world offers the load at the gate, as the server's does", str(mirror_offer))
+	_client_bridge.ask_act("use", {})
+	_exchange()
+	await _steps(4)
+	_check(server_me.on_road() and bool(_client_bridge.trip_view.get("on_road", false)) and str(_client_bridge.trip_view.get("route", "")) == "dd_foothills",
+		"E accepts it, and the trip is on", str(_client_bridge.trip_view))
+	_client_bridge.ask_act("garage")
+	_exchange()
+	await _steps(2)
+	_server_game.config.quick_start = true
 	_finished_section()
 
 
