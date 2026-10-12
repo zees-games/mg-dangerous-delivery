@@ -83,9 +83,10 @@ func _make_services() -> Node:
 	return DdServices.new()
 
 
-## Profiles and names: dot-platform's identity, with no avatar schema, because nobody in this
-## game is drawn — a player is their truck. What it gives is the site's name over the
-## session's, and admission; authentication is the host's, as for every game.
+## Profiles and names: dot-platform's identity, with no avatar schema: a person on foot is
+## drawn as one of the family's people picked from their key (`DdClient.look_of`), and in a
+## truck they are their truck. What it gives is the site's name over the session's, and
+## admission; authentication is the host's, as for every game.
 func _make_identity() -> Node:
 	return DotPlatformIdentity.new()
 
@@ -147,9 +148,10 @@ func _game_load() -> DotResult:
 	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
 	# rather than removed because every shipped config sets it; left as its own number it
 	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.
-	# The family's `mp_forceview` (dot-player-controller's numbering; this game links no
-	# controller, so the cvar is bound here): 0 any camera, 1 the cab only (first person), 2
-	# the chase and high cameras only. REPLICATED, because each client places its own camera.
+	# The family's `mp_forceview` (dot-player-controller's numbering, bound here because it
+	# covers the cab as well as the walker): 0 any camera, 1 the cab and the eyes only (first
+	# person), 2 the chase and high cameras and over the shoulder only. REPLICATED, because each
+	# client places its own camera.
 	var _view := add_cvar("mp_forceview", "0",
 		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
 		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)

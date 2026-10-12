@@ -14,8 +14,11 @@ extends Node3D
 ## being steered reads worse than latency. What every machine computes for itself is what is a
 ## pure function: the road (from the document) and the weather (from the seed and the tick).
 ##
-## [b]A player is their truck.[/b] Nobody walks: you are in the garage, or you are on a road.
-## So there is no seat handover, and a driver is a record here rather than a body.
+## [b]A person arrives on foot, in the lot[/b] ([DdLot]), where the trucks are on show and
+## sold, and is their truck once they drive one. Walking is the owner's machine's (it reports
+## where it got to; [method walk] refuses a step too long or a place nobody on foot may be),
+## and a driver is a record here rather than a body: what others see of somebody on foot is
+## [member Driver.walker], a node the bridge replicates. Stand-ins never walk.
 
 const DdConfig := preload("dd_config.gd")
 const DdRoute := preload("dd_route.gd")
@@ -29,6 +32,7 @@ const DdBank := preload("dd_bank.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdMountains := preload("dd_mountains.gd")
+const DdLot := preload("dd_lot.gd")
 
 const CHANNEL := "delivery.game"
 
@@ -51,6 +55,21 @@ const GHOST_SECONDS := 3.0
 ## Seconds a truck put back on a checkpoint is held on its brakes before it is the driver's.
 const SETTLE_SECONDS := 0.4
 
+## Metres of sea kept between an island's road and the lot's edge: the lot is laid out south
+## of every route, this far past the furthest south any road reaches.
+const LOT_CLEARANCE := 170.0
+
+## Metres a walker may move in one report. A run is 7.5 m/s, a report goes every tick, and
+## the input is unreliable: a run of lost packets is one long step, not a cheat.
+const WALK_STEP_MAX := 4.0
+
+## Below this a walker has fallen off the world and is put back in the lot.
+const WALK_FLOOR := -12.0
+
+## Seconds between two corrections of one walker: a client that keeps reporting a place it
+## may not be is answered twice a second, not sixty times.
+const WALK_CORRECT_SECONDS := 0.5
+
 signal trip_started(key: StringName, route_id: StringName)
 signal stage_reached(key: StringName, stage: int)
 signal fell(key: StringName, why: String)
@@ -68,6 +87,9 @@ signal driver_left(key: StringName)
 ## The world was rebuilt on another mountain (a vote, or an operator). Every trip was ended
 ## first; the bridge sends the new routes to every client.
 signal mountain_changed(id: StringName)
+## Somebody was put on foot somewhere they did not walk to (a spawn, out of a truck, back from
+## a road, a refused step): their own machine moves its walker there.
+signal walker_placed(key: StringName)
 
 ## One person (or stand-in) on the server.
 class Driver:
@@ -87,6 +109,16 @@ class Driver:
 	var ghost_until: float = 0.0
 	## Seconds a stand-in waits at the depot before its next trip.
 	var idle: float = 0.0
+	## On foot: where they stand and which way they face, as last accepted ([method DdGame.walk]).
+	var on_foot: bool = false
+	var walk_at: Vector3 = Vector3.ZERO
+	var walk_yaw: float = 0.0
+	## What everybody else sees of them on foot: a node at [member walk_at], replicated by the
+	## bridge and drawn by each client. Null for a stand-in.
+	var walker: Node3D = null
+	## Which spawn they were last put on, so two people spawning together stand apart.
+	var spawn_index: int = 0
+	var corrected_at: float = -INF
 
 	func on_road() -> bool:
 		return truck != null and trip != null
@@ -122,6 +154,12 @@ var mountain_id: StringName = DdMountains.DEFAULT
 
 ## route id -> DdRoute (in the tree, offset).
 var routes: Dictionary = {}
+
+## The lot: the spawn, the showroom, the bays. Rebuilt with the routes, south of them.
+var lot: DdLot = null
+
+## Spawns handed out, for the next person's.
+var _spawns: int = 0
 
 ## Route ids by level then name: the garage's order.
 var route_order: Array[StringName] = []
@@ -311,6 +349,13 @@ func set_mountain(id: StringName) -> DotResult:
 	mountain_id = id
 	_select_mountain()
 	build_routes()
+
+	# The lot moved with the routes: everybody on foot is put back on its spawn.
+	for key: StringName in drivers:
+		var walker_of: Driver = drivers[key]
+
+		if walker_of.walker != null and walker_of.on_foot:
+			_put_on_foot(walker_of, spawn_transform(walker_of))
 	DotLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
 	mountain_changed.emit(id)
 	return DotResult.success(true)
@@ -367,6 +412,7 @@ func build_routes() -> void:
 		if next_x > NET_WORLD_EXTENT:
 			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": next_x})
 
+	_build_lot()
 	_refresh_weather(true)
 
 
@@ -444,8 +490,14 @@ func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 		driver.autopilot = DotVehicleDriver.new()
 		driver.autopilot.waypoint_radius = 7.0
 		tune_stand_in(driver.autopilot)
+	else:
+		_make_walker(driver)
 
 	driver_joined.emit(key)
+
+	if not is_bot:
+		_put_on_foot(driver, spawn_transform(driver))
+
 	return driver
 
 
@@ -457,6 +509,12 @@ func leave(key: StringName) -> void:
 
 	_remove_truck(driver)
 	drivers.erase(key)
+
+	if driver.walker != null and is_instance_valid(driver.walker):
+		remove_child(driver.walker)
+		driver.walker.queue_free()
+
+	driver.walker = null
 	driver_left.emit(key)
 
 
@@ -520,6 +578,7 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 	trip.stages = (routes[route_id] as DdRoute).stages()
 	trip.reset_to_start(config.start_hold_seconds)
 	driver.trip = trip
+	driver.on_foot = false
 
 	_put_at(driver, 0)
 	_refresh_exceptions()
@@ -534,7 +593,7 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 	return DotResult.success(trip)
 
 
-## Back to the garage: the truck goes.
+## Back to the lot: the truck goes, and a person is on foot at the spawn.
 func end_trip(key: StringName) -> void:
 	var driver: Driver = drivers.get(key, null)
 
@@ -542,6 +601,10 @@ func end_trip(key: StringName) -> void:
 		return
 
 	_remove_truck(driver)
+
+	if driver.walker != null:
+		_put_on_foot(driver, spawn_transform(driver))
+
 	trip_ended.emit(key)
 
 
@@ -680,6 +743,103 @@ func garage_view(key: StringName) -> Dictionary:
 		})
 
 	return {"money": int(acct["money"]), "mountain": mountain_name(), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades}
+
+
+# --- The lot and walking -----------------------------------------------------
+
+## The lot, south of every route: centred under their starts, past the furthest south any of
+## their roads reaches by [constant LOT_CLEARANCE]. Rebuilt with the routes.
+func _build_lot() -> void:
+	if lot == null:
+		lot = DdLot.new()
+		lot.name = "Lot"
+		add_child(lot)
+
+	var centre := Vector3.ZERO
+	var south := 0.0
+
+	for id: StringName in routes:
+		var road: DdRoute = routes[id]
+		centre += road.position
+
+		for p in road.points:
+			south = maxf(south, p.z + road.position.z)
+
+	if not routes.is_empty():
+		centre /= float(routes.size())
+
+	lot.position = Vector3(centre.x, 0.0, south + LOT_CLEARANCE + DdLot.SIZE.y * 0.5)
+	var names := {}
+
+	for id: StringName in trucks.order:
+		var def := trucks.get_truck(id)
+		names[id] = {"name": def.get("name", id), "price": int(def.get("price", 0)), "model": def.get("model", "truck.glb"), "scale": def.get("scale", 1.8)}
+
+	lot.build(trucks.order, 0, names, draws)
+
+
+## Where [param driver] spawns: the next free spot on the lot's spawn line.
+func spawn_transform(driver: Driver) -> Transform3D:
+	_spawns += 1
+	driver.spawn_index = _spawns
+	return lot.spawn_transform(_spawns) if lot != null else Transform3D.IDENTITY
+
+
+func _make_walker(driver: Driver) -> void:
+	var node := Node3D.new()
+	node.name = "Walker_%s" % String(driver.key).validate_node_name()
+	add_child(node)
+	driver.walker = node
+
+
+## Puts [param driver] on foot at [param where], and tells their machine.
+func _put_on_foot(driver: Driver, where: Transform3D) -> void:
+	driver.on_foot = true
+	driver.walk_at = where.origin
+	driver.walk_yaw = where.basis.get_euler().y
+
+	if driver.walker != null:
+		driver.walker.global_position = where.origin
+		driver.walker.rotation = Vector3(0.0, driver.walk_yaw, 0.0)
+
+	walker_placed.emit(driver.key)
+
+
+## A walker's own machine says where they got to. Accepted unless the step is longer than a
+## run allows or ends somewhere nobody on foot may be; refused, they are told where to stand
+## (at most twice a second). Returns whether it was accepted.
+func walk(key: StringName, at: Vector3, yaw: float) -> bool:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null or not driver.on_foot or driver.walker == null:
+		return false
+
+	if not at.is_finite() or not is_finite(yaw):
+		return false
+
+	if at.y < WALK_FLOOR:
+		_put_on_foot(driver, spawn_transform(driver))
+		return false
+
+	var step := at - driver.walk_at
+
+	if Vector2(step.x, step.z).length() > WALK_STEP_MAX or absf(step.y) > WALK_STEP_MAX * 2.0 or not walkable(at):
+		if _now - driver.corrected_at >= WALK_CORRECT_SECONDS:
+			driver.corrected_at = _now
+			_put_on_foot(driver, Transform3D(Basis(Vector3.UP, driver.walk_yaw), driver.walk_at))
+
+		return false
+
+	driver.walk_at = at
+	driver.walk_yaw = wrapf(yaw, -PI, PI)
+	driver.walker.global_position = at
+	driver.walker.rotation = Vector3(0.0, driver.walk_yaw, 0.0)
+	return true
+
+
+## Whether somebody on foot may stand at [param at] (world): on the lot.
+func walkable(at: Vector3) -> bool:
+	return lot != null and lot.contains(at, 1.0) and at.y > -3.0 and at.y < 40.0
 
 
 # --- The tick ----------------------------------------------------------------
@@ -1274,7 +1434,7 @@ func describe_lines() -> PackedStringArray:
 
 	for k: StringName in drivers:
 		var driver: Driver = drivers[k]
-		var where := (driver.trip as DdTrip).describe() if driver.trip != null else {"in": "garage"}
+		var where := (driver.trip as DdTrip).describe() if driver.trip != null else {"in": "the lot, on foot" if driver.on_foot else "the lot"}
 		lines.append("  %-16s %s%s %s" % [driver.name, "bot " if driver.is_bot else "", "solo " if driver.solo else "", where])
 
 	return lines

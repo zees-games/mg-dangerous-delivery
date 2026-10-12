@@ -24,6 +24,10 @@ var _offer: Label = null
 var _solo: Label = null
 var _message: Label = null
 var _keys: Label = null
+var _speed_plate: PanelContainer = null
+## What E does here, bottom middle; hidden when it does nothing.
+var _prompt: Label = null
+var _prompt_plate: PanelContainer = null
 var _message_left: float = 0.0
 
 ## The plates behind the strip and the three corners, restyled from the theme's `plate` and
@@ -134,6 +138,7 @@ func _ready() -> void:
 
 	# Speed, bottom right.
 	var speed_plate := _plate(self)
+	_speed_plate = speed_plate
 	speed_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	speed_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	speed_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -154,6 +159,17 @@ func _ready() -> void:
 	# On a plate, in the theme's words: it is read over snow and sky, where the faded list
 	# disappeared.
 	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
+
+	# What the use key does where the player stands: buy from a salesperson, get in, accept.
+	_prompt_plate = _plate(self)
+	_prompt_plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_prompt_plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_prompt_plate.offset_top = -150.0
+	_prompt_plate.offset_bottom = -100.0
+	_prompt = _label(_prompt_plate, "", 22, HORIZONTAL_ALIGNMENT_CENTER)
+	_prompt.add_theme_color_override("font_color", AMBER)
+	_prompt_plate.visible = false
 
 	# A line in the middle for a checkpoint, a fall, a delivery.
 	_message = _label(self, "", 36, HORIZONTAL_ALIGNMENT_CENTER)
@@ -206,6 +222,9 @@ static func _panel(color: Color, edge: Color = Color(0, 0, 0, 0)) -> StyleBoxFla
 ## One frame of a trip. [param facts] carries what the client knows:
 ## stage, stages, fraction, cargo, speed (m/s), offer, weather {sky, wind}, zone name, state.
 func show_trip(facts: Dictionary) -> void:
+	_bar.visible = true
+	_cargo.visible = true
+	_speed_plate.visible = true
 	var state := str(facts.get("state", "driving"))
 	_stage.text = "STAGE %d/%d" % [int(facts.get("stage", 0)) + (0 if state == "delivered" else 1), int(facts.get("stages", 1))]
 
@@ -241,6 +260,33 @@ func show_trip(facts: Dictionary) -> void:
 
 	var zone := str(facts.get("zone", ""))
 	_sky.text = ("%s — %s" % [zone, ", ".join(words)]) if not words.is_empty() and zone != "" else (", ".join(words) if not words.is_empty() else zone)
+
+
+## Off a road (on foot, or driving round the world): the strip names where they are, and the
+## trip's numbers and the bar are put away. [param where] is the strip's words.
+func show_off_road(where: String, speed_ms: float = -1.0) -> void:
+	_stage.text = where
+	_bar.visible = false
+	_cargo.visible = false
+	_offer.text = ""
+	_sky.text = ""
+	_speed_plate.visible = speed_ms >= 0.0
+
+	if speed_ms >= 0.0:
+		_speed.text = "%d km/h" % int(round(absf(speed_ms) * 3.6))
+
+
+## What the use key does now, or "" for nothing.
+func show_prompt(text: String) -> void:
+	if _prompt == null:
+		return
+
+	_prompt.text = text
+	_prompt_plate.visible = text != ""
+
+
+func prompt() -> String:
+	return _prompt.text if _prompt_plate != null and _prompt_plate.visible else ""
 
 
 func show_money(amount: int) -> void:

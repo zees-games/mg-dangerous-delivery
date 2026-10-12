@@ -1,6 +1,6 @@
 # mg-dangerous-delivery
 
-Drive a loaded truck up mountain roads with no rails, through zone weather and falling rock, and deliver it. Levels are routes; harder trucks and worse weather pay more; money buys trucks and upgrades. Nobody walks: a player is their truck (dot-vehicle's wheeled chassis, bound without the seat handover).
+Drive a loaded truck up mountain roads with no rails, through zone weather and falling rock, and deliver it. Levels are routes; harder trucks and worse weather pay more; money buys trucks and upgrades. A player arrives on foot in the lot, where the trucks are on show and sold; in a truck they are their truck (dot-vehicle's wheeled chassis, bound without the seat handover).
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs before touching how a truck drives. This file is only what is specific to this game. **The detail is in [docs/](docs/README.md).**
 
@@ -9,6 +9,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
+| [docs/world.md](docs/world.md) | the lot, walking, the walker on the wire, the camera on foot |
 | [docs/design.md](docs/design.md) | routes and levels, hairpins, the drivetrain, loads, challenges and traffic, mountains and the vote, weather and pay, hazards, falls and rock, solo, the trailer, the bank, settings, sound levels, the light, signs and the pointer |
 | [docs/terrain.md](docs/terrain.md) | `dd_route.gd`'s meshes or `dd_terrain.gd` |
 | [docs/netcode.md](docs/netcode.md) | `game/net/`, the module, anything sent, names |
@@ -26,7 +27,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
 | `game/dd_mountains.gd`, `dd_vote.gd` | the mountains (named route sets: this game's maps); the players' vote for the next one over dot-vote, on its own clock |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `DotGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
-| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot; stats |
+| `game/dd_lot.gd`, `dd_walker.gd`, `net/dd_walker_net.gd` | the lot (slab, fence, showroom, sellers, bays, spawn); the player's own body on foot (dot-player-controller's third-person motor, a dot-player-char person); a walker on the wire |
+| `game/dd_client.gd`, `dd_hud.gd`, `dd_garage.gd`, `dd_settings.gd`, `dd_progress.gd`, `dd.tscn` | the client: offline it owns the world, connected it mirrors one; the lot's panel (G); stats |
 | `game/dd_audio.gd` | the sounds as a dot-audio catalogue with synthesised stand-ins, every loop shaped each frame through `DotAudioManager.shape` |
 | `routes/` | the route documents, written by `tools/build_routes.py` |
 | `assets/kenney/` | Car Kit trucks, cars and cones, a City Kit barrier, Nature Kit pines and rocks, CC0 |
@@ -46,7 +48,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 
 - **Every key is a `DdBindings` row read through its action** (driving polls the actions; the arrows drive too, through `ui_*`, which no row holds); the HUD's key list is `DdBindings.hud_lines`. H is help (dot-menu's stock key; `DdSettings._fill_help`), so no row may default to H. Escape stays the lot; the menu with Help and Leave is O and the lot's Settings button. `headless_run` checks it.
 - **M is the mountain list** (dot-menu's map menu): `DdGame.mountain_rows()` and `set_mountain()` solo, the module's `_change_mountain` on a server, where dot-vote's map menu lets the owner's `sv_map_menu_flag` change it now and gives anybody else a vote. No row may default to M; `headless_run` and `dedicated` check it.
-- **A player is their truck.** `DdTruck` binds `DotVehicleInstance` and `DdDrivetrain` (a `DotVehicleWheeled` by path) itself; `DdGame` calls `drive()` once a tick. Do not bring in `DotVehicleRide`. [design](docs/design.md)
+- **On foot, the owner walks and the world only refuses** (`DdGame.walk`: step length, `walkable`, a PLACE back); nothing on foot is predicted or rewound, and stand-ins never walk. Others are drawn from `Driver.walker` by `DdClient._present_walkers`, never the owner's own. [world](docs/world.md)
+- **In a truck a player is their truck.** `DdTruck` binds `DotVehicleInstance` and `DdDrivetrain` (a `DotVehicleWheeled` by path) itself; `DdGame` calls `drive()` once a tick. Do not bring in `DotVehicleRide`. [design](docs/design.md)
 - A route is a level and a corner of one world; a new route is a file in `routes/`. Hairpins always put the cliff on the inside and a rail round the outside, 1.5 m wider than the road. [design](docs/design.md#one-world-holds-every-route-and-a-route-is-a-level)
 - **No top-speed ceiling.** `DdDrivetrain` (power, torque, gears, air, tyres, governor) decides how fast a truck goes; never cap with `top_speed`, never let a truck body keep Godot's linear damping (`tunables.linear_damp = 0`: dot-vehicle writes it onto the body at bind, over `DdTruck`'s). Godot's wheel `brake` is an impulse per step: brakes are newtons times the step, which dot-vehicle's chassis does (4f4afaf); a trailer's own brakes multiply by the step themselves. [design](docs/design.md#how-fast-a-truck-goes-is-the-truck-and-the-road-never-a-ceiling)
 - A load (`DdCargo`, the route's `cargo`) is a share of `capacity_kg`, on the trailer for a truck that pulls one; it changes mass, centre of mass, wind, knocks and pay, and fuel sloshes. `handling` checks the trucks and loads differ. [design](docs/design.md#a-load-is-a-share-of-the-truck-and-it-changes-the-drive)

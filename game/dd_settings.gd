@@ -80,4 +80,4 @@ static func schema_for() -> DotSettingsSchema:
 func _fill_help(help: DotMenuHelp) -> void:
 	help.about = "Drive a loaded truck up mountain roads with no rails, through the weather and falling rock, and deliver it. A route is a level; a harder truck and worse weather pay more."
 	help.add_text("The trip", "A fall or a truck on its side sends you back to the last checkpoint, and that costs money. Skipping a stage costs part of the pay. Solo hides you from everybody, so nobody can knock you off.")
-	help.add_text("The lot", "Escape (or G) takes you back to the lot, where the pay buys trucks and upgrades and you pick the next route. Its Settings button and O open this menu.")
+	help.add_text("The lot", "You arrive on foot in the lot, where every truck is on show with somebody selling it. Walk with the driving keys, run with Shift, jump with Space, look round with the mouse; F5 changes the view. G opens the lot's panel: trucks, upgrades and routes, and its Settings button (O opens this menu too). From a road, Escape (or G) takes you back to the lot.")

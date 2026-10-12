@@ -17,8 +17,9 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
+	var on_foot := view == "garage" or view == "far"
 
-	if view != "garage":
+	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
 		client.autopilot = true
 
@@ -42,7 +43,7 @@ func _ready() -> void:
 		var _c = client.game.bank.credit(client.local_key, 100000, "shot")
 		var _b = client.game.buy_truck(client.local_key, StringName(truck))
 
-	if view != "garage":
+	if not on_foot:
 		# Unlocking was refused at _ready for anything above level 1: ask again now it is off.
 		client.game.end_trip(client.local_key)
 		client._act("start", {"route": str(_args.get("route", "dd_foothills"))})
@@ -56,7 +57,7 @@ func _ready() -> void:
 	# road is otherwise minutes of simulated driving under a renderer.
 	var at_m := float(_args.get("at", "0"))
 
-	if at_m > 0.0 and view != "garage":
+	if at_m > 0.0 and not on_foot:
 		await get_tree().physics_frame
 		var me = client.game.drivers[client.local_key]
 		var road = client.game.routes[me.trip.route_id]
@@ -73,12 +74,37 @@ func _ready() -> void:
 		me.trip.hint = road.index_at_distance(at_m)
 		me.autopilot.set_route(client.game._global_points(me.trip.route_id, at_m))
 
+	# Other people on foot, walking to the showroom and round it: what a player sees of
+	# everybody else in the lot (the client draws each one; offline they are the world's).
+	var people := int(_args.get("people", "0"))
+	var walkers: Array = []
+
+	for i in people:
+		var key := StringName("person%d" % i)
+		var _who = client.game.join(key, ["Ana", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal"][i % 8])
+		walkers.append(key)
+
+	if not walkers.is_empty():
+		_walk_people(client, walkers)
+
+	if str(_args.get("panel", "0")) == "1":
+		client._act("garage")
+
 	if view == "cab":
 		client.camera_mode = DdClient.CameraMode.CAB
 	elif view == "high":
 		client.camera_mode = DdClient.CameraMode.HIGH
 
 	await get_tree().create_timer(float(_args.get("seconds", "6"))).timeout
+
+	if view == "far":
+		var lot: Node3D = client.game.lot
+		var cam := Camera3D.new()
+		cam.far = 5000.0
+		add_child(cam)
+		cam.global_position = lot.to_global(Vector3(0.0, 38.0, 120.0))
+		cam.look_at(lot.to_global(Vector3(0.0, 0.0, -30.0)))
+		cam.current = true
 
 	if view == "above":
 		var road = client.game.routes[StringName(str(_args.get("route", "dd_foothills")))]
@@ -122,6 +148,30 @@ func _ready() -> void:
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
 	get_tree().quit()
+
+
+## Walks [param keys] round the showroom for as long as the shot runs, through the world's own
+## `walk` (the check every step a person takes passes).
+func _walk_people(client: Node, keys: Array) -> void:
+	var t := 0.0
+
+	while is_inside_tree():
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+
+		for i in keys.size():
+			var me = client.game.drivers.get(keys[i], null)
+
+			if me == null:
+				continue
+
+			var lot: Node3D = client.game.lot
+			var angle := t * 0.25 + float(i) * TAU / float(keys.size())
+			var at: Vector3 = lot.to_global(Vector3(cos(angle) * 22.0, 0.0, 40.0 + sin(angle) * 9.0))
+			var ahead: Vector3 = lot.to_global(Vector3(cos(angle + 0.05) * 22.0, 0.0, 40.0 + sin(angle + 0.05) * 9.0))
+			var yaw := atan2(-(ahead.x - at.x), -(ahead.z - at.z))
+			me.walk_at = at
+			var _w = client.game.walk(keys[i], at, yaw)
 
 
 ## A real ballot from this game's vote: every mountain this world can offer, four voters, three

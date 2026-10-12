@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 12
-const CHECKS := 42
+const SECTIONS := 13
+const CHECKS := 48
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -44,6 +44,7 @@ func _ready() -> void:
 
 	if await _build():
 		await _test_joining()
+		await _test_walkers()
 		await _test_a_trip()
 		await _test_driving()
 		await _test_weather()
@@ -156,6 +157,7 @@ func _build() -> bool:
 	var _s := _server_net.start()
 	var _c := _client_net.start()
 	_client_bridge.said.connect(func(text: String, _tone: String) -> void: _heard["said"] = text)
+	_client_bridge.placed.connect(func(where: Transform3D) -> void: _heard["placed"] = where)
 	_finished_section()
 	return _failed == 0
 
@@ -186,6 +188,58 @@ func _test_joining() -> void:
 	var known: DdGame.Driver = _client_game.drivers.get(_key, null)
 	_check(renamed and known != null and known.name == "Ada Lovelace" and _client_game.drivers.size() == _server_game.drivers.size(),
 		"a name that arrives later reaches the client, as the same driver", known.name if known != null else "")
+	_finished_section()
+
+
+## People on foot over the wire: the client is told where it stands, its steps reach the server
+## with the input and a step too long is refused with a place to stand; another person is on
+## foot on the client too, walking where the server has them, and gone when they leave.
+func _test_walkers() -> void:
+	_section("people on foot, on both ends")
+	var server_me: DdGame.Driver = _server_game.drivers[_key]
+	var mine: DdGame.Driver = _client_game.drivers.get(_key, null)
+	_check(_heard.has("placed") and (_heard["placed"] as Transform3D).origin.distance_to(server_me.walk_at) < 0.01
+		and mine != null and mine.on_foot and mine.walker != null and _server_game.lot.contains(server_me.walk_at),
+		"the client is told where it stands on foot in the lot, and mirrors its walker")
+	var to := server_me.walk_at + Vector3(0.0, 0.0, -1.5)
+	_client_bridge.walk_report = [to, 0.5]
+	await _steps(3)
+	_check(server_me.walk_at.distance_to(to) < 0.01 and absf(server_me.walk_yaw - 0.5) < 0.01,
+		"its steps go with the input, and the server takes them", str(server_me.walk_at))
+	_heard.erase("placed")
+	_client_bridge.walk_report = [to + Vector3(40.0, 0.0, 0.0), 0.0]
+	await _steps(3)
+	_exchange()
+	await _steps(1)
+	_client_bridge.walk_report = []
+	_check(server_me.walk_at.distance_to(to) < 0.01 and _heard.has("placed") and (_heard["placed"] as Transform3D).origin.distance_to(to) < 0.01,
+		"a step too long is refused, and the client is told where to stand")
+
+	var seated := _server_bridge.add_player(8, 43, "Bo")
+	var other_key: StringName = seated.value
+	_exchange()
+	await _steps(4)
+	var bo_mirror: DdGame.Driver = _client_game.drivers.get(other_key, null)
+	_check(bo_mirror != null and bo_mirror.on_foot and bo_mirror.walker != null and bo_mirror.name == "Bo",
+		"another person joins on foot, and the client mirrors their walker")
+	var bo: DdGame.Driver = _server_game.drivers[other_key]
+	var dest := bo.walk_at
+
+	for i in 20:
+		dest += Vector3(0.2, 0.0, 0.0)
+		var _w := _server_game.walk(other_key, dest, PI * 0.5)
+		await _step()
+
+	_exchange()
+	await _steps(6)
+	_client_net.interpolate_frame(1.0)
+	_check(bo_mirror.walker.global_position.distance_to(dest) < 0.6 and absf(wrapf(bo_mirror.walker.rotation.y - PI * 0.5, -PI, PI)) < 0.05,
+		"and sees them walk, where the server has them, facing their way", "%.2f m off" % bo_mirror.walker.global_position.distance_to(dest))
+	_server_bridge.remove_peer(8)
+	_exchange()
+	await _steps(2)
+	_check(not _client_game.drivers.has(other_key) and _client_bridge.entity_count() == _server_bridge.entity_count(),
+		"someone who leaves is gone from the client, walker and all", "%d vs %d" % [_client_bridge.entity_count(), _server_bridge.entity_count()])
 	_finished_section()
 
 
@@ -294,7 +348,8 @@ func _test_bots() -> void:
 	_exchange()
 	await _steps(2)
 	_check(not _client_game.drivers.has(bot), "and sees it go")
-	_check(_client_bridge.entity_count() == 1, "taking its truck with it", "%d entities" % _client_bridge.entity_count())
+	# Left: this client's own truck and its own walker.
+	_check(_client_bridge.entity_count() == 2, "taking its truck with it", "%d entities" % _client_bridge.entity_count())
 	_finished_section()
 
 
@@ -304,13 +359,13 @@ func _test_rock() -> void:
 	_server_game._drop_boulder(&"dd_foothills", road, road.boulder_sites[0], 2.0)
 	_exchange()
 	await _steps(4)
-	_check(_client_bridge.entity_count() == 2, "a boulder reaches the client", "%d" % _client_bridge.entity_count())
+	_check(_client_bridge.entity_count() == 3, "a boulder reaches the client", "%d" % _client_bridge.entity_count())
 	var body: RigidBody3D = _server_game.boulders.keys()[0]
 	_server_game.boulders[body]["born"] = -100.0
 	await _steps(3)
 	_exchange()
 	await _steps(2)
-	_check(_client_bridge.entity_count() == 1, "and goes when it goes")
+	_check(_client_bridge.entity_count() == 2, "and goes when it goes")
 	_finished_section()
 
 

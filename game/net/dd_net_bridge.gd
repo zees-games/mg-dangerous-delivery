@@ -20,6 +20,7 @@ const DdNetLink := preload("dd_net_link.gd")
 const DdRequest := preload("dd_request.gd")
 const DdBodyNet := preload("dd_body_net.gd")
 const DdTruckNet := preload("dd_truck_net.gd")
+const DdWalkerNet := preload("dd_walker_net.gd")
 
 const DdGame := preload("../dd_game.gd")
 const DdTruck := preload("../dd_truck.gd")
@@ -31,6 +32,9 @@ const CHANNEL := "delivery.net"
 ## Bytes of snapshot acknowledgement in front of every input packet.
 const ACK_BYTES := 4
 
+## Bytes the drive takes after it ([method DdEvents.write_drive]: 25 bits); the walk follows.
+const DRIVE_BYTES := 4
+
 ## Ticks between TRIP updates to a driver. Six a second is a smooth progress bar.
 const TRIP_EVERY := 10
 
@@ -38,6 +42,8 @@ const TRIP_EVERY := 10
 const FIRST_BOT_SESSION := 900000
 
 signal hello_received(key: StringName)
+## The server put this client's walker here (PLACE). Client side.
+signal placed(where: Transform3D)
 signal trip_received(view: Dictionary)
 signal garage_received(view: Dictionary)
 ## The world was rebuilt on another mountain. Client side.
@@ -67,6 +73,10 @@ var voice_relay_fn: Callable = Callable()
 ## Milliseconds of round trip, for the client's clock. Set by the client.
 var rtt_source: Callable = Callable()
 
+## Where this client's walker is, sent with every input while on foot: `[Vector3, yaw]`, or
+## empty while driving. Set by the client each tick. Client side.
+var walk_report: Array = []
+
 ## [code]func(peer_id: int, session_id: int) -> StringName[/code]: the key a session's money is
 ## filed under. The module points it at the platform's durable profile key; unset, the key is
 ## the session, which is right for a test and for a LAN where nothing is kept.
@@ -86,6 +96,9 @@ var _next_bot_session: int = FIRST_BOT_SESSION
 ## net id -> behaviour; and truck node / boulder node -> net id.
 var _entities: Dictionary = {}
 var _net_of: Dictionary = {}
+## Server: key -> the walker node replicated for them, kept so it is forgotten on leaving after
+## the world has let go of it.
+var _walker_of_key: Dictionary = {}
 
 var _tick: int = 0
 
@@ -127,6 +140,12 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.trip_ended.connect(_on_truck_gone)
 		game.driver_left.connect(func(key: StringName) -> void:
 			_on_truck_gone(key)
+			var walker: Node = _walker_of_key.get(key, null)
+			_walker_of_key.erase(key)
+
+			if walker != null:
+				_forget(walker)
+
 			_broadcast(DdEvents.Kind.GONE, {"key": String(key)}))
 		game.solo_changed.connect(func(key: StringName, _on: bool) -> void: _broadcast_driver(key))
 		game.stage_reached.connect(func(key: StringName, stage: int) -> void:
@@ -143,6 +162,7 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
 			_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
 		game.mountain_changed.connect(_on_mountain_changed)
+		game.walker_placed.connect(_on_walker_placed)
 
 	return DotResult.success(true)
 
@@ -186,7 +206,10 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 	_player_of_peer[peer_id] = key
 	_peer_of_key[key] = peer_id
 	_key_of_session[session_id] = key
-	var _driver := game.join(key, display_name)
+	var driver := game.join(key, display_name)
+	_replicate_walker(driver)
+	# Everybody already here learns they arrived, on foot, with the walker to draw them by.
+	_broadcast_driver(key)
 
 	if _ready_unseated.has(peer_id):
 		_ready_unseated.erase(peer_id)
@@ -282,6 +305,7 @@ func _admit(peer_id: int) -> void:
 
 	_send_garage(key)
 	_broadcast_driver(key)
+	_send_place(key)
 
 
 func _driver_body(key: StringName) -> Dictionary:
@@ -294,6 +318,8 @@ func _driver_body(key: StringName) -> Dictionary:
 	var body := {
 		"key": String(key), "name": driver.name, "bot": driver.is_bot, "solo": driver.solo,
 		"net_id": int(_net_of.get(truck, 0)) if truck != null else 0,
+		"on_foot": driver.on_foot,
+		"walker_net_id": int(_net_of.get(driver.walker, 0)) if driver.walker != null else 0,
 	}
 
 	if truck != null:
@@ -312,6 +338,37 @@ func _broadcast_driver(key: StringName) -> void:
 
 	if not body.is_empty():
 		_broadcast(DdEvents.Kind.DRIVER, body)
+
+
+# --- Server: walkers -----------------------------------------------------------
+
+## A person's walker, for everybody to draw: a node the world moves when a report is accepted.
+func _replicate_walker(driver: DdGame.Driver) -> void:
+	if driver == null or driver.walker == null or _net_of.has(driver.walker):
+		return
+
+	var behaviour := DdWalkerNet.new()
+	behaviour.name = "Net"
+	behaviour.body = driver.walker
+	var _id := _replicate(behaviour, driver.walker, peer_of(driver.key))
+	_walker_of_key[driver.key] = driver.walker
+
+
+## The world put somebody on foot somewhere: their machine is told where, everybody else is
+## told they are on foot (the DRIVER), and the snapshots carry the rest.
+func _on_walker_placed(key: StringName) -> void:
+	_send_place(key)
+	_broadcast_driver(key)
+
+
+func _send_place(key: StringName) -> void:
+	var driver: DdGame.Driver = game.drivers.get(key, null)
+	var peer := peer_of(key)
+
+	if driver == null or not driver.on_foot or peer <= 0 or not _ready_peers.has(peer):
+		return
+
+	_tell(peer, DdEvents.Kind.PLACE, {"at": [driver.walk_at.x, driver.walk_at.y, driver.walk_at.z], "yaw": driver.walk_yaw})
 
 
 # --- Server: trucks and rock --------------------------------------------------
@@ -520,7 +577,12 @@ func receive_input(peer_id: int, payload: PackedByteArray) -> DotResult:
 		return DotResult.fail(DotError.CODE_PARSE, "Input packet is too short.")
 
 	var _acked := net.receive_ack_payload(peer_id, payload.slice(0, ACK_BYTES))
-	game.set_command(key, DdEvents.read_drive(DotNetReader.new(payload.slice(ACK_BYTES))))
+	game.set_command(key, DdEvents.read_drive(DotNetReader.new(payload.slice(ACK_BYTES, ACK_BYTES + DRIVE_BYTES))))
+	var walked := DdEvents.read_walk(DotNetReader.new(payload.slice(ACK_BYTES + DRIVE_BYTES)))
+
+	if not walked.is_empty():
+		var _accepted := game.walk(key, walked["at"], float(walked["yaw"]))
+
 	return DotResult.success(true)
 
 
@@ -613,6 +675,10 @@ func client_tick(tick: int, command: DotVehicleCommand) -> void:
 	if link != null and command != null and local_key != &"":
 		var payload := net.encode_ack()
 		payload.append_array(DdEvents.write_drive(command))
+		var walk := DotNetWriter.new()
+		var on_foot := walk_report.size() == 2
+		DdEvents.write_walk(walk, on_foot, walk_report[0] if on_foot else Vector3.ZERO, float(walk_report[1]) if on_foot else 0.0)
+		payload.append_array(walk.to_bytes())
 		link.send_input(payload)
 
 
@@ -632,8 +698,22 @@ func _on_event(message: DotNetMessage) -> void:
 		DdEvents.Kind.GONE:
 			var key := StringName(str(data.get("key", "")))
 			_drop_mirror_truck(key)
+			_drop_mirror_walker(key)
 			game.drivers.erase(key)
 			driver_changed.emit(key)
+		DdEvents.Kind.PLACE:
+			var at: Variant = data.get("at", [])
+
+			if at is Array and (at as Array).size() == 3:
+				var where := Transform3D(Basis(Vector3.UP, float(data.get("yaw", 0.0))), Vector3(float(at[0]), float(at[1]), float(at[2])))
+				var me: DdGame.Driver = game.drivers.get(local_key, null)
+
+				if me != null:
+					me.on_foot = true
+					me.walk_at = where.origin
+					me.walk_yaw = float(data.get("yaw", 0.0))
+
+				placed.emit(where)
 		DdEvents.Kind.TRIP:
 			trip_view = data
 			trip_received.emit(data)
@@ -704,6 +784,13 @@ func _apply_driver(data: Dictionary) -> void:
 	driver.name = str(data.get("name", key))
 	driver.is_bot = bool(data.get("bot", false))
 	driver.solo = bool(data.get("solo", false))
+	driver.on_foot = bool(data.get("on_foot", false))
+	var walker_id := int(data.get("walker_net_id", 0))
+
+	if walker_id != 0 and (driver.walker == null or int(_net_of.get(driver.walker, 0)) != walker_id):
+		_drop_mirror_walker(key)
+		_mirror_walker(driver, walker_id)
+
 	var net_id := int(data.get("net_id", 0))
 	var current := driver.truck as DdTruck
 
@@ -756,6 +843,32 @@ func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
 	behaviour.name = "Net"
 	behaviour.body = trailer
 	var _id := _replicate(behaviour, trailer, 0, net_id)
+
+
+## Somebody's walker, mirrored: a node the snapshots move. The client draws a person under it.
+func _mirror_walker(driver: DdGame.Driver, net_id: int) -> void:
+	var node := Node3D.new()
+	node.name = "Walker_%s" % String(driver.key).validate_node_name()
+	game.add_child(node)
+	driver.walker = node
+	var behaviour := DdWalkerNet.new()
+	behaviour.name = "Net"
+	behaviour.body = node
+	var _id := _replicate(behaviour, node, 0, net_id)
+
+
+func _drop_mirror_walker(key: StringName) -> void:
+	var driver: DdGame.Driver = game.drivers.get(key, null)
+
+	if driver == null or driver.walker == null:
+		return
+
+	var node: Node = driver.walker
+	driver.walker = null
+	_forget(node)
+
+	if is_instance_valid(node):
+		node.queue_free()
 
 
 func _drop_mirror_truck(key: StringName) -> void:

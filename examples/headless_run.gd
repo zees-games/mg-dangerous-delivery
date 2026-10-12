@@ -19,9 +19,10 @@ const DdTrip := preload("res://game/dd_trip.gd")
 const DdProgress := preload("res://game/dd_progress.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
+const DdLot := preload("res://game/dd_lot.gd")
 
-const SECTIONS := 20
-const CHECKS := 131
+const SECTIONS := 22
+const CHECKS := 145
 
 var _passed := 0
 var _failed := 0
@@ -55,6 +56,7 @@ func _ready() -> void:
 	progress.earned.connect(func(key: StringName, title: String, _points: int) -> void: _earned.append([key, title]))
 
 	_test_unlocking()
+	_test_on_foot()
 	_test_every_mountain()
 	await _test_a_delivery()
 	await _test_a_fall()
@@ -65,6 +67,7 @@ func _ready() -> void:
 	_test_ice_and_debris()
 	await _test_a_trailer()
 	await _test_the_client_settings()
+	await _test_walking_client()
 	await _test_the_lot_makes_room()
 	await _test_sound_and_effects()
 
@@ -351,6 +354,46 @@ func _test_unlocking() -> void:
 	_finished_section()
 
 
+## A person arrives on foot in the lot; the world takes a short step, refuses a long one or one
+## off the lot and says where to stand; a trip takes them off their feet and the way back from
+## a road puts them on foot in the lot again. Stand-ins never walk.
+func _test_on_foot() -> void:
+	_section("on foot in the lot")
+	var me: DdGame.Driver = game.drivers[&"p1"]
+	_check(me.on_foot and me.walker != null and game.lot != null and game.lot.contains(me.walk_at),
+		"a person joins on foot, in the lot", str(me.walk_at))
+	var south := 0.0
+	for id: StringName in game.routes:
+		for p in (game.routes[id] as DdRoute).points:
+			south = maxf(south, p.z + (game.routes[id] as DdRoute).position.z)
+	_check(game.lot.global_position.z - DdLot.SIZE.y * 0.5 > south + 100.0,
+		"the lot is south of every road, with sea between", "%.0f vs %.0f" % [game.lot.global_position.z, south])
+	_check(game.lot.displays.size() == game.trucks.order.size() and game.lot.sellers.size() == game.trucks.order.size()
+		and game.lot.displays.values().all(func(t: Transform3D) -> bool: return game.lot.contains(t.origin)),
+		"every truck is on show in the lot, each with a salesperson", "%d" % game.lot.displays.size())
+	var bot := game.join(&"standin", "Stand-in", true)
+	_check(not bot.on_foot and bot.walker == null, "a stand-in never walks")
+	game.leave(&"standin")
+	var placed: Array = []
+	var on_placed := func(key: StringName) -> void: placed.append(key)
+	game.walker_placed.connect(on_placed)
+	var from := me.walk_at
+	var short := game.walk(&"p1", from + Vector3(0.0, 0.0, -1.0), 0.3)
+	_check(short and me.walk_at.distance_to(from + Vector3(0.0, 0.0, -1.0)) < 0.001 and me.walker.global_position == me.walk_at and placed.is_empty(),
+		"a step on the lot is taken, and the walker everybody sees moves with it")
+	var long := game.walk(&"p1", me.walk_at + Vector3(30.0, 0.0, 0.0), 0.0)
+	_check(not long and placed == [&"p1"] and me.walk_at.distance_to(from + Vector3(0.0, 0.0, -1.0)) < 0.001,
+		"a step too long for a run is refused, and they are told where to stand")
+	var edge := game.lot.to_global(Vector3(DdLot.SIZE.x * 0.5 - 0.5, 0.0, 0.0))
+	game.drivers[&"p1"].walk_at = edge
+	var off := game.walk(&"p1", edge + Vector3(3.0, 0.0, 0.0), 0.0)
+	_check(not off and me.walk_at == edge, "a step off the lot is refused")
+	var fell := game.walk(&"p1", edge + Vector3(0.0, -20.0, 0.0), 0.0)
+	_check(not fell and game.lot.contains(me.walk_at) and me.walk_at.y > -1.0, "somebody who fell off the world is put back in the lot")
+	game.walker_placed.disconnect(on_placed)
+	_finished_section()
+
+
 ## Every mountain on the ballot is buildable from the shipped routes, and a ballot never
 ## offers two mountains holding the same routes.
 func _test_every_mountain() -> void:
@@ -436,7 +479,7 @@ func _test_a_delivery() -> void:
 	me.assisted = false
 	me.autopilot = null
 	game.end_trip(&"p1")
-	_check(not me.on_road(), "back to the garage, and the truck is gone")
+	_check(not me.on_road() and me.on_foot and game.lot.contains(me.walk_at), "back to the lot on foot, and the truck is gone")
 	_finished_section()
 
 
@@ -693,9 +736,13 @@ func _test_the_client_settings() -> void:
 	_check(menu.screen.find_child("Action_help", true, false) != null and leave != null and leave.visible,
 		"the menu has Help & commands and Leave")
 	settings.close()
-	# The pointer: there at the lot and in the menu, out of the way on the road (the first play
-	# test drove with an arrow over the truck the whole way).
+	# The pointer: captured on foot (the mouse looks round), there with the lot's panel open and
+	# in the menu, out of the way on the road (the first play test drove with an arrow over the
+	# truck the whole way).
+	var on_foot: int = client.call("pointer_mode")
+	client.call("_act", "garage", {})
 	var at_lot: int = client.call("pointer_mode")
+	client.call("_act", "garage", {})
 	client.call("_act", "start", {"route": "dd_foothills"})
 	await get_tree().process_frame
 	var driving: int = client.call("pointer_mode")
@@ -704,9 +751,10 @@ func _test_the_client_settings() -> void:
 	settings.close()
 	client.call("_act", "garage", {})
 	await get_tree().process_frame
-	_check(at_lot == Input.MOUSE_MODE_VISIBLE and driving == Input.MOUSE_MODE_CAPTURED and in_menu == Input.MOUSE_MODE_VISIBLE
-		and client.call("pointer_mode") == Input.MOUSE_MODE_VISIBLE,
-		"the pointer is captured while driving and back for the lot and the menu", "%d %d %d" % [at_lot, driving, in_menu])
+	_check(on_foot == Input.MOUSE_MODE_CAPTURED and at_lot == Input.MOUSE_MODE_VISIBLE and driving == Input.MOUSE_MODE_CAPTURED
+		and in_menu == Input.MOUSE_MODE_VISIBLE and client.call("pointer_mode") == Input.MOUSE_MODE_CAPTURED,
+		"the pointer is captured on foot and driving, and back for the lot's panel and the menu",
+		"%d %d %d %d" % [on_foot, at_lot, driving, in_menu])
 	var hud_keys := client.get("hud").get("_keys") as Label
 	_check(hud_keys != null and hud_keys.text.contains("H  help") and hud_keys.text.contains("R  respawn"),
 		"the HUD's key list comes from the table, and says H", hud_keys.text if hud_keys != null else "")
@@ -799,6 +847,51 @@ func _test_the_client_settings() -> void:
 		"%s %s" % [rk.key_for(&"dd_solo"), rk.key_for(&"dd_camera")])
 	_check(rk.key_for(&"dd_restart") == "J", "and a key the player chose is kept", rk.key_for(&"dd_restart"))
 	returning.queue_free()
+	await get_tree().process_frame
+	_finished_section()
+
+
+## The player's own walker: built where the world put them, moved by the keys (here an intent
+## in their place), its place taken by the world, drawn as one of the family's people, with the
+## camera behind it and the HUD naming the lot.
+func _test_walking_client() -> void:
+	_section("walking, on the client")
+	var client: Node = (load("res://game/dd_client.gd") as GDScript).new()
+	add_child(client)
+
+	for i in 4:
+		await get_tree().physics_frame
+
+	var world: DdGame = client.get("game")
+	var me: DdGame.Driver = world.drivers[client.get("local_key")]
+	var walker: CharacterBody3D = client.get("walker")
+	_check(walker != null and walker.global_position.distance_to(me.walk_at) < 0.5 and world.lot.contains(walker.global_position),
+		"the player's walker stands where the world put them, in the lot", str(walker.global_position) if walker != null else "none")
+	_check(walker != null and walker.get("figure") != null and bool((walker.get("figure") as DotHumanoidFigure).from_art),
+		"drawn as one of the family's people, from the art")
+	var start := walker.global_position
+	var ahead := DotPlayerIntent.new()
+	ahead.move = Vector2(0.0, 1.0)
+	client.set("walk_override", ahead)
+	await _seconds(1.5)
+	var moved := start.distance_to(walker.global_position)
+	_check(moved > 4.0 and walker.global_position.z < start.z - 4.0 and me.walk_at.distance_to(walker.global_position) < 0.2,
+		"W walks them north, toward the trucks, and the world takes every step", "%.1f m, world %.2f m off" % [moved, me.walk_at.distance_to(walker.global_position)])
+	var running := DotPlayerIntent.new()
+	running.move = Vector2(1.0, 0.0)
+	running.buttons = DotPlayerIntent.Btn.SPRINT
+	client.set("walk_override", running)
+	var side_from := walker.global_position
+	await _seconds(1.0)
+	_check(walker.global_position.x - side_from.x > 5.5, "Shift runs, faster than a walk", "%.1f m in a second" % (walker.global_position.x - side_from.x))
+	client.set("walk_override", DotPlayerIntent.new())
+	await _seconds(0.3)
+	var camera: Camera3D = client.get("camera")
+	_check(camera.global_position.distance_to(walker.global_position) < 7.0 and camera.global_position.y > walker.global_position.y,
+		"the camera follows on foot, behind and over them", str(camera.global_position - walker.global_position))
+	_check(str((client.get("hud").get("_stage") as Label).text).begins_with("THE LOT"), "and the HUD says they are in the lot")
+	remove_child(client)
+	client.free()
 	await get_tree().process_frame
 	_finished_section()
 

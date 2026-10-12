@@ -1,6 +1,7 @@
 extends Node3D
 
-## One player at the wheel: the garage, the camera, the controls, the HUD, and the sky.
+## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera,
+## the controls, the HUD, and the sky.
 ##
 ## [b]Offline today, and built so a server can take the world away from it.[/b] Everything
 ## the player does goes through [method _act] (garage) and [member command] (driving), and
@@ -21,6 +22,8 @@ const DdTruckNet := preload("net/dd_truck_net.gd")
 const DdServices := preload("dd_services.gd")
 const DdAudio := preload("dd_audio.gd")
 const DdSettings := preload("dd_settings.gd")
+const DdWalker := preload("dd_walker.gd")
+const DdLot := preload("dd_lot.gd")
 
 ## Where dot-server's client publishes its link before the game scene loads. Present: this
 ## client is connected; absent: it is offline and owns its world.
@@ -115,6 +118,30 @@ var board: DotMenuScoreboard = null
 var _started_msec: int = Time.get_ticks_msec()
 var _offline: bool = true
 
+## This player on foot: their own body, walked here. Built on the first place the world puts
+## them; hidden and still while they drive. See [DdWalker].
+var walker: DdWalker = null
+
+## An intent to walk with instead of the keys and mouse, when set: what a suite has in place
+## of a keyboard (the walker's [member command_override]).
+var walk_override: DotPlayerIntent = null
+
+## The mouse's movement since the last tick, for the walker's look.
+var _mouse := Vector2.ZERO
+
+## Radians per pixel of mouse movement on foot.
+const MOUSE_SENSITIVITY := 0.0025
+
+## On foot, the camera: behind the shoulder (third person) or at the eyes (first person, F5,
+## or the only view under `mp_forceview 1`).
+var foot_first_person: bool = false
+
+var _foot_probe: DotCameraProbe = null
+
+## Metres the on-foot chase camera sits behind and over the walker's eyes.
+const FOOT_CAMERA_BACK := 4.2
+const FOOT_CAMERA_UP := 0.6
+
 
 func _ready() -> void:
 	_build_environment()
@@ -133,6 +160,9 @@ func _ready() -> void:
 	add_child(game)
 
 	if _offline:
+		game.walker_placed.connect(func(key: StringName) -> void:
+			if key == local_key:
+				_place_walker(_on_foot_transform()))
 		var _me := game.join(local_key, local_name)
 
 	camera = Camera3D.new()
@@ -166,7 +196,7 @@ func _ready() -> void:
 	_listen_for_rock()
 
 	if not _offline:
-		_show_garage(true)
+		_show_garage(false)
 		DotLog.result(CHANNEL, "the netcode", _build_netcode())
 		DotLog.result(CHANNEL, "chat and voice", chat.attach(bridge))
 		return
@@ -195,7 +225,9 @@ func _ready() -> void:
 
 	hud.show_money(game.bank.money(local_key))
 	_refresh_garage()
-	_show_garage(true)
+	# On foot in the lot, not in a menu: the panel is G (or a salesperson's E).
+	_show_garage(false)
+	_place_walker(_on_foot_transform())
 
 	if auto_route != &"":
 		_act("start", {"route": String(auto_route)})
@@ -316,6 +348,8 @@ func _build_netcode() -> DotResult:
 	bridge.hello_received.connect(func(key: StringName) -> void:
 		local_key = key
 		_frame_garage_camera())
+	# The server put this player on foot somewhere: a spawn, out of a truck, a refused step.
+	bridge.placed.connect(func(where: Transform3D) -> void: _place_walker(where))
 	# The players voted another mountain: the roads were rebuilt under the camera, and the
 	# trip (if any) already ended, so the lot is framed on the new first route.
 	bridge.mountain_received.connect(func(_id: StringName, name_text: String) -> void:
@@ -329,8 +363,10 @@ func _build_netcode() -> DotResult:
 	bridge.trip_received.connect(func(view: Dictionary) -> void:
 		var on_road := bool(view.get("on_road", false))
 
-		if on_road == garage.visible:
-			_show_garage(not on_road)
+		# On the road the panel goes; off it, the player is on foot (a PLACE) and opens it when
+		# they want it.
+		if on_road and garage.visible:
+			_show_garage(false)
 
 		hud.show_solo(bool(view.get("solo", false))))
 	# Refusals and achievements are also kept in the chat box, where a player can read them back.
@@ -363,13 +399,15 @@ func _build_netcode() -> DotResult:
 # --- The garage --------------------------------------------------------------
 
 func _act(action: String, args: Dictionary = {}) -> void:
+	# G or Escape: on foot it is the lot's panel, opened and closed here; from a road it is the
+	# way back to the lot, which the world decides.
+	if action == "garage" and not _on_road():
+		_show_garage(not garage.visible)
+		return
+
 	if not _offline:
 		if bridge != null:
 			bridge.ask_act(action, args)
-
-		# The garage closes on the server's say-so (a TRIP saying we are on the road), not here.
-		if action == "garage":
-			_show_garage(true)
 
 		return
 
@@ -380,14 +418,15 @@ func _act(action: String, args: Dictionary = {}) -> void:
 	if action == "start" and done.ok:
 		_show_garage(false)
 
+		if walker != null:
+			walker.visible = false
+
 		if autopilot:
 			var me := _driver()
 			me.assisted = true
 			me.autopilot = DotVehicleDriver.new()
 			me.autopilot.target_speed = 10.0
 			me.autopilot.set_route(game._global_points(me.trip.route_id, 4.0))
-	elif action == "garage":
-		_show_garage(true)
 
 	if not done.ok:
 		if garage.visible:
@@ -564,6 +603,14 @@ func board_snapshot() -> Dictionary:
 # --- Controls ----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	# The mouse looks round on foot, only while it is captured (a menu or the panel frees it).
+	var motion := event as InputEventMouseMotion
+
+	if motion != null:
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _walking():
+			_mouse += motion.relative
+		return
+
 	var key := event as InputEventKey
 
 	# The Tab board, held: shown while the key is down, released when it comes up.
@@ -588,7 +635,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key.is_action(DdBindings.SKIP):
 		_act("skip")
 	elif key.is_action(DdBindings.CAMERA):
-		cycle_camera()
+		if _walking():
+			toggle_foot_view()
+		else:
+			cycle_camera()
 	elif key.is_action(DdBindings.MENU):
 		# The settings from the road, where the lot's button is not on screen.
 		if settings != null:
@@ -605,6 +655,7 @@ func _say_refusal(result: DotResult) -> void:
 func _physics_process(delta: float) -> void:
 	var me := _driver()
 	command = _sample(me)
+	_walk(me, delta)
 
 	if _offline:
 		if me != null and me.on_road() and not garage.visible and not me.assisted:
@@ -621,6 +672,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var ticks := net.clock.advance(delta)
+	bridge.walk_report = [walker.global_position, walker.facing()] if walker != null and me != null and me.on_foot and walker.visible else []
 
 	for i in range(ticks):
 		if net.clock.is_synced():
@@ -713,6 +765,7 @@ func _process(delta: float) -> void:
 			if other != me:
 				_feed_engine(other, seen, delta)
 
+	_present_walkers(me)
 	var facts := _trip_facts(me)
 
 	if audio != null:
@@ -739,9 +792,16 @@ func _process(delta: float) -> void:
 			effects.shake.reset()
 
 		_shaken = Vector3.ZERO
+
+		if _walking():
+			_follow_walker(delta)
+			hud.show_off_road(_where_on_foot())
+
+		hud.show_prompt(use_prompt())
 		return
 
 	hud.show_trip(facts)
+	hud.show_prompt("")
 	_set_weather(facts["weather"])
 
 	if me != null and me.truck != null:
@@ -798,7 +858,14 @@ func pointer_mode() -> Input.MouseMode:
 	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
 	var typing := chat != null and chat.is_typing()
 
-	if me == null or me.truck == null or garage == null or garage.visible or menu_open or typing:
+	if me == null or garage == null or garage.visible or menu_open or typing:
+		return Input.MOUSE_MODE_VISIBLE
+
+	# On foot the mouse looks round, so it is captured, in a browser too (after a click).
+	if _walking():
+		return Input.MOUSE_MODE_CAPTURED
+
+	if me.truck == null:
 		return Input.MOUSE_MODE_VISIBLE
 
 	return Input.MOUSE_MODE_HIDDEN if DotPlatform.is_web() else Input.MOUSE_MODE_CAPTURED
@@ -808,6 +875,200 @@ func _apply_pointer() -> void:
 	var want := pointer_mode()
 	if Input.mouse_mode != want:
 		Input.mouse_mode = want
+
+
+# --- On foot -----------------------------------------------------------------
+
+## Whether this player is walking now: on foot, with a body, not on a road.
+func _walking() -> bool:
+	var me := _driver()
+	return walker != null and me != null and me.on_foot and not _on_road()
+
+
+## Whether this player's truck is on a road (a trip): the world's offline, the server's TRIP online.
+func _on_road() -> bool:
+	if _offline:
+		var me := _driver()
+		return me != null and me.on_road()
+
+	return bridge != null and bool(bridge.trip_view.get("on_road", false))
+
+
+## Where the world has this player on foot.
+func _on_foot_transform() -> Transform3D:
+	var me := _driver()
+
+	if me == null:
+		return Transform3D.IDENTITY
+
+	return Transform3D(Basis(Vector3.UP, me.walk_yaw), me.walk_at)
+
+
+## Puts this player's walker at [param where], building it the first time.
+func _place_walker(where: Transform3D) -> void:
+	if walker == null:
+		walker = DdWalker.new()
+		add_child(walker)
+		walker.setup(local_key, look_of(local_key), game.draws)
+
+	walker.visible = true
+	walker.put(where)
+	_mouse = Vector2.ZERO
+
+
+## Somebody's look on foot, the same on every machine: picked from their key by the MD5 roll
+## (never Godot's `hash()`, which this game keeps out of anything two machines must agree on).
+static func look_of(key: StringName) -> DotHumanoidLook:
+	return DotHumanoidLook.stock(int(DdWeather.unit("walker|%s" % key) * 1000000.0))
+
+
+## One tick on foot: the keys and the mouse into an intent, the walker moved, and the place
+## reported (offline straight to the world; connected, [member bridge]'s walk report goes with
+## the next input).
+func _walk(me: DdGame.Driver, delta: float) -> void:
+	if walker == null:
+		return
+
+	var walking := me != null and me.on_foot and not _on_road()
+	walker.visible = walking
+	walker.process_mode = Node.PROCESS_MODE_INHERIT if walking else Node.PROCESS_MODE_DISABLED
+
+	if not walking:
+		return
+
+	walker.step(_sample_walk(), delta)
+
+	if _offline:
+		var _accepted := game.walk(local_key, walker.global_position, walker.facing())
+
+
+## What the keys and the mouse say on foot: the driving rows as directions (W ahead, S back, A
+## and D sideways), the handbrake's key to jump and the run key to run. Idle under the panel, a
+## menu or a chat line.
+func _sample_walk() -> DotPlayerIntent:
+	if walk_override != null:
+		return walk_override.copy_intent()
+
+	var intent := DotPlayerIntent.new()
+	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
+
+	if garage.visible or menu_open or (chat != null and chat.is_typing()):
+		_mouse = Vector2.ZERO
+		return intent
+
+	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up")
+	var back := _held(DdBindings.BRAKE, KEY_S) + Input.get_action_strength("ui_down")
+	var left := _held(DdBindings.LEFT, KEY_A) + Input.get_action_strength("ui_left")
+	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right")
+	intent.move = Vector2(clampf(right - left, -1.0, 1.0), clampf(forward - back, -1.0, 1.0))
+
+	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0:
+		intent.buttons |= DotPlayerIntent.Btn.JUMP
+
+	if _held(DdBindings.RUN, KEY_SHIFT) > 0.0:
+		intent.buttons |= DotPlayerIntent.Btn.SPRINT
+
+	intent.look = _mouse * MOUSE_SENSITIVITY
+	_mouse = Vector2.ZERO
+	return intent
+
+
+## The strip's words on foot: the lot, or the open road.
+func _where_on_foot() -> String:
+	var me := _driver()
+
+	if me != null and game.lot != null and game.lot.contains(me.walk_at, 2.0):
+		return "THE LOT — %s" % game.mountain_name().to_upper()
+
+	return game.mountain_name().to_upper()
+
+
+## What the use key would do where this player is, in words for the HUD; "" for nothing.
+func use_prompt() -> String:
+	return ""
+
+
+## F5 on foot: over the shoulder or through the eyes, where `mp_forceview` allows both.
+func toggle_foot_view() -> void:
+	if force_view != 0:
+		hud.say("This server allows only this camera")
+		return
+
+	foot_first_person = not foot_first_person
+
+
+## The camera on foot: at the eyes in first person, behind and over them in third, swept from
+## the head so a wall or a truck never comes between.
+func _follow_walker(delta: float) -> void:
+	var yaw := walker.view_yaw()
+	var pitch := walker.view_pitch()
+	var eyes := walker.global_position + Vector3.UP * DdWalker.EYE_HEIGHT
+	var look_dir := Basis.from_euler(Vector3(pitch, yaw, 0.0)) * Vector3.FORWARD
+	var first := force_view == 1 or (force_view == 0 and foot_first_person)
+
+	if walker.figure != null:
+		walker.figure.visible = not first
+
+	if first:
+		camera.global_position = eyes
+		camera.look_at(eyes + look_dir)
+		_last_truck_at = Vector3.INF
+		return
+
+	var wanted := eyes - look_dir * FOOT_CAMERA_BACK + Vector3.UP * FOOT_CAMERA_UP
+
+	if _foot_probe == null:
+		# Layer 1 as well as the mountain's: on foot a truck, a display or the fence is
+		# something to look past, not through.
+		_foot_probe = DotCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER | 1)
+		_foot_probe.radius = 0.25
+
+	camera.global_position = _foot_probe.resolve(eyes, wanted, delta)
+	camera.look_at(eyes + look_dir * 6.0)
+	# The truck's chase camera starts from here when they next drive.
+	_was_cab = true
+
+
+## Everybody else on foot: a person under each walker node, shown while they are on foot and
+## seen, with their name over them. The node is moved by the snapshots online and by the world
+## offline; the person animates from how far it moved (`auto_animate`).
+func _present_walkers(me: DdGame.Driver) -> void:
+	if not game.draws:
+		return
+
+	for k: StringName in game.drivers:
+		var other: DdGame.Driver = game.drivers[k]
+
+		if other.walker == null or not is_instance_valid(other.walker):
+			continue
+
+		if k == local_key:
+			other.walker.visible = false
+			continue
+
+		var person := other.walker.get_node_or_null("Person") as DotHumanoidFigure
+
+		if person == null:
+			person = DotHumanoidFigure.new()
+			person.name = "Person"
+			other.walker.add_child(person)
+			person.build(look_of(k), DdWalker.HEIGHT)
+			person.auto_animate = true
+			var tag := Label3D.new()
+			tag.name = "Name"
+			tag.font_size = 36
+			tag.pixel_size = 0.01
+			tag.outline_size = 8
+			tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+			tag.position = Vector3(0.0, 2.2, 0.0)
+			other.walker.add_child(tag)
+
+		var tag_node := other.walker.get_node_or_null("Name") as Label3D
+
+		if tag_node != null:
+			tag_node.text = other.name
+
+		other.walker.visible = other.on_foot and game.sees(me, other)
 
 
 ## The camera key: the next camera the server's `mp_forceview` allows, and a line when it

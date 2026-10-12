@@ -35,6 +35,9 @@ enum Kind {
 	## The world was rebuilt on another mountain: its id and name and the route documents, as
 	## in HELLO. Every trip ended first; a GARAGE follows to each driver.
 	MOUNTAIN,
+	## You are on foot here: {at: [x, y, z], yaw}. A spawn, out of a truck, back from a road, or
+	## a step the server refused. To the owner only; everybody else sees the walker's snapshots.
+	PLACE,
 }
 
 enum Ask {
@@ -81,6 +84,29 @@ static func write_drive(command: DotVehicleCommand) -> PackedByteArray:
 	writer.write_uint(int(round(clampf(command.brake, 0.0, 1.0) * 255.0)), 8)
 	writer.write_bool(command.handbrake)
 	return writer.to_bytes()
+
+
+## Where the owner's walker got to, after the drive in the same packet: a bit for whether they
+## are on foot, then the place as three floats and the facing in ten bits. Twenty-two bytes a
+## tick while walking, one bit while driving.
+static func write_walk(writer: DotNetWriter, on_foot: bool, at: Vector3, yaw: float) -> void:
+	writer.write_bool(on_foot)
+
+	if on_foot:
+		writer.write_float32(at.x)
+		writer.write_float32(at.y)
+		writer.write_float32(at.z)
+		writer.write_angle(rad_to_deg(yaw), 10)
+
+
+## [code]{"at": Vector3, "yaw": float}[/code], or {} for none (driving, or a short packet).
+static func read_walk(reader: DotNetReader) -> Dictionary:
+	if not reader.read_bool() or not reader.ok():
+		return {}
+
+	var at := Vector3(reader.read_float32(), reader.read_float32(), reader.read_float32())
+	var yaw := deg_to_rad(reader.read_angle(10))
+	return {"at": at, "yaw": yaw} if reader.ok() else {}
 
 
 static func read_drive(reader: DotNetReader) -> DotVehicleCommand:

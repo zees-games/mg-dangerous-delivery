@@ -12,6 +12,9 @@
 /addons/dot_core
 /addons/dot_lighting
 /addons/dot_vehicle
+/addons/dot_player
+/addons/dot_player_controller
+/addons/dot_player_char
 /addons/dot_ui
 /addons/dot_settings
 /addons/dot_menu
