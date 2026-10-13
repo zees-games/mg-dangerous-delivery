@@ -55,6 +55,13 @@ signal say_requested(peer_id: int, channel_id: StringName, text: String)
 signal voice_requested(peer_id: int, payload: PackedByteArray)
 signal chat_received(wire: Dictionary)
 signal voice_arrived(payload: PackedByteArray)
+## Server: [param peer_id]'s driver was handed to a newer connection of the same account (two
+## browser tabs of one guest share a device id, so one uid). The bridge has already taken the old
+## peer out; the module disconnects it with [constant SUPERSEDED_REASON].
+signal superseded(peer_id: int, key: StringName)
+
+## What the older connection is told when a newer one of the same account takes its driver.
+const SUPERSEDED_REASON := "You joined from another tab or window"
 
 var game: DdGame = null
 var net: DotNetManager = null
@@ -204,6 +211,19 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 
 	if key == &"":
 		key = session_key(session_id)
+
+	# The same account again, on another connection: the newest wins. Left alone, the second seat
+	# replicated a second walker onto the first's driver (one key) and took the key's peer, so the
+	# first tab's keys moved nothing while its link stayed up; worse, its eventual leave took the
+	# newcomer's driver out. The old peer leaves exactly as a disconnect does, BEFORE the newcomer
+	# is seated, so its later remove_peer finds no key; the money stays under the key, as for a
+	# reconnect. The module is told so it can disconnect that peer with a reason it will show.
+	var held_by: int = int(_peer_of_key.get(key, 0))
+
+	if held_by != 0 and held_by != peer_id:
+		DotLog.info(CHANNEL, "a newer connection of the same account takes the driver", {"key": String(key), "old_peer": held_by, "new_peer": peer_id})
+		remove_peer(held_by)
+		superseded.emit(held_by, key)
 
 	_player_of_peer[peer_id] = key
 	_peer_of_key[key] = peer_id

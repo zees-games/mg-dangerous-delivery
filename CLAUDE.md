@@ -72,7 +72,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - **Nothing is predicted.** The drive is four bytes a tick; bodies ride snapshots; everything else is JSON; HELLO carries what a client needs to compute weather and roads itself. [netcode](docs/netcode.md)
 - **A READY before the player is seated is kept** (`_ready_unseated` in the bridge) and answered by `add_player`: over ENet with loss it overtakes the link's `loaded`, and a dropped READY left the client waiting for ever. `headless_net` sends it first (armed). [history](docs/history.md)
 - Every garage button and key is one ACT through `DdBridgeActs.run`, which offline calls directly; never a second code path.
-- Money is keyed by the session's account uid, not the platform profile (which arrives after seating).
+- Money is keyed by the session's account uid, not the platform profile (which arrives after seating). **One account, one driver: the newest connection wins** (two tabs of a guest share a device id); the older is taken out and kicked with "You joined from another tab or window". [netcode](docs/netcode.md#one-account-one-connection)
 - Settings open from the lot's button and O, never Escape (Escape is the way back to the lot).
 - The HUD follows the menu's theme and HUD size (`DdHud.follow_menu`, after `DotConsoleKit.build`); `DdHud.piece_theme()` is the accent only, plates restyle from the theme's `plate`, and no Label sets a colour except the accent lines. `headless_run` checks the default and a theme change.
 - The lot moves left of any visible `dot_hud_cover` Control over it (the shell's ballots); read the group by its string, never a dot-ui constant. [design](docs/design.md#the-lot-makes-room-for-a-ballot)

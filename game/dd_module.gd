@@ -76,7 +76,19 @@ func _make_bridge() -> Node:
 		var session := server.session_by_userid(session_id) if server != null else null
 		var uid := session.uid() if session != null else ""
 		return StringName("uid:%s" % uid) if uid != "" else &""
+	# One account, one driver: the newest connection wins and the older is told why it was
+	# dropped (docs/design.md, "One account, one connection"). Deferred, because the bridge
+	# says so from inside the roster seating the newcomer, and a kick re-enters that roster.
+	bridge_node.superseded.connect(func(peer_id: int, _key: StringName) -> void:
+		_drop_superseded.call_deferred(peer_id))
 	return bridge_node
+
+
+func _drop_superseded(peer_id: int) -> void:
+	var session := server.session_of(peer_id) if server != null else null
+
+	if session != null and session.is_active():
+		var _kicked := server.kick(session, DdNetBridge.SUPERSEDED_REASON)
 
 
 func _make_services() -> Node:

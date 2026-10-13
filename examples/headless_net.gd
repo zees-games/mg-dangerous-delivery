@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 15
-const CHECKS := 56
+const SECTIONS := 16
+const CHECKS := 60
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -53,6 +53,7 @@ func _ready() -> void:
 		await _test_solo()
 		await _test_refusal()
 		await _test_bots()
+		await _test_one_account_twice()
 		await _test_rock()
 		await _test_rock_heard()
 	await _test_a_trailer()
@@ -432,6 +433,49 @@ func _test_bots() -> void:
 	_check(not _client_game.drivers.has(bot), "and sees it go")
 	# Left: this client's own truck and its own walker.
 	_check(_client_bridge.entity_count() == 2, "taking its truck with it", "%d entities" % _client_bridge.entity_count())
+	_finished_section()
+
+
+## Two browser tabs of one guest share a device id, so one uid, so one key (the module keys a
+## driver by account so money survives a reconnect). The newest connection wins: the module is
+## told to drop the older (mg-look-at-me's decision), and the older's leave, which follows the
+## kick, must not take the newcomer's driver. Peers that are only seats: neither is a net peer.
+func _test_one_account_twice() -> void:
+	_section("one account on two connections: the newest wins")
+	const TAB_ONE := 21
+	const TAB_TWO := 22
+	var key := &"uid:guest-two-tabs"
+	var saved := _server_bridge.key_fn
+	_server_bridge.key_fn = func(_peer: int, _session: int) -> StringName: return key
+	var drivers_before := _server_game.drivers.size()
+	var entities_before := _server_net.registry.all().size()
+	var dropped: Array = []
+	var on_drop := func(peer: int, which: StringName) -> void: dropped.append([peer, which])
+	_server_bridge.superseded.connect(on_drop)
+	var one := _server_bridge.add_player(TAB_ONE, 61, "Tab one")
+	var two := _server_bridge.add_player(TAB_TWO, 62, "Tab two")
+	_check(one.ok and two.ok and dropped == [[TAB_ONE, key]],
+		"the second connection of one account has the first dropped", str(dropped))
+	_check(_server_bridge.peer_of(key) == TAB_TWO and _server_bridge.key_of_peer(TAB_ONE) == &""
+		and _server_game.drivers.size() == drivers_before + 1, "and the driver is the newcomer's alone",
+		"%d %s %d" % [_server_bridge.peer_of(key), _server_bridge.key_of_peer(TAB_ONE), _server_game.drivers.size() - drivers_before])
+	# What the kick sets off: the older session leaves, and the roster tells the bridge.
+	_server_bridge.remove_peer(TAB_ONE)
+	var driver: DdGame.Driver = _server_game.drivers.get(key, null)
+	var identity: DotNetIdentity = driver.walker.get_node_or_null("Identity") if driver != null and driver.walker != null else null
+	_check(identity != null and identity.owner_peer_id == TAB_TWO and _server_bridge.peer_of(key) == TAB_TWO
+		and _server_net.registry.all().size() == entities_before + 1,
+		"the older connection's leave does not take the newcomer's driver",
+		"owner %d, %d entities more" % [identity.owner_peer_id if identity != null else -1, _server_net.registry.all().size() - entities_before])
+	_server_bridge.remove_peer(TAB_TWO)
+	await _steps(2)
+	_check(_server_game.drivers.size() == drivers_before and not _server_game.drivers.has(key)
+		and _server_net.registry.all().size() == entities_before, "and the newcomer's own leave does",
+		"%d drivers, %d entities more" % [_server_game.drivers.size() - drivers_before, _server_net.registry.all().size() - entities_before])
+	_server_bridge.superseded.disconnect(on_drop)
+	_server_bridge.key_fn = saved
+	_exchange()
+	await _steps(2)
 	_finished_section()
 
 
