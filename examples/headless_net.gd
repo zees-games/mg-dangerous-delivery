@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 17
-const CHECKS := 63
+const CHECKS := 64
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -40,6 +40,9 @@ var _key: StringName = &""
 
 
 func _ready() -> void:
+	var errors := EngineErrors.new()
+	OS.add_logger(errors)
+
 	print("dangerous delivery, over the wire")
 
 	if await _build():
@@ -59,6 +62,13 @@ func _ready() -> void:
 		await _test_the_lot_toys()
 	await _test_a_trailer()
 	await _test_another_mountain()
+
+	OS.remove_logger(errors)
+	# Engine errors go to stderr and change no exit code: a toy pulled out of the tree after a
+	# mid-tick rebuild (dot-net history #30) printed `!is_inside_tree()` on green runs elsewhere.
+	var seen := errors.seen()
+	_check(seen.is_empty(), "the engine reported no error over the whole run",
+		"%d: %s" % [seen.size(), ", ".join(seen.slice(0, 3))])
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -664,3 +674,27 @@ func _check(ok: bool, what: String, detail: String = "") -> void:
 		var line := what if detail == "" else "%s  (%s)" % [what, detail]
 		_failures.append(line)
 		print("  FAIL  %s" % line)
+
+
+## Counts the engine's own errors while installed (mg-smash-copter's dedicated suite has the
+## same class): they go to stderr and change no exit code, so only this makes one fail a run.
+class EngineErrors extends Logger:
+	var _lock := Mutex.new()
+	var _seen := PackedStringArray()
+
+	func _log_error(
+		function: String, _file: String, _line: int, code: String, _rationale: String,
+		_editor_notify: bool, _error_type: int, _script_backtraces: Array[ScriptBacktrace]
+	) -> void:
+		_lock.lock()
+		_seen.append("%s (%s)" % [code, function])
+		_lock.unlock()
+
+	func _log_message(_message: String, _error: bool) -> void:
+		pass
+
+	func seen() -> PackedStringArray:
+		_lock.lock()
+		var out := _seen.duplicate()
+		_lock.unlock()
+		return out
