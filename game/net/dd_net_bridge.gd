@@ -239,7 +239,9 @@ func rename(session_id: int, display_name: String) -> bool:
 func add_bot(display_name: String) -> StringName:
 	var key := session_key(_next_bot_session)
 	_next_bot_session += 1
-	var _driver := game.join(key, display_name, true)
+	var driver := game.join(key, display_name, true)
+	# A stand-in walks from the spawn to its truck: everybody draws it on foot like a person.
+	_replicate_walker(driver)
 	_broadcast_driver(key)
 	return key
 

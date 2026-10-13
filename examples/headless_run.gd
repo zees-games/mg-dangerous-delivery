@@ -25,8 +25,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 25
-const CHECKS := 176
+const SECTIONS := 26
+const CHECKS := 181
 
 var _passed := 0
 var _failed := 0
@@ -63,6 +63,7 @@ func _ready() -> void:
 	_test_on_foot()
 	await _test_buying_and_driving()
 	await _test_roads_and_gates()
+	await _test_stand_in_to_gate()
 	_test_every_mountain()
 	_test_maps_are_documents()
 	await _test_a_delivery()
@@ -363,7 +364,7 @@ func _test_unlocking() -> void:
 
 ## A person arrives on foot in the lot; the world takes a short step, refuses a long one or one
 ## off the lot and says where to stand; a trip takes them off their feet and the way back from
-## a road puts them on foot in the lot again. Stand-ins never walk.
+## a road puts them on foot in the lot again. A stand-in arrives on foot like anybody.
 func _test_on_foot() -> void:
 	_section("on foot in the lot")
 	var me: DdGame.Driver = game.drivers[&"p1"]
@@ -379,7 +380,7 @@ func _test_on_foot() -> void:
 		and game.lot.displays.values().all(func(t: Transform3D) -> bool: return game.lot.contains(t.origin)),
 		"every truck is on show in the lot, each with a salesperson", "%d" % game.lot.displays.size())
 	var bot := game.join(&"standin", "Stand-in", true)
-	_check(not bot.on_foot and bot.walker == null, "a stand-in never walks")
+	_check(bot.on_foot and bot.walker != null and game.lot.contains(bot.walk_at), "a stand-in arrives on foot in the lot too")
 	game.leave(&"standin")
 	var placed: Array = []
 	var on_placed := func(key: StringName) -> void: placed.append(key)
@@ -555,6 +556,65 @@ func _test_roads_and_gates() -> void:
 			if ground.height_at(p.x, p.z) > p.y - 1.0:
 				buried += 1
 	_check(buried == 0, "no island's mountain stands over a road of the land's", "%d samples" % buried)
+	_finished_section()
+
+
+## A stand-in does what a person does, in the world's own calls: on foot from the spawn to the
+## salesperson of its truck, at the wheel in a bay, out of the lot and along the land's road to
+## the gate of the route it chose, never far off that road nor down into the sea, and accepts
+## the delivery there, which starts the route. Within a time limit, at its difficulty's pace.
+func _test_stand_in_to_gate() -> void:
+	_section("a stand-in walks to its truck and drives the road to a gate")
+	var key := &"roadbot"
+	var bot := game.join(key, "Road Bot", true)
+	var spawned := bot.on_foot and game.lot.contains(bot.walk_at)
+	var walked := 0.0
+	var last_walk := bot.walk_at
+	var seated_in_lot := false
+	var worst_off := 0.0
+	var lowest := INF
+	var reached := false
+	var route_id := &""
+	var limit := 150.0
+	var t := 0.0
+	var speeds: Array[float] = []
+	while t < limit and not bot.on_road():
+		await get_tree().physics_frame
+		t += 1.0 / float(Engine.physics_ticks_per_second)
+		if bot.on_foot:
+			walked += last_walk.distance_to(bot.walk_at)
+			last_walk = bot.walk_at
+			continue
+		if not DdGame.roaming(bot):
+			continue
+		var at := (bot.truck as Node3D).global_position
+		if game.lot.contains(at, 2.0):
+			seated_in_lot = seated_in_lot or walked > 5.0
+			continue
+		route_id = bot.bot_route
+		var line: PackedVector3Array = game.land.roads[route_id]
+		var near := INF
+		for p in line:
+			near = minf(near, Vector2(p.x - at.x, p.z - at.z).length())
+		worst_off = maxf(worst_off, near)
+		lowest = minf(lowest, at.y)
+		speeds.append(game.truck_speed(bot))
+		reached = reached or (game.gates[route_id] as DdGate).at_gate(at)
+	_check(spawned and walked > 5.0 and seated_in_lot, "it spawns on foot, walks to its salesperson and is at the wheel in a bay",
+		"walked %.0f m" % walked)
+	_check(route_id != &"" and worst_off < 6.0 and lowest > game.lot.global_position.y - 2.0,
+		"it drives out of the lot and along its route's road, never off it or into the sea",
+		"%s, %.1f m off at worst, lowest %.1f" % [route_id, worst_off, lowest])
+	_check(reached and bot.on_road() and (bot.trip as DdTrip).route_id == route_id and t < limit,
+		"it reaches the gate and accepts: its route starts", "%.0f s of %.0f" % [t, limit])
+	var top := 0.0
+	for v in speeds:
+		top = maxf(top, v)
+	_check(absf(top - bot.autopilot.target_speed) < 1.5, "at its difficulty's pace", "%.1f m/s against %.1f" % [top, bot.autopilot.target_speed])
+	var start := (bot.truck as Node3D).global_position
+	await _seconds(4.0)
+	_check((bot.truck as Node3D).global_position.distance_to(start) > 5.0, "and drives the route", str((bot.trip as DdTrip).describe()))
+	game.leave(key)
 	_finished_section()
 
 

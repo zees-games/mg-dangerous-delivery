@@ -169,31 +169,36 @@ func _test_the_console() -> void:
 func _test_stand_ins() -> void:
 	_section("stand-ins")
 	var _b := _run_command("dd_bots 2")
-	var until := Time.get_ticks_msec() + 6000
-	var on_road := 0
+	# A stand-in arrives on foot and walks to its truck in the lot before it drives: at the
+	# wheel within a walk's time, not on a route's start line at once.
+	var until := Time.get_ticks_msec() + 20000
+	var at_wheel := 0
 
 	while Time.get_ticks_msec() < until:
 		await get_tree().physics_frame
-		on_road = 0
+		at_wheel = 0
 
 		for key: StringName in game.drivers:
-			if (game.drivers[key] as DdGame.Driver).on_road():
-				on_road += 1
+			var each := game.drivers[key] as DdGame.Driver
 
-		if on_road == 2:
+			if each.truck != null and not each.on_foot:
+				at_wheel += 1
+
+		if at_wheel == 2:
 			break
 
 	_check(game.drivers.size() == 2, "dd_bots seats two stand-ins", "%d" % game.drivers.size())
-	_check(on_road == 2, "and both set off", "%d" % on_road)
+	_check(at_wheel == 2, "and both walk to a truck and get in", "%d" % at_wheel)
 	var module := _module()
-	_check(module.get("bridge").call("entity_count") == 2, "each truck is replicated")
+	_check(module.get("bridge").call("entity_count") == 4, "each truck and each walker is replicated",
+		"%d" % module.get("bridge").call("entity_count"))
 	var key: StringName = game.drivers.keys()[0]
 	var truck := (game.drivers[key] as DdGame.Driver).truck as Node3D
 	var start := truck.global_position
 	await _seconds(7.0)
 	var driver: DdGame.Driver = game.drivers[key]
 	_check(truck.global_position.distance_to(start) > 5.0, "and a stand-in drives",
-		"%.1f m, %s, throttle %.2f" % [truck.global_position.distance_to(start), (driver.trip as RefCounted).call("describe"), driver.command.throttle])
+		"%.1f m, %s, throttle %.2f" % [truck.global_position.distance_to(start), (driver.trip as RefCounted).call("describe") if driver.trip != null else "to a gate", driver.command.throttle])
 	# [b]A person takes a stand-in's place, and leaving gives it back[/b]: DotBotQuota's fill
 	# mode, the family's default, with `dd_bots` forwarding to `bot_quota`. The roster check is
 	# called rather than waited for, and the person is added through the bridge with peer

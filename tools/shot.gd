@@ -17,7 +17,7 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "walk_gate"]
+	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "walk_gate", "standin"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -121,6 +121,13 @@ func _ready() -> void:
 		client.game.drivers[client.local_key].walk_at = spot.origin
 		client._place_walker(spot)
 
+	# A stand-in from the spawn: on foot to its salesperson, at the wheel in a bay, out along
+	# the land's road to its gate; a camera follows it from behind and above.
+	if view == "standin":
+		await get_tree().physics_frame
+		var _bot = client.game.join(&"standin", "Stand-in", true)
+		_follow(client, &"standin")
+
 	if view == "cab":
 		client.camera_mode = DdClient.CameraMode.CAB
 	elif view == "high":
@@ -212,6 +219,33 @@ func _walk_people(client: Node, keys: Array) -> void:
 			var yaw := atan2(-(ahead.x - at.x), -(ahead.z - at.z))
 			me.walk_at = at
 			var _w = client.game.walk(keys[i], at, yaw)
+
+
+## A camera behind and over [param key] (their truck at the wheel, their walker on foot), for
+## as long as the shot runs, with the HUD off: it is somebody else's drive being watched.
+func _follow(client: Node, key: StringName) -> void:
+	var cam := Camera3D.new()
+	cam.far = 4000.0
+	add_child(cam)
+	client.hud.visible = false
+	var smooth := Vector3.INF
+
+	while is_inside_tree():
+		await get_tree().process_frame
+		var who = client.game.drivers.get(key, null)
+
+		if who == null:
+			continue
+
+		var body: Node3D = who.walker if who.on_foot or who.truck == null else who.truck
+		var back: Vector3 = body.global_basis.z
+		back.y = 0.0
+		back = back.normalized() if back.length() > 0.01 else Vector3.BACK
+		var want: Vector3 = body.global_position + back * (7.0 if who.on_foot else 16.0) + Vector3.UP * (4.0 if who.on_foot else 8.0)
+		smooth = want if not smooth.is_finite() else smooth.lerp(want, 0.08)
+		cam.global_position = smooth
+		cam.look_at(body.global_position + Vector3.UP * 1.5)
+		cam.current = true
 
 
 ## A real ballot from this game's vote: every mountain this world can offer, four voters, three

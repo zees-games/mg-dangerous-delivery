@@ -120,20 +120,25 @@ class Driver:
 	## stand-in: their deliveries pay and count. A stand-in is [member is_bot].
 	var assisted: bool = false
 	var ghost_until: float = 0.0
-	## Seconds a stand-in waits at the depot before its next trip.
+	## Seconds a stand-in waits (at the depot, at a spawn, beside its truck) before its next move.
 	var idle: float = 0.0
 	## On foot: where they stand and which way they face, as last accepted ([method DdGame.walk]).
 	var on_foot: bool = false
 	var walk_at: Vector3 = Vector3.ZERO
 	var walk_yaw: float = 0.0
 	## What everybody else sees of them on foot: a node at [member walk_at], replicated by the
-	## bridge and drawn by each client. Null for a stand-in.
+	## bridge and drawn by each client. A stand-in has one too: it walks to its truck.
 	var walker: Node3D = null
 	## Which spawn they were last put on, so two people spawning together stand apart.
 	var spawn_index: int = 0
 	var corrected_at: float = -INF
 	## Seconds left before a truck off a road lying on its side is put back in a bay.
 	var upset: float = 0.0
+	## A stand-in's way to a gate: the route it chose, the truck its autopilot was given the
+	## road for (another truck, put back or new, is given it again), and seconds on the way.
+	var bot_route: StringName = &""
+	var bot_planned: Node = null
+	var bot_clock: float = 0.0
 
 	func on_road() -> bool:
 		return truck != null and trip != null
@@ -569,17 +574,16 @@ func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 	drivers[key] = driver
 	var _acct := bank.account(key, name_text)
 
+	# A stand-in arrives on foot like anybody, and walks to its truck (see [method _drive_bot]).
 	if is_bot:
 		driver.autopilot = DotVehicleDriver.new()
 		driver.autopilot.waypoint_radius = 7.0
 		tune_stand_in(driver.autopilot)
-	else:
-		_make_walker(driver)
+		driver.idle = STAND_IN_FIRST_WAIT
 
+	_make_walker(driver)
 	driver_joined.emit(key)
-
-	if not is_bot:
-		_put_on_foot(driver, spawn_transform(driver))
+	_put_on_foot(driver, spawn_transform(driver))
 
 	return driver
 
@@ -687,8 +691,8 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 	return DotResult.success(truck)
 
 
-## Back to the lot: the trip's truck goes. A person is on foot beside their truck, parked empty
-## in a bay (on foot at the spawn when every bay is taken); a stand-in just has no truck.
+## Back to the lot: the trip's truck goes. Anybody (a stand-in too) is on foot beside their
+## truck, parked empty in a bay, or on foot at the spawn when every bay is taken.
 func end_trip(key: StringName) -> void:
 	var driver: Driver = drivers.get(key, null)
 
@@ -1770,6 +1774,31 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 const STAND_IN_SPEED := 11.0
 const STAND_IN_BRAKE := 1.5
 
+## A stand-in on foot: a person's walk and run (DdWalker's tunables), m/s, and how near what it
+## walks to (a door, a salesperson) counts as there. Within a seller's and a door's reach.
+const STAND_IN_WALK := 4.2
+const STAND_IN_RUN := 7.5
+const STAND_IN_REACH := 0.6
+
+## Seconds a stand-in stands on the spawn before it sets off, and sits at the wheel before it
+## pulls out: long enough for somebody watching to see what it is doing.
+const STAND_IN_FIRST_WAIT := 1.0
+const STAND_IN_SEAT_WAIT := 1.0
+
+## The lane behind the bays a stand-in drives out along (the lot's own z, north is -Z).
+const STAND_IN_LANE_Z := -54.0
+
+## Metres short of a gate's barrier a stand-in stops, and how slow it must be to accept there.
+const STAND_IN_GATE_BACK := 7.0
+const STAND_IN_ACCEPT_SPEED := 2.0
+
+## Metres from the waypoint it is aiming at beyond which a stand-in is off its road and is given
+## the road again from where it is; seconds it may take to reach a gate, and metres under the
+## lot that mean it is in the sea, before it is put back in a bay.
+const STAND_IN_OFF_ROAD := 40.0
+const STAND_IN_ROAD_SECONDS := 240.0
+const STAND_IN_SUNK := 6.0
+
 
 ## How a stand-in drives, from dot-bot's settings on this game (`bot_difficulty` and the
 ## `bot_*` cvars the module binds), read again at the start of every trip so a changed preset
@@ -1795,15 +1824,22 @@ func _drive_bot(driver: Driver, delta: float) -> void:
 	if not driver.on_road():
 		driver.idle -= delta
 
-		if driver.idle <= 0.0 and not route_order.is_empty():
-			var choices: Array[StringName] = []
+		if driver.idle > 0.0:
+			if roaming(driver) and not driver.on_foot:
+				driver.command = _held()
+			return
 
-			for id in route_order:
-				if is_unlocked(driver.key, id):
-					choices.append(id)
+		# `quick_start` (the suites, a screenshot) and a world without a lot: straight onto
+		# the start line, as stand-ins did before the lot had roads.
+		if config.quick_start or driver.walker == null or lot == null or land == null:
+			if not route_order.is_empty():
+				var _started := start_trip(driver.key, _stand_in_pick(driver))
+			return
 
-			var pick := choices[(tick / 7 + driver.key.hash()) % choices.size()] if not choices.is_empty() else route_order[0]
-			var _started := start_trip(driver.key, pick)
+		if driver.on_foot:
+			_stand_in_walk(driver, delta)
+		elif roaming(driver):
+			_stand_in_to_gate(driver, delta)
 
 		return
 
@@ -1823,6 +1859,182 @@ func _drive_bot(driver: Driver, delta: float) -> void:
 
 	var instance := (driver.truck as DdTruck).instance
 	driver.command = driver.autopilot.drive(instance, delta)
+
+
+## The route a stand-in drives next: of those open to it, the one fewest others are driving or
+## heading for, then by the tick and its key. Two stand-ins pulling out together chose the same
+## road by the tick alone and drove it side by side, shoving each other toward its edge.
+func _stand_in_pick(driver: Driver) -> StringName:
+	var choices: Array[StringName] = []
+
+	for id in route_order:
+		if is_unlocked(driver.key, id):
+			choices.append(id)
+
+	if choices.is_empty():
+		return route_order[0]
+
+	var busy := {}
+
+	for k: StringName in drivers:
+		var other: Driver = drivers[k]
+
+		if other == driver:
+			continue
+
+		var going: StringName = (other.trip as DdTrip).route_id if other.trip != null else (other.bot_route if other.bot_planned != null else &"")
+		busy[going] = int(busy.get(going, 0)) + 1
+
+	var first := (tick / 7 + driver.key.hash()) % choices.size()
+	var best := choices[first]
+
+	for i in choices.size():
+		var id := choices[(first + i) % choices.size()]
+
+		if int(busy.get(id, 0)) < int(busy.get(best, 0)):
+			best = id
+
+	return best
+
+
+## A stand-in on foot walks where a person would to get a truck: to its parked truck's door
+## and in, or to the salesperson of the truck it drives, who has it brought round to a bay
+## with the stand-in at the wheel. Every step goes through [method walk], the check a person's
+## step passes; nothing about it is sent but the walker everybody already sees.
+func _stand_in_walk(driver: Driver, delta: float) -> void:
+	var target := Vector3.INF
+	var parked := roaming(driver)
+
+	if parked:
+		target = door_of(driver.truck as DdTruck).origin
+	else:
+		var truck_id := StringName(str(bank.account(driver.key)["truck"]))
+
+		if not lot.sellers.has(truck_id):
+			truck_id = trucks.starter()
+
+		if lot.sellers.has(truck_id):
+			# On the spawn's side of the salesperson, where a person walking up stands.
+			target = lot.to_global(lot.to_local(lot.sellers[truck_id]) + Vector3(0.0, 0.0, 1.8))
+
+	if not target.is_finite():
+		driver.idle = 5.0
+		return
+
+	var flat := Vector3(target.x - driver.walk_at.x, 0.0, target.z - driver.walk_at.z)
+	var far := flat.length()
+
+	if far > STAND_IN_REACH:
+		var pace := STAND_IN_RUN if far > 10.0 else STAND_IN_WALK
+		var move := minf(pace * delta, far)
+		var at := driver.walk_at + flat / far * move
+		at.y = lerpf(driver.walk_at.y, target.y, move / far)
+		var _taken := walk(driver.key, at, atan2(-flat.x, -flat.z))
+		return
+
+	var done := get_in(driver.key) if parked else drive_off(driver.key, StringName(str(bank.account(driver.key)["truck"])))
+
+	# Every bay full, or the truck gone from under it: a moment, and the errand is worked out
+	# again from wherever it stands.
+	if not done.ok:
+		driver.idle = 3.0
+	else:
+		driver.idle = STAND_IN_SEAT_WAIT
+
+
+## A stand-in at the wheel off a road drives the land's road from its bay to its route's gate,
+## at its difficulty's pace, and accepts the delivery there as a person does with E. A truck it
+## was not given the road for (new, or put back in a bay) is given it first. One that has left
+## the road is aimed back at it; one that has not reached the gate in
+## [constant STAND_IN_ROAD_SECONDS] (or is in the sea) is put back in a bay to start again.
+func _stand_in_to_gate(driver: Driver, delta: float) -> void:
+	var truck := driver.truck as DdTruck
+
+	if driver.bot_planned != truck or not gates.has(driver.bot_route) or not land.roads.has(driver.bot_route):
+		driver.bot_route = _stand_in_pick(driver)
+		driver.bot_planned = truck
+		driver.bot_clock = 0.0
+		tune_stand_in(driver.autopilot)
+		driver.autopilot.set_route(stand_in_road(driver.bot_route, truck.global_position))
+		DotLog.debug(CHANNEL, "a stand-in drives to a gate", {"driver": driver.name, "route": String(driver.bot_route)})
+
+	var gate := gates[driver.bot_route] as DdGate
+
+	if gate.at_gate(truck.global_position) and absf(truck.forward_speed()) < STAND_IN_ACCEPT_SPEED:
+		driver.command = _held()
+		var accepted := accept(driver.key)
+		driver.bot_planned = null
+
+		# Refused (a route locked under it): the next tick chooses again from here.
+		return
+
+	driver.bot_clock += delta
+	var sunk := truck.global_position.y < lot.global_position.y - STAND_IN_SUNK
+
+	if driver.bot_clock > STAND_IN_ROAD_SECONDS or sunk:
+		DotLog.debug(CHANNEL, "a stand-in lost its way to a gate; back to a bay", {"driver": driver.name, "route": String(driver.bot_route), "sunk": sunk})
+		_remove_truck(driver)
+
+		if not _park(driver, true):
+			_put_on_foot(driver, spawn_transform(driver))
+
+		put_back.emit(driver.key)
+		return
+
+	# Off its road (shoved, or a corner cut too wide): the rest of the road from the nearest
+	# point of it, so it drives back on rather than on across the land.
+	if driver.autopilot.has_route() and tick % 30 == 0 and not lot.contains(truck.global_position):
+		var aim := driver.autopilot.current_waypoint()
+
+		if Vector2(aim.x - truck.global_position.x, aim.z - truck.global_position.z).length() > STAND_IN_OFF_ROAD:
+			driver.autopilot.set_route(stand_in_road(driver.bot_route, truck.global_position))
+
+	driver.command = driver.autopilot.drive(truck.instance, delta)
+
+
+## The way a stand-in drives from [param from] (world) to [param route_id]'s gate: out of its
+## bay into the lane behind the bays, along to the road's exit in the north fence, then the
+## land's road sample by sample, ending where a truck waits for the barrier. From anywhere off
+## the lot it joins the road at its nearest sample ahead.
+func stand_in_road(route_id: StringName, from: Vector3) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	var line: PackedVector3Array = land.roads.get(route_id, PackedVector3Array())
+	var gate := gates.get(route_id, null) as DdGate
+
+	if line.is_empty() or gate == null:
+		return out
+
+	var first := 0
+
+	if lot.contains(from, 2.0):
+		var here := lot.to_local(from)
+		var exit := lot.to_local(line[0])
+
+		if here.z > STAND_IN_LANE_Z:
+			out.append(lot.to_global(Vector3(here.x, 0.0, STAND_IN_LANE_Z)))
+
+		out.append(lot.to_global(Vector3(exit.x, 0.0, (STAND_IN_LANE_Z + exit.z) * 0.5)))
+	else:
+		var best := INF
+
+		for i in line.size():
+			var d := Vector2(line[i].x - from.x, line[i].z - from.z).length()
+
+			if d < best:
+				best = d
+				first = i
+
+		first = mini(first + 2, line.size() - 1)
+
+	for i in range(first, line.size()):
+		# Up to the barrier's approach, then the spot where a truck waits for it.
+		if gate.to_local(line[i]).z < DdGate.APPROACH:
+			break
+
+		out.append(line[i])
+
+	out.append(gate.waiting_spot(STAND_IN_GATE_BACK).origin)
+	return out
 
 
 # --- Weather -----------------------------------------------------------------

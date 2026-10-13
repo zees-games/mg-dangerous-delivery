@@ -10,6 +10,7 @@
 #   tools/shot.sh --view=land                             # the lot, the land and every road to the routes' gates
 #   tools/shot.sh --view=gate --route=dd_river_cut        # a truck at a route's gate, the delivery offered
 #   tools/shot.sh --view=walk_gate                        # on foot at a gate: as far as anybody walks
+#   tools/shot.sh --view=standin --seconds=40             # a stand-in from the spawn to its truck and up the land's road to a gate
 #   tools/shot.sh --view=drive --route=dd_snowline --seconds=40   # a stand-in at the wheel, chase camera
 #   tools/shot.sh --view=cab --route=dd_river_cut --seconds=20    # from the cab
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above
