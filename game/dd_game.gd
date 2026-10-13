@@ -92,6 +92,37 @@ signal boulder_made(body: RigidBody3D)
 signal boulder_gone(body: RigidBody3D)
 signal weather_changed(route_id: StringName, zone: String, weather: Dictionary)
 signal driver_joined(key: StringName)
+
+## The lot's toys are about to go and are built (with the lot), on both ends: what the bridge
+## releases and pairs their entities on. And a toy made a sound, where it is drawn.
+signal toys_clearing()
+signal toys_built()
+signal toy_sound(id: StringName, at: Vector3, strength: float)
+
+## The lot's toys (dot-props' loose ones): beach balls and a football between the spawn and the
+## showroom, tyres and barrels by the fence. A truck ploughs them, somebody on foot walks
+## through them and sends them on. Placed from the lot ([constant TOY_SPOTS]) on both ends in
+## the same order. Null before a lot.
+var toys: DotPropToyBox = null
+
+## dot-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
+var toy_rules: DotPropToyRules = DotPropToyRules.new()
+
+## The collision bit a loose toy is on: nothing else here uses it, a walker's mask (1 and the
+## walkers' wall) never meets it, and the slab, the fence and every truck are on layer 1.
+const TOY_LAYER := 1 << 19
+
+## The toys, in the lot's own frame: between the spawn rows (z 52..58) and the showroom
+## (z 24), and two piles by the west and east fences.
+const TOY_SPOTS := [
+	["beach_ball", Vector3(-14.0, 0.0, 42.0)], ["beach_ball", Vector3(16.0, 0.0, 44.0)],
+	["football", Vector3(2.0, 0.0, 40.0)], ["tyre", Vector3(-80.0, 0.0, 44.0)],
+	["tyre", Vector3(-80.6, 0.0, 45.2)], ["tyre", Vector3(-79.2, 0.0, 45.6)],
+	["barrel", Vector3(82.0, 0.0, 44.0)], ["barrel", Vector3(82.8, 0.0, 44.6)],
+]
+
+## Where each driver on foot was last tick, for the walk the toys are pushed by.
+var _toy_feet: Dictionary = {}
 signal driver_left(key: StringName)
 ## The world was rebuilt on another mountain (a vote, or an operator). Every trip was ended
 ## first; the bridge sends the new routes to every client.
@@ -883,6 +914,7 @@ func _build_lot() -> void:
 	# every road.
 	lot.island = false
 	lot.build(trucks.order, routes.size(), names, draws)
+	_build_toys()
 
 
 ## The routes west to east, as their roads leave the lot: the order that keeps roads from
@@ -1482,6 +1514,56 @@ func step(delta: float) -> void:
 			_step_roaming(driver, delta)
 
 	_step_boulders(delta)
+	_advance_toys(delta)
+
+
+# --- Toys ----------------------------------------------------------------------
+
+func _build_toys() -> void:
+	if toys != null:
+		toys_clearing.emit()
+		remove_child(toys)
+		toys.queue_free()
+		toys = null
+	var placements: Array = []
+	for spot: Array in TOY_SPOTS:
+		var at: Vector3 = lot.global_transform * (spot[1] as Vector3)
+		placements.append({"toy": spot[0], "at": [at.x, at.y, at.z], "yaw": float(placements.size()) * 41.0})
+	toys = DotPropToyBox.new()
+	toys.name = "Toys"
+	toys.authoritative = authoritative
+	toys.draw = draws
+	toys.rules = toy_rules
+	toys.gravity = config.gravity
+	toys.kill_y = WALK_FLOOR
+	toys.loose_layer = TOY_LAYER
+	toys.loose_mask = 1 | TOY_LAYER
+	toys.solid_layer = 1
+	toys.solid_mask = 1
+	toys.aim_mask = 1 | TOY_LAYER
+	add_child(toys)
+	var built := toys.build(placements)
+	if not built.ok:
+		DotLog.warn(CHANNEL, "the lot's toys would not build", {"why": built.error.message})
+	var _sounds := toys.sound.connect(func(id: StringName, at: Vector3, strength: float) -> void: toy_sound.emit(id, at, strength))
+	toys_built.emit()
+
+
+## Everybody on foot against the toys this tick: the walk since the last tick sends a ball on.
+## A walker is moved by what its client sends (`walk`), so its velocity is the step. Trucks meet
+## them in the solver. Server side.
+func _advance_toys(delta: float) -> void:
+	if toys == null or toys.count() == 0 or delta <= 0.0:
+		return
+	for key: StringName in drivers:
+		var driver: Driver = drivers[key]
+		if not driver.on_foot or driver.walker == null:
+			_toy_feet.erase(key)
+			continue
+		var was: Vector3 = _toy_feet.get(key, driver.walk_at)
+		_toy_feet[key] = driver.walk_at
+		var _pushed := toys.push_from(driver.walk_at, (driver.walk_at - was) / delta, 0.35, 1.8)
+	toys.advance(delta)
 
 
 func _step_driver(driver: Driver, delta: float) -> void:

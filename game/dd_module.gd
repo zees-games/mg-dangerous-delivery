@@ -157,6 +157,12 @@ func _game_load() -> DotResult:
 	# of them, `bot_aggression` and `bot_reaction` (see [method DdGame.tune_stand_in]).
 	var _bot_cvars := DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)
 
+	# The lot's toys: dot-props' sv_toys* set. REPLICATED, because a client hides the toys the
+	# server took away.
+	var _toys := world.toy_rules.bind_cvars(
+		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
+	)
+
 	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
 	# rather than removed because every shipped config sets it; left as its own number it
 	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.

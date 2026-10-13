@@ -38,6 +38,9 @@ enum Kind {
 	## You are on foot here: {at: [x, y, z], yaw}. A spawn, out of a truck, back from a road, or
 	## a step the server refused. To the owner only; everybody else sees the walker's snapshots.
 	PLACE,
+	## The lot's toys: their net ids in toy order (both ends place them from the lot). After every
+	## build, and to a joiner after the HELLO.
+	TOYS,
 }
 
 enum Ask {

@@ -241,6 +241,9 @@ func _build_audio() -> void:
 	audio.name = "Sound"
 	add_child(audio)
 	var ready_now := audio.setup()
+	# The lot's toys are heard: a ball's bounce, a tyre's thump off a truck.
+	if game != null and not game.toy_sound.is_connected(_toy_sound):
+		var _c := game.toy_sound.connect(_toy_sound)
 
 	if not ready_now.ok:
 		DotLog.warn(CHANNEL, "no sound", {"why": ready_now.error.message})
@@ -1155,6 +1158,8 @@ func camera_allowed(mode: CameraMode) -> bool:
 func _follow_view_rule() -> void:
 	if link == null or not link.has_method(&"replicated_cvar"):
 		return
+	# And sv_toys*: a client hides the toys a server took away.
+	var _toys := game.toy_rules.follow_cvars(link) if game != null else false
 	_apply_view_rule(String(link.call(&"replicated_cvar", "mp_forceview", "0")))
 	if link.has_signal(&"replicated_cvar_changed"):
 		link.connect(&"replicated_cvar_changed", func(cvar_name: String, value: String) -> void:
@@ -1365,3 +1370,8 @@ static func new_chat() -> DotGameChatClient:
 	# This bridge's `send_voice` is the server's `(peer_id, bytes)`; the client half is this.
 	box.voice_method = &"send_voice_up"
 	return box
+
+
+func _toy_sound(id: StringName, at: Vector3, strength: float) -> void:
+	if audio != null and audio.manager != null:
+		var _played := audio.manager.play_at(id, at, clampf(strength, 0.25, 1.0))

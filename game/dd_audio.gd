@@ -155,6 +155,24 @@ static func sound_catalogue() -> DotAudioCatalogue:
 		shot.gain_db = SHOT_DB
 		c.add(shot)
 
+	# The lot's toys: dot-props' stock toy sounds (Kenney, CC0), shipped in the addon.
+	for row: Dictionary in DotPropToySounds.rows():
+		var toy := DotAudioDef.new()
+		toy.id = row["id"]
+		toy.path = row["path"]
+		toy.variants = row["variants"]
+		toy.kind = DotAudioDef.Kind.POSITIONAL_3D
+		toy.bus = &"SFX"
+		toy.gain_db = float(row["gain_db"])
+		toy.pitch_min = float(row["pitch_min"])
+		toy.pitch_max = float(row["pitch_max"])
+		toy.cooldown_ms = int(row["cooldown_ms"])
+		toy.max_distance = float(row["distance"])
+		toy.unit_size = 6.0
+		toy.max_concurrent = 3
+		toy.priority = 30
+		c.add(toy)
+
 	return c
 
 

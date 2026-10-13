@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 16
-const CHECKS := 60
+const SECTIONS := 17
+const CHECKS := 63
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -56,6 +56,7 @@ func _ready() -> void:
 		await _test_one_account_twice()
 		await _test_rock()
 		await _test_rock_heard()
+		await _test_the_lot_toys()
 	await _test_a_trailer()
 	await _test_another_mountain()
 
@@ -199,6 +200,30 @@ func _test_joining() -> void:
 ## People on foot over the wire: the client is told where it stands, its steps reach the server
 ## with the input and a step too long is refused with a place to stand; another person is on
 ## foot on the client too, walking where the server has them, and gone when they leave.
+## The lot's toys over the wire: paired by index on both ends, frozen copies; a person walking
+## into a ball on the server sends it on, and the client sees it go.
+func _test_the_lot_toys() -> void:
+	_section("the lot's toys")
+	await _steps(4)
+	var count := _server_game.toys.count() if _server_game.toys != null else 0
+	_check(count == DdGame.TOY_SPOTS.size() and _server_bridge.toy_count() == count and _client_bridge.toy_count() == count,
+		"every toy is an entity on both ends, paired by index", "%d toys, %d and %d" % [count, _server_bridge.toy_count(), _client_bridge.toy_count()])
+	if count == 0 or _client_game.toys == null or _client_game.toys.count() == 0:
+		_finished_section()
+		return
+	var server_ball := _server_game.toys.toy(0)
+	var client_ball := _client_game.toys.toy(0)
+	_check(client_ball.body.freeze and not client_ball.authoritative, "the client's are frozen copies")
+	var start := client_ball.body.global_position
+	var _kicked := _server_game.toys.hit(server_ball.body, server_ball.body.global_position, Vector3(1, 0.2, 0), 2.0)
+	await _steps(60)
+	var apart := client_ball.body.global_position.distance_to(server_ball.body.global_position)
+	_check(server_ball.body.global_position.distance_to(start) > 0.5 and apart < 0.8,
+		"a ball pushed on the server is followed on the client",
+		"%.2f m moved, %.2f m apart" % [server_ball.body.global_position.distance_to(start), apart])
+	_finished_section()
+
+
 func _test_walkers() -> void:
 	_section("people on foot, on both ends")
 	var server_me: DdGame.Driver = _server_game.drivers[_key]

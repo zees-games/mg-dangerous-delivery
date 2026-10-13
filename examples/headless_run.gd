@@ -25,8 +25,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 26
-const CHECKS := 182
+const SECTIONS := 27
+const CHECKS := 185
 
 var _passed := 0
 var _failed := 0
@@ -61,6 +61,7 @@ func _ready() -> void:
 
 	_test_unlocking()
 	_test_on_foot()
+	await _test_the_lot_toys()
 	await _test_buying_and_driving()
 	await _test_roads_and_gates()
 	await _test_stand_in_to_gate()
@@ -409,6 +410,37 @@ func _test_on_foot() -> void:
 ## one they own (brought round to a bay, them at the wheel); they drive it, stop and get out on
 ## foot beside it, and get back in. A trip takes the parked truck; back from the road it is
 ## parked again and they are on foot beside it. Buying is the lot's alone.
+## The lot's toys (dot-props', loose only): all built clear of the slab's fence and the showroom,
+## still two seconds on, and somebody on foot walking into a beach ball sends it on.
+func _test_the_lot_toys() -> void:
+	_section("the lot's toys")
+	var box := game.toys
+	_check(box != null and box.count() == DdGame.TOY_SPOTS.size() and box.missing.is_empty(),
+		"the lot has its %d toys" % DdGame.TOY_SPOTS.size(), str(box.describe()) if box != null else "none")
+	for _i in range(120):
+		game.step(1.0 / 60.0)
+		await get_tree().physics_frame
+	var off: Array = []
+	for toy in box.toys:
+		if toy.body.global_position.distance_to(toy.rest.origin) > 0.6:
+			off.append("%s %d to %s" % [toy.def["id"], toy.index, toy.body.global_position.snapped(Vector3.ONE * 0.1)])
+	_check(off.is_empty(), "two seconds on, every toy is where the lot put it", "; ".join(off))
+	var key := &"kicker"
+	var me := game.join(key, "Kicker")
+	var ball := box.toy(0)
+	var b0 := ball.body.global_position
+	me.walk_at = b0 + Vector3(-0.9, -0.5, 0.0)
+	game.step(1.0 / 60.0)
+	for _i in range(8):
+		me.walk_at += Vector3(0.1, 0.0, 0.0)
+		game.step(1.0 / 60.0)
+		await get_tree().physics_frame
+	for _i in range(20):
+		await get_tree().physics_frame
+	_check(ball.body.global_position.x > b0.x + 0.3, "somebody on foot walking into a beach ball sends it on", "%.2f m" % (ball.body.global_position.x - b0.x))
+	_finished_section()
+
+
 func _test_buying_and_driving() -> void:
 	_section("buying a truck in the lot, and getting in and out")
 	var key := &"buyer"
