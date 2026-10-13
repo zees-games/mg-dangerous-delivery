@@ -26,7 +26,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 26
-const CHECKS := 181
+const CHECKS := 182
 
 var _passed := 0
 var _failed := 0
@@ -498,6 +498,25 @@ func _test_roads_and_gates() -> void:
 			if not hit.is_empty() and absf((hit["position"] as Vector3).y - line[k].y) < 0.05:
 				solid += 1
 	_check(solid == probes, "every road is solid underfoot and under a wheel, at the lot's height", "%d of %d" % [solid, probes])
+	# What a footstep sounds like where somebody walks: the lot's slab and a road are concrete
+	# (asphalt is walked as concrete), the plain grass. The ground's own `surface` meta says so.
+	var heard := []
+	var road_line: PackedVector3Array = game.land.roads[&"dd_foothills"]
+	var on_plain := game.lot.to_global(Vector3(DdLot.SIZE.x * 0.5 + 40.0, 0.0, 0.0))
+	on_plain.y = game.land.height_at(on_plain.x, on_plain.z)
+	# Between two samples and off the centre: a ray straight down a trimesh's shared edge can
+	# slip through it, which no foot does.
+	var mid := road_line.size() / 2
+	var on_road := (road_line[mid] + road_line[mid + 1]) * 0.5 + (road_line[mid + 1] - road_line[mid]).cross(Vector3.UP).normalized() * 1.5
+	for at: Vector3 in [game.lot.spawn_transform(1).origin, on_road, on_plain]:
+		# The ray dot-audio's footsteps cast under a foot, and the `surface` meta they read off
+		# what it hits, folded through the stock's names. (Loading DotAudioFootsteps itself in
+		# this suite left the whole run's resources alive at exit, on stderr.)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3(0.0, 0.35, 0.0), at - Vector3(0.0, 0.55, 0.0)))
+		var under: Object = hit.get("collider")
+		var said := DotAudioStock.surface_of(str(under.get_meta(&"surface", ""))) if under != null else &""
+		heard.append(String(said if said != &"" else &"grass"))
+	_check(heard == ["concrete", "concrete", "grass"], "footsteps: concrete on the lot and the roads, grass on the plain", str(heard))
 
 	var key := &"gater"
 	var me := game.join(key, "Gater")

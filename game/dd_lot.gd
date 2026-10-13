@@ -186,6 +186,8 @@ func _build_slab() -> void:
 	var body := StaticBody3D.new()
 	body.name = "Slab"
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
+	# What a footstep on it sounds like (DotAudioFootsteps reads the meta).
+	body.set_meta(&"surface", "concrete")
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(SIZE.x, SLAB, SIZE.y)
 	var collider := CollisionShape3D.new()

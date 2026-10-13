@@ -776,6 +776,17 @@ func _process(delta: float) -> void:
 				_feed_engine(other, seen, delta)
 
 	_present_walkers(me)
+
+	if audio != null:
+		var walking: Array = []
+		if walker != null and walker.visible:
+			walking.append(walker)
+		for k: StringName in game.drivers:
+			var other: DdGame.Driver = game.drivers[k]
+			if k != local_key and other.walker != null and is_instance_valid(other.walker) and other.walker.visible:
+				walking.append(other.walker)
+		audio.keep_walkers(walking)
+
 	var facts := _trip_facts(me)
 
 	var at_wheel := not facts.is_empty() or (me != null and me.truck != null and not me.on_foot)

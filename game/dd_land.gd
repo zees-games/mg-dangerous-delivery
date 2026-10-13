@@ -407,6 +407,8 @@ func _build_collision() -> void:
 	var body := StaticBody3D.new()
 	body.name = "Ground"
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
+	# What a footstep on it sounds like (DotAudioFootsteps reads the meta): the plain.
+	body.set_meta(&"surface", "grass")
 	body.collision_mask = 0
 	var shape := HeightMapShape3D.new()
 	shape.map_width = nx
@@ -548,6 +550,8 @@ func _build_road(id: StringName, line: PackedVector3Array) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Road_%s" % String(id)
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
+	# Asphalt, which dot-audio's stock steps walk as concrete.
+	body.set_meta(&"surface", "asphalt")
 	body.collision_mask = 0
 	var shape := ConcavePolygonShape3D.new()
 	shape.set_faces(faces)

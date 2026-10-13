@@ -74,6 +74,14 @@ const OTHER_DB := -5.0
 const RAIN_DB := -13.0
 const WIND_DB := -5.0
 
+## On foot there is no engine under the mix, only the bed and the steps, and measured with the
+## family's tools (dot-audio's loudness.sh walking round the lot) it read -27.9 LUFS with the
+## steps at the stock level, ten units under the band. So out of a truck the bed is raised by
+## FOOT_BED_DB (eased over a second, back down at the wheel) and every step is STEP_DB over
+## dot-audio's stock: -17.0 and -16.9 LUFS on two walks, the snow drive unchanged at -17.8.
+const FOOT_BED_DB := 11.0
+const STEP_DB := 8.0
+
 ## The one-shots' gain in the catalogue: the brakes, rock, the chime.
 const SHOT_DB := 8.0
 
@@ -92,7 +100,14 @@ var manager: DotAudioManager = null
 ## The bed under the weather: dot-audio's stock (generated, CC0), per route and at the lot.
 var ambience: DotAudioAmbience = null
 
+## Footsteps for everybody on foot (dot-audio's stock steps, by distance walked): concrete on
+## the lot's slab and the land's roads, grass on the plain. The ground says which (a `surface`
+## meta on the lot's slab, a road, the land); anything that names none is the plain.
+var steps: DotAudioFootsteps = null
+
 var _was_braking := false
+## 0 at the wheel, 1 on foot, eased: how much of [constant FOOT_BED_DB] the bed has.
+var _foot := 0.0
 ## Loop key -> {"id", "handle", "db", "pitch"}: what each loop is eased to, kept here so a
 ## loop that was stopped (silent, stolen, out of range) starts again where it was.
 var _loops: Dictionary = {}
@@ -102,7 +117,7 @@ var _fed: Dictionary = {}
 
 static func ids() -> Array[StringName]:
 	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED]
-	# dot-audio's stock beds (and its footsteps, which nobody here walks to make). Appended:
+	# dot-audio's stock beds and footsteps (the lot and the land are walked). Appended:
 	# a typed array plus a typed array is an untyped one.
 	out.append_array(DotAudioStock.ids())
 	return out
@@ -179,6 +194,14 @@ func setup() -> DotResult:
 	add_child(ambience)
 	ambience.set_map_bed(LOT_BED)
 
+	steps = DotAudioFootsteps.new()
+	steps.name = "Footsteps"
+	steps.manager = manager
+	steps.default_surface = &"grass"
+	# A walker's run (DdWalker's 7.5 m/s) is a full step; its walk (4.2) a lighter one.
+	steps.run_speed = 7.0
+	add_child(steps)
+
 	var godot_sink := manager.sink as DotAudioSinkGodot
 
 	if godot_sink != null:
@@ -232,6 +255,10 @@ func _process(delta: float) -> void:
 		var _hissed := manager.play(BRAKE_HISS)
 
 	_was_braking = braking
+	_foot = move_toward(_foot, 0.0 if driving else 1.0, delta)
+
+	if ambience != null:
+		ambience.level = db_to_linear(FOOT_BED_DB * _foot)
 
 	# A truck that was not fed this frame has gone (left, or its node was freed).
 	for key: StringName in _loops.keys():
@@ -239,6 +266,14 @@ func _process(delta: float) -> void:
 			_drop(key)
 
 	_fed.clear()
+
+
+## Everybody walking, once a frame: [param bodies] is this player's own walker (a
+## `CharacterBody3D`, its controller's floor) and every other walker drawn (a node the snapshots
+## or the world move, whose ground is a ray). The ones gone or not drawn stop stepping.
+func keep_walkers(bodies: Array) -> void:
+	if steps != null:
+		steps.keep(bodies, {"loudness": db_to_linear(STEP_DB)})
 
 
 ## Another truck's engine: [param speed_ms] forward, [param audible] when it is on the road and
