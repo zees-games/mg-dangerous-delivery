@@ -508,14 +508,18 @@ func _test_roads_and_gates() -> void:
 	# slip through it, which no foot does.
 	var mid := road_line.size() / 2
 	var on_road := (road_line[mid] + road_line[mid + 1]) * 0.5 + (road_line[mid + 1] - road_line[mid]).cross(Vector3.UP).normalized() * 1.5
+	# dot-audio's own footsteps asked what is underfoot, as DdAudio's are on a client: its ray,
+	# the ground's `surface` meta, and grass (the game's default_surface) for what says nothing.
+	var steps := DotAudioFootsteps.new()
+	steps.default_surface = &"grass"
+	add_child(steps)
+	var foot := Node3D.new()
+	add_child(foot)
 	for at: Vector3 in [game.lot.spawn_transform(1).origin, on_road, on_plain]:
-		# The ray dot-audio's footsteps cast under a foot, and the `surface` meta they read off
-		# what it hits, folded through the stock's names. (Loading DotAudioFootsteps itself in
-		# this suite left the whole run's resources alive at exit, on stderr.)
-		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3(0.0, 0.35, 0.0), at - Vector3(0.0, 0.55, 0.0)))
-		var under: Object = hit.get("collider")
-		var said := DotAudioStock.surface_of(str(under.get_meta(&"surface", ""))) if under != null else &""
-		heard.append(String(said if said != &"" else &"grass"))
+		foot.global_position = at
+		heard.append(String(steps.surface_under(foot)))
+	foot.free()
+	steps.free()
 	_check(heard == ["concrete", "concrete", "grass"], "footsteps: concrete on the lot and the roads, grass on the plain", str(heard))
 
 	var key := &"gater"
