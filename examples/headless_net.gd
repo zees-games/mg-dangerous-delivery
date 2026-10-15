@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 18
-const CHECKS := 68
+const CHECKS := 71
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -436,6 +436,21 @@ func _test_weather() -> void:
 	_exchange()
 	await _steps(2)
 	_check(int(_client_game.weather_at(&"dd_foothills", 50.0)["sky"]) == DdWeather.SNOW, "an operator's snow reaches the client")
+	var _storm := _server_game.force_weather("storm")
+	_server_bridge.broadcast_weather()
+	_exchange()
+	await _steps(2)
+	_check(bool(_client_game.weather_at(&"dd_foothills", 50.0)["storm"]), "an operator's storm reaches the client")
+	_server_game.config.storm_chance = 0.77
+	_server_bridge.broadcast_weather()
+	_exchange()
+	_check(is_equal_approx(_client_game.config.storm_chance, 0.77), "and so does a change to the storm cvar")
+
+	if _server_game.disasters.linked():
+		_check(_client_game.disasters.active_count() == _server_game.disasters.active_count() and _server_game.disasters.active_count() > 0,
+			"natural-disasters' thunderstorm runs on both ends", "client %s; server %s" % [_client_game.disasters.describe(), _server_game.disasters.describe()])
+	else:
+		_check(_client_game.disasters.active_count() == 0 and not _client_game.disasters.linked(), "without natural-disasters nothing runs on the client either")
 	var _off := _server_game.force_weather("")
 	_server_bridge.broadcast_weather()
 	_exchange()

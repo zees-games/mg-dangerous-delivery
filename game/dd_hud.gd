@@ -252,10 +252,15 @@ func show_trip(facts: Dictionary) -> void:
 
 	if sky == DdWeather.SNOW:
 		words.append("SNOW: grip low")
+	elif bool(weather.get("storm", false)):
+		words.append("STORM: slippery, gusts")
 	elif sky == DdWeather.RAIN:
 		words.append("RAIN: slippery")
 
-	if bool(weather.get("wind", false)):
+	if bool(weather.get("fog", false)):
+		words.append("FOG: low visibility")
+
+	if bool(weather.get("wind", false)) and not bool(weather.get("storm", false)):
 		words.append("WIND")
 
 	var zone := str(facts.get("zone", ""))

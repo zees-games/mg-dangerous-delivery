@@ -93,7 +93,7 @@ func reset_to_start(hold_seconds: float) -> void:
 
 
 ## Counts the weather in [param zone] once. Returns whether it was new.
-func meet(zone: String, weather: Dictionary, snow_chaos: float, rain_chaos: float, wind_chaos: float) -> bool:
+func meet(zone: String, weather: Dictionary, snow_chaos: float, rain_chaos: float, wind_chaos: float, storm_chaos: float = 0.0, fog_chaos: float = 0.0) -> bool:
 	var fresh := false
 	var sky := int(weather.get("sky", DdWeather.CLEAR))
 
@@ -112,6 +112,15 @@ func meet(zone: String, weather: Dictionary, snow_chaos: float, rain_chaos: floa
 			met[key] = true
 			chaos_units += wind_chaos
 			fresh = true
+
+	for extra: Array in [["storm", storm_chaos], ["fog", fog_chaos]]:
+		if bool(weather.get(extra[0], false)):
+			var key := "%s|%s" % [zone, extra[0]]
+
+			if not met.has(key):
+				met[key] = true
+				chaos_units += float(extra[1])
+				fresh = true
 
 	return fresh
 

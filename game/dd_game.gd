@@ -30,6 +30,7 @@ const DdCargo := preload("dd_cargo.gd")
 const DdTrip := preload("dd_trip.gd")
 const DdBank := preload("dd_bank.gd")
 const DdWeather := preload("dd_weather.gd")
+const DdDisasters := preload("dd_disasters.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdMountains := preload("dd_mountains.gd")
 const DdMapDoc := preload("dd_map_doc.gd")
@@ -243,6 +244,10 @@ var weather: Dictionary = {}
 ## alone would no longer say what the sky is.
 var forced_weather: Dictionary = {}
 
+## natural-disasters' lightning and thunder over storms, when the addon is linked; its
+## `linked()` is false otherwise and the game plays on without it. Built in [method _ready].
+var disasters: DdDisasters = null
+
 ## Live boulders: RigidBody3D -> {"route", "born"}.
 var boulders: Dictionary = {}
 
@@ -287,6 +292,12 @@ func _ready() -> void:
 	bank.starter_truck = trucks.starter()
 
 	_apply_gravity()
+
+	if disasters == null:
+		disasters = DdDisasters.new()
+		disasters.name = "Disasters"
+		add_child(disasters)
+		var _linked := disasters.setup(self)
 
 	if authoritative:
 		var wanted := StringName(config.mountain)
@@ -1688,7 +1699,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	# Weather: grip, wind, and the chaos it is paid for.
 	var zone := road.zone_at(trip.distance)
 	var sky := _sky(trip.route_id, zone)
-	var grip := DdWeather.grip(sky, config.snow_grip, config.rain_grip)
+	var grip := DdWeather.grip(sky, config.snow_grip, config.rain_grip, config.storm_grip)
 
 	if road.on_ice(local, trip.hint):
 		grip = minf(grip, config.ice_grip)
@@ -1715,10 +1726,17 @@ func _step_driver(driver: Driver, delta: float) -> void:
 
 	if bool(sky.get("wind", false)) and config.wind_strength > 0.0:
 		var side := DdRoute.right_of(road.yaws[trip.hint])
-		truck.push(side, config.wind_strength * DdWeather.gust(seed_value, "%s|%s" % [trip.route_id, zone], tick, tick_rate))
+		var gust_scale := config.storm_gust if bool(sky.get("storm", false)) else 1.0
+		truck.push(side, config.wind_strength * gust_scale * DdWeather.gust(seed_value, "%s|%s" % [trip.route_id, zone], tick, tick_rate))
+
+	if disasters != null and disasters.linked():
+		var blown := disasters.wind_at(truck.global_position)
+
+		if blown != Vector3.ZERO:
+			truck.apply_central_force(blown * truck.mass)
 
 	if zone != "":
-		var _fresh := trip.meet(zone, sky, config.snow_chaos, config.rain_chaos, config.wind_chaos)
+		var _fresh := trip.meet(zone, sky, config.snow_chaos, config.rain_chaos, config.wind_chaos, config.storm_chaos, config.fog_chaos)
 
 	# A knock: the cargo feels a change of speed the road did not ask for.
 	var dv := (truck.linear_velocity - trip.last_velocity).length()
@@ -2211,7 +2229,7 @@ func _refresh_weather(force: bool) -> void:
 		for zone: String in zones:
 			var key := "%s|%s" % [id, zone]
 			var now := forced_weather.duplicate() if not forced_weather.is_empty() \
-				else DdWeather.at(seed_value, key, zones[zone], tick, tick_rate, config.weather_frequency)
+				else DdWeather.at(seed_value, key, zones[zone], tick, tick_rate, config.weather_frequency, config.storm_chance, config.fog_chance)
 			var was: Dictionary = weather.get(key, {})
 
 			if was != now:
@@ -2220,28 +2238,47 @@ func _refresh_weather(force: bool) -> void:
 				weather_changed.emit(id, zone, now)
 
 
-## Every zone to [param sky] ("clear", "rain", "snow") with or without wind; "" hands the sky
-## back to the draw.
+## Every zone to [param sky] ("clear", "rain", "snow", "storm", "fog") with or without wind;
+## "" hands the sky back to the draw.
 func force_weather(sky: String, wind: bool = false) -> DotResult:
 	if sky == "":
 		forced_weather = {}
 	else:
-		var index := ["clear", "rain", "snow"].find(sky)
+		forced_weather = DdWeather.forced_from(sky, wind)
 
-		if index < 0:
-			return DotResult.fail(DotError.CODE_INVALID, "The sky is clear, rain or snow.")
-
-		forced_weather = {"sky": index, "wind": wind}
+		if forced_weather.is_empty():
+			return DotResult.fail(DotError.CODE_INVALID, "The sky is clear, rain, snow, storm or fog.")
 
 	_refresh_weather(true)
 	return DotResult.success(forced_weather)
+
+
+## The settings a client needs to compute the same weather the server does: sent in HELLO and
+## again whenever an operator's cvar changes one.
+const WEATHER_SETTINGS := ["snow_grip", "rain_grip", "storm_grip", "storm_gust", "storm_chance", "fog_chance", "fog_density", "weather_frequency", "weather_disasters"]
+
+
+func weather_config() -> Dictionary:
+	var out := {}
+
+	for setting: String in WEATHER_SETTINGS:
+		out[setting] = config.get(setting)
+
+	return out
+
+
+func apply_weather_config(settings: Variant) -> void:
+	if settings is Dictionary:
+		for setting: String in WEATHER_SETTINGS:
+			if (settings as Dictionary).has(setting):
+				config.set(setting, (settings as Dictionary)[setting])
 
 
 func weather_at(route_id: StringName, d: float) -> Dictionary:
 	var road: DdRoute = routes.get(route_id, null)
 
 	if road == null:
-		return {"sky": DdWeather.CLEAR, "wind": false}
+		return {"sky": DdWeather.CLEAR, "wind": false, "storm": false, "fog": false}
 
 	return _sky(route_id, road.zone_at(d))
 
@@ -2252,7 +2289,7 @@ func _sky(route_id: StringName, zone: String) -> Dictionary:
 	if not forced_weather.is_empty():
 		return forced_weather
 
-	return weather.get("%s|%s" % [route_id, zone], {"sky": DdWeather.CLEAR, "wind": false})
+	return weather.get("%s|%s" % [route_id, zone], {"sky": DdWeather.CLEAR, "wind": false, "storm": false, "fog": false})
 
 
 # --- Falling rock ------------------------------------------------------------

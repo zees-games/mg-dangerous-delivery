@@ -26,7 +26,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 28
-const CHECKS := 190
+const CHECKS := 204
 
 var _passed := 0
 var _failed := 0
@@ -266,6 +266,32 @@ func _test_weather() -> void:
 	for t in 600:
 		gusts.append(DdWeather.gust(9, "r|z", t * 10, 60))
 	_check(is_equal_approx(gusts[0], DdWeather.gust(9, "r|z", 0, 60)) and absf(gusts[0]) <= 1.0, "a gust is a pure function of the tick, within 1")
+
+	# Extreme weather: a storm is rain that came up again, so it is always wet and windy.
+	var wet := {"snow": 0.0, "rain": 1.0, "wind": 0.0}
+	var storms := 0
+	var fogs := 0
+	var every_storm_wet := true
+	for period in 60:
+		var t := int(period * DdWeather.PERIOD_SECONDS * 60.0)
+		var sky := DdWeather.at(4, "r|wet", wet, t, 60, 1.0, 0.5, 0.5)
+		storms += int(bool(sky["storm"]))
+		fogs += int(bool(sky["fog"]))
+		if bool(sky["storm"]) and not (int(sky["sky"]) == DdWeather.RAIN and bool(sky["wind"])):
+			every_storm_wet = false
+	_check(storms > 10 and storms < 50 and every_storm_wet, "half the rain periods are storms, and every storm is wet and windy", "%d of 60" % storms)
+	_check(fogs > 10 and fogs < 50, "and about half the periods are fog", "%d of 60" % fogs)
+	_check(DdWeather.at(4, "r|wet", wet, 0, 60, 1.0) == DdWeather.at(4, "r|wet", wet, 0, 60, 1.0, 0.0, 0.0) and not bool(DdWeather.at(4, "r|wet", wet, 0, 60, 1.0)["storm"]),
+		"with no chance given there are no storms and no fog, so an old caller's sky is unchanged")
+	var none := DdWeather.at(4, "r|wet", wet, 0, 60, 0.0, 1.0, 1.0)
+	_check(not bool(none["storm"]) and not bool(none["fog"]), "a frequency of 0 clears storms and fog too")
+	_check(DdWeather.grip({"sky": DdWeather.RAIN, "storm": true}, 0.4, 0.7, 0.8) < DdWeather.grip({"sky": DdWeather.RAIN}, 0.4, 0.7, 0.8),
+		"a storm road holds less than a wet one")
+	var trip := DdTrip.new()
+	var storm := DdWeather.forced_from("storm")
+	_check(trip.meet("z", storm, 0.5, 0.25, 0.3, 0.4, 0.2) and trip.chaos_units > 0.9 and not trip.meet("z", storm, 0.5, 0.25, 0.3, 0.4, 0.2),
+		"a storm is paid once, rain, wind and its own chaos", "%.2f" % trip.chaos_units)
+	_check(DdWeather.forced_from("fog")["fog"] and DdWeather.forced_from("hail").is_empty(), "an operator can ask for fog and storm, not hail")
 	_finished_section()
 
 
@@ -979,6 +1005,32 @@ func _test_refusals() -> void:
 	_check(game.restart(&"p2").ok and (game.drivers[&"p2"].trip as DdTrip).stage == 0, "and restarting goes back to the lot")
 	_check(game.force_weather("snow").ok and int(game.weather_at(&"dd_foothills", 50.0)["sky"]) == DdWeather.SNOW, "an operator can make it snow")
 	_check(not game.force_weather("hail").ok, "but not hail")
+	_check(game.force_weather("storm").ok and bool(game.weather_at(&"dd_foothills", 50.0)["storm"]), "or a storm")
+	_check(game.force_weather("fog").ok and bool(game.weather_at(&"dd_foothills", 50.0)["fog"]), "or fog")
+	var wx := game.weather_config()
+	var copy := DdGame.new()
+	copy.apply_weather_config(wx)
+	_check(copy.config.storm_chance == game.config.storm_chance and copy.config.fog_density == game.config.fog_density, "the weather's numbers travel as one dictionary")
+	copy.free()
+
+	# natural-disasters is optional: with it linked a storm brings a thunderstorm, without it
+	# nothing changes but the lightning.
+	var linked := game.disasters != null and game.disasters.linked()
+	_check(linked == FileAccess.file_exists("res://addons/natural_disasters/runtime/dot_disaster_manager.gd"),
+		"the disasters adapter is linked exactly when the addon is there", "linked=%s" % linked)
+
+	if linked:
+		var _stormy := game.force_weather("storm")
+		_check(game.disasters.active_count() >= 1, "a storm starts natural-disasters' thunderstorm", game.disasters.describe())
+		var sent := game.disasters.send_snapshot(func(_m: Dictionary) -> void: pass)
+		_check(sent == game.disasters.active_count(), "and a joiner is sent every one that runs")
+		var _fine := game.force_weather("fog")
+		_check(game.disasters.active_count() == 0, "the thunderstorm ends with the storm")
+	else:
+		_check(game.disasters.active_count() == 0 and game.disasters.wind_at(Vector3.ZERO) == Vector3.ZERO, "without it there is no extra wind and nothing running")
+		_check(game.disasters.send_snapshot(func(_m: Dictionary) -> void: pass) == 0, "and a joiner is sent nothing")
+		_check(not game.disasters.receive({"t": "start"}).ok, "and a message from a server that has it is refused, not a crash")
+
 	var _clear := game.force_weather("")
 	_finished_section()
 

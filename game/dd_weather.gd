@@ -21,14 +21,20 @@ const RAIN := 1
 const SNOW := 2
 
 
-## The weather over [param zone_id] at [param tick]: [code]{"sky": CLEAR/RAIN/SNOW, "wind": bool}[/code].
+## The weather over [param zone_id] at [param tick]:
+## [code]{"sky": CLEAR/RAIN/SNOW, "wind": bool, "storm": bool, "fog": bool}[/code].
+##
+## [b]Extreme weather is the same draw, one roll deeper.[/b] A storm is a rain period that came
+## up again against [param storm_chance] (so it is always wet, always windy, and blows harder),
+## and fog is a period of any zone that came up against [param fog_chance]. Both are hashed from
+## their own salts, so adding them moved no draw an older version made.
 ##
 ## [param zone] is the document's zone ({snow, rain, wind} chances); [param frequency]
 ## multiplies every chance (DdConfig.weather_frequency). Snow is drawn before rain, so a zone
 ## that may do both does the colder one when both come up.
-static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, tick_rate: int, frequency: float = 1.0) -> Dictionary:
+static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, tick_rate: int, frequency: float = 1.0, storm_chance: float = 0.0, fog_chance: float = 0.0) -> Dictionary:
 	if zone.is_empty():
-		return {"sky": CLEAR, "wind": false}
+		return {"sky": CLEAR, "wind": false, "storm": false, "fog": false}
 
 	var period := int(floor(float(tick) / (PERIOD_SECONDS * float(maxi(tick_rate, 1)))))
 	var sky := CLEAR
@@ -39,7 +45,9 @@ static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, ti
 		sky = RAIN
 
 	var windy := _roll(seed_value, zone_id, period, 3) < float(zone.get("wind", 0.0)) * frequency
-	return {"sky": sky, "wind": windy}
+	var storm := sky == RAIN and _roll(seed_value, zone_id, period, 6) < storm_chance * frequency
+	var fog := sky != SNOW and _roll(seed_value, zone_id, period, 7) < fog_chance * frequency
+	return {"sky": sky, "wind": windy or storm, "storm": storm, "fog": fog}
 
 
 ## The wind's side force at [param tick], from -1 to 1: a slow swell with gusts on it. Which
@@ -69,13 +77,29 @@ static func unit(text: String) -> float:
 
 
 ## Grip on a road under [param weather], from the configuration's multipliers.
-static func grip(weather: Dictionary, snow_grip: float, rain_grip: float) -> float:
+static func grip(weather: Dictionary, snow_grip: float, rain_grip: float, storm_grip: float = 1.0) -> float:
 	match int(weather.get("sky", CLEAR)):
 		SNOW:
 			return snow_grip
 		RAIN:
-			return rain_grip
+			return rain_grip * (storm_grip if bool(weather.get("storm", false)) else 1.0)
 	return 1.0
+
+
+## One word for a sky as an operator types it: clear, rain, snow, storm, fog.
+static func forced_from(name: String, wind: bool = false) -> Dictionary:
+	match name:
+		"storm":
+			return {"sky": RAIN, "wind": true, "storm": true, "fog": false}
+		"fog":
+			return {"sky": CLEAR, "wind": wind, "storm": false, "fog": true}
+		"clear":
+			return {"sky": CLEAR, "wind": wind, "storm": false, "fog": false}
+		"rain":
+			return {"sky": RAIN, "wind": wind, "storm": false, "fog": false}
+		"snow":
+			return {"sky": SNOW, "wind": wind, "storm": false, "fog": false}
+	return {}
 
 
 static func sky_name(sky: int) -> String:

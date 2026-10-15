@@ -1358,9 +1358,16 @@ func _set_weather(weather: Dictionary) -> void:
 	var sky := int(weather.get("sky", DdWeather.CLEAR))
 	_rain.emitting = sky == DdWeather.RAIN
 	_snow.emitting = sky == DdWeather.SNOW
-	var dim := _clear_sun * (0.5 if sky != DdWeather.CLEAR else 1.0)
+	var stormy := bool(weather.get("storm", false))
+	var foggy := bool(weather.get("fog", false))
+	# A storm is a darker sky and rain that comes down hard; fog is sight, so it only whitens.
+	var dim := _clear_sun * (0.3 if stormy else (0.5 if sky != DdWeather.CLEAR or foggy else 1.0))
 	_sun.light_energy = lerpf(_sun.light_energy, dim, 0.02)
-	_env.fog_density = lerpf(_env.fog_density, FOG_SNOW if sky == DdWeather.SNOW else (FOG_RAIN if sky == DdWeather.RAIN else FOG_CLEAR), 0.02)
+	var density := FOG_SNOW if sky == DdWeather.SNOW else (FOG_RAIN if sky == DdWeather.RAIN else FOG_CLEAR)
+	density = maxf(density, game.config.fog_density * (1.0 if foggy else 0.0))
+	density = maxf(density, FOG_SNOW * 1.2 if stormy else 0.0)
+	_rain.amount = 3200 if stormy else 1600
+	_env.fog_density = lerpf(_env.fog_density, density, 0.02)
 
 
 ## dot-game's chat box and microphone, with this game's channels and voice format. It also

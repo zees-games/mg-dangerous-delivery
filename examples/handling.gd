@@ -92,6 +92,11 @@ func _ready() -> void:
 		await _test_glass_on_gravel()
 
 	game.config.weather_frequency = 1.0
+	# The ordinary sky is part of what is measured; a storm is the extreme on top, and a Bulk
+	# Carrier on a wet climb at storm grip does not make this test's 40 m window. Storms and fog
+	# are checked for what they change in headless_run.
+	game.config.storm_chance = 0.0
+	game.config.fog_chance = 0.0
 	_use_shipped_routes()
 	if _runs(only, "challenges"):
 		_test_challenges()

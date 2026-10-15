@@ -41,6 +41,9 @@ enum Kind {
 	## The lot's toys: their net ids in toy order (both ends place them from the lot). After every
 	## build, and to a joiner after the HELLO.
 	TOYS,
+	## natural-disasters' own message (a storm's start, stop or a bolt), carried as it is.
+	## Dropped by a client without the addon.
+	DISASTER,
 }
 
 enum Ask {

@@ -126,6 +126,9 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 	net = p_net
 	net.send_fn = _send
 
+	if world.disasters != null and net.is_server:
+		world.disasters.send_fn = func(msg: Dictionary) -> void: _broadcast(DdEvents.Kind.DISASTER, msg)
+
 	var event := net.messages.register(DdEvent.NAME, DdEvent, DotNetMessage.Delivery.RELIABLE, DotNetMessage.Direction.TO_CLIENT)
 
 	if not event.ok:
@@ -469,10 +472,13 @@ func _admit(peer_id: int) -> void:
 		"mountain": String(game.mountain_id), "mountain_name": game.mountain_name(), "map": game.map_doc(),
 		"config": {
 			"snow_grip": game.config.snow_grip, "rain_grip": game.config.rain_grip,
-			"weather_frequency": game.config.weather_frequency, "allow_solo": game.config.allow_solo,
-			"solo_hidden_from_others": game.config.solo_hidden_from_others,
-		},
+			"allow_solo": game.config.allow_solo, "solo_hidden_from_others": game.config.solo_hidden_from_others,
+		}.merged(game.weather_config()),
 	})
+
+	# A joiner in the middle of a storm hears and sees it at once (natural-disasters, if linked).
+	if game.disasters != null:
+		var _caught_up := game.disasters.send_snapshot(func(msg: Dictionary) -> void: _tell(peer_id, DdEvents.Kind.DISASTER, msg))
 
 	# The lot's toys by net id, which the joiner's own are paired with.
 	if not _toys_body.is_empty():
@@ -679,7 +685,7 @@ func server_tick(tick: int) -> void:
 
 ## The forced weather, to everybody: an operator's `dd_weather`.
 func broadcast_weather() -> void:
-	_broadcast(DdEvents.Kind.WEATHER, {"weather": game.forced_weather})
+	_broadcast(DdEvents.Kind.WEATHER, {"weather": game.forced_weather, "config": game.weather_config()})
 
 
 func _send_trip(key: StringName) -> void:
@@ -930,6 +936,10 @@ func _on_event(message: DotNetMessage) -> void:
 		DdEvents.Kind.WEATHER:
 			var forced: Variant = data.get("weather", {})
 			game.forced_weather = forced if forced is Dictionary else {}
+			game.apply_weather_config(data.get("config", {}))
+		DdEvents.Kind.DISASTER:
+			if game.disasters != null and game.disasters.linked():
+				DotLog.result(CHANNEL, "a disaster message", game.disasters.receive(data))
 		DdEvents.Kind.BODY:
 			_apply_body(data)
 		DdEvents.Kind.MOUNTAIN:

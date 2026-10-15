@@ -141,7 +141,7 @@ func _game_load() -> DotResult:
 
 	add_command("dd_status", _cmd_status, "Show the routes and who is driving where")
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
-	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, wind, or off", DotAdminFlags.CHANGEMAP)
+	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", DotAdminFlags.CHANGEMAP)
 	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
 	add_command("dd_mountain", _cmd_mountain, "Show the mountains, or move the server to one now: dd_mountain [id]", DotAdminFlags.CHANGEMAP)
 
@@ -186,6 +186,12 @@ func _game_load() -> DotResult:
 	_tunable_bool("dd_solo", world.config.allow_solo, "Whether players may drive solo (B)", func(v: bool) -> void: world.config.allow_solo = v)
 	_tunable_bool("dd_skip", world.config.allow_skip, "Whether players may skip a stage (N)", func(v: bool) -> void: world.config.allow_skip = v)
 	_tunable_bool("dd_rocks", world.config.boulders_enabled, "Whether rock falls", func(v: bool) -> void: world.config.boulders_enabled = v)
+	# Weather by cvar: a change reaches every client at once, because they compute the same sky
+	# from the same numbers (and the sky is the server's only through them).
+	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, 3.0, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")
+	_tunable_weather("dd_weather_storms", "storm_chance", 0.0, 1.0, "Share of rain periods that are storms (harder wind, less grip), 0 for none")
+	_tunable_weather("dd_weather_fog", "fog_chance", 0.0, 1.0, "Share of periods that are fog, 0 for none")
+	_tunable_weather("dd_weather_disasters", "weather_disasters", 0.0, 1.0, "1: storms bring natural-disasters' lightning when it is linked; 0: weather only")
 	_tunable_bool("dd_collide", world.config.trucks_collide, "Whether trucks hit each other", func(v: bool) -> void:
 		world.config.trucks_collide = v
 		world._refresh_exceptions())
@@ -380,6 +386,24 @@ func _build_progress(world: DdGame) -> void:
 
 		if peer > 0:
 			bridge.call("notice", peer, "Achievement: %s (+%d)" % [title, points]))
+
+
+func _tunable_weather(cvar_name: String, setting: String, low: float, high: float, description: String) -> void:
+	var world := game as DdGame
+	var current: Variant = world.config.get(setting)
+	var cvar := add_cvar(cvar_name, ("1" if current else "0") if current is bool else str(current), description)
+
+	if cvar == null:
+		return
+
+	cvar.with_range(low, high)
+	cvar.changed.connect(func(_old: String, _new: String) -> void:
+		world.config.set(setting, cvar.get_bool() if current is bool else cvar.get_float())
+
+		if bridge != null:
+			bridge.call("broadcast_weather")
+
+		log_info("a setting changed", {"cvar": cvar_name, "now": cvar.get_string()}))
 
 
 func _tunable_bool(cvar_name: String, current: bool, description: String, apply: Callable) -> void:

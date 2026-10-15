@@ -117,6 +117,34 @@ extends DotConfig
 ## Multiplies every zone's own chance of each weather. 0 is a server of clear skies.
 @export_range(0.0, 3.0, 0.05) var weather_frequency: float = 1.0
 
+## Of the rain periods, the share that is a storm: harder rain, wind that is always up and
+## gusts [member storm_gust] times as hard, and less grip ([member storm_grip]). Times
+## [member weather_frequency]. 0 is no storms.
+@export_range(0.0, 1.0, 0.01) var storm_chance: float = 0.3
+
+## Grip multiplier a storm takes off the rain's own.
+@export_range(0.3, 1.0, 0.01) var storm_grip: float = 0.8
+
+## Wind's side force in a storm, as a multiple of [member wind_strength].
+@export_range(1.0, 4.0, 0.1) var storm_gust: float = 1.8
+
+## Chaos a storm adds, on top of its rain and wind.
+@export_range(0.0, 3.0, 0.05) var storm_chaos: float = 0.4
+
+## The share of weather periods (snow-free) that are fog, times [member weather_frequency].
+## Fog is sight, not grip: it costs the driver the road ahead and is paid as chaos.
+@export_range(0.0, 1.0, 0.01) var fog_chance: float = 0.2
+
+## The exponential fog density in fog (clear air is 0.0006).
+@export_range(0.002, 0.06, 0.001) var fog_density: float = 0.018
+
+## Chaos a fogbound stretch adds.
+@export_range(0.0, 3.0, 0.05) var fog_chaos: float = 0.25
+
+## Whether storms also run natural-disasters' thunderstorm (lightning, thunder, gusts that push
+## trucks) when that addon is linked. Without the addon this does nothing.
+@export var weather_disasters: bool = true
+
 # --- Hazards ---------------------------------------------------------------
 
 @export_group("Hazards")
