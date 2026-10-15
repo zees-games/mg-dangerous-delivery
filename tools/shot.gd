@@ -17,7 +17,7 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "walk_gate", "standin"]
+	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -143,6 +143,19 @@ func _ready() -> void:
 		cam_land.global_position = lot_node.to_global(Vector3(-60.0, 230.0, 330.0))
 		cam_land.look_at(lot_node.to_global(Vector3(0.0, 0.0, -420.0)))
 		cam_land.current = true
+
+	if view == "sign":
+		# At the first entrance sign, from where a truck leaving the lot sees it.
+		var board := client.game.find_children("EntranceSign_*", "Node3D", false, false)
+
+		if not board.is_empty():
+			var at: Vector3 = (board[int(_args.get("n", "0")) % board.size()] as Node3D).global_position
+			var cam_sign := Camera3D.new()
+			cam_sign.far = 3000.0
+			add_child(cam_sign)
+			cam_sign.global_position = at + Vector3(-9.0, 4.0, 22.0)
+			cam_sign.look_at(at + Vector3(-4.0, 3.0, -8.0))
+			cam_sign.current = true
 
 	if view == "far":
 		var lot: Node3D = client.game.lot

@@ -411,8 +411,12 @@ func _act(action: String, args: Dictionary = {}) -> void:
 		return
 
 	# DRIVE on the panel: the truck is brought round and they are at its wheel, so the panel goes.
-	if action == "drive":
+	if action == "drive" or (action in ["restart", "lot"] and garage.visible):
 		_show_garage(false)
+
+	# T off a road: restart at the course the lot's panel has picked.
+	if action == "restart" and not args.has("route") and not _on_road():
+		args = {"route": String(garage.picked_route())}
 
 	if not _offline:
 		if bridge != null:
@@ -423,6 +427,10 @@ func _act(action: String, args: Dictionary = {}) -> void:
 	var body := args.duplicate()
 	body["action"] = action
 	var done: DotResult = DdNetBridge.DdBridgeActs.run(game, local_key, body)
+
+	if action == "restart" and done.ok and _driver() != null and _driver().trip == null and walker != null:
+		# From the lot: set at the course's gate in a truck, as SET OFF does.
+		walker.visible = false
 
 	if action == "start" and done.ok:
 		_show_garage(false)

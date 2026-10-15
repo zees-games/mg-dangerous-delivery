@@ -87,6 +87,14 @@ const HILL_CELL := 140.0
 ## Samples on a road, metres apart.
 const ROAD_STEP := 4.0
 
+## The guide path painted along a road from the lot: its width, how far inside the lot it starts,
+## the gap between arrowheads, its lift off the deck, and a colour per route.
+const GUIDE_WIDTH := 1.3
+const GUIDE_LEAD := 50.0
+const GUIDE_CHEVRON := 14.0
+const GUIDE_LIFT := 0.09
+const GUIDE_COLORS: Array[Color] = [Color(0.2, 0.75, 1.0), Color(1.0, 0.55, 0.15), Color(0.45, 0.9, 0.3), Color(0.95, 0.35, 0.7), Color(0.75, 0.55, 1.0), Color(1.0, 0.9, 0.2)]
+
 ## Where the land starts in the world (its first sample) and how many samples each way.
 var origin: Vector2 = Vector2.ZERO
 var nx: int = 0
@@ -152,8 +160,15 @@ func build(route_points: PackedVector3Array, lot_centre: Vector3, lot_size: Vect
 	_shape(lot_centre, lot_size)
 	_build_collision()
 
+	var order := 0
+
 	for id: StringName in roads:
 		_build_road(id, roads[id])
+
+		if draws:
+			_build_guide(id, roads[id], guide_tint(order))
+
+		order += 1
 
 	if draws:
 		_build_ground()
@@ -584,6 +599,67 @@ func _build_road(id: StringName, line: PackedVector3Array) -> void:
 	dashes.material_override = line_material
 	dashes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	body.add_child(dashes)
+
+
+## The colour of the guide path to the [param order]th route (west to east), also the tint of
+## the sign at its entrance, so a painted line and the board over it read as the same course.
+static func guide_tint(order: int) -> Color:
+	return GUIDE_COLORS[order % GUIDE_COLORS.size()]
+
+
+## A guide painted on the road itself: a band lifted just off the deck's own samples (so it
+## follows the road graph exactly and clears the centre dashes), from [constant GUIDE_LEAD]
+## metres inside the lot, out through its exit to the gate, with an arrowhead every
+## [constant GUIDE_CHEVRON] metres pointing the way. A decal would need a box per bend and
+## projects onto whatever is under it; the road's own samples cannot miss the road.
+func _build_guide(id: StringName, line: PackedVector3Array, tint: Color) -> void:
+	if line.size() < 2:
+		return
+
+	var path := PackedVector3Array([line[0] + Vector3(0.0, 0.0, GUIDE_LEAD)])
+	path.append_array(line)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := GUIDE_WIDTH * 0.5
+	var lift := Vector3(0.0, GUIDE_LIFT, 0.0)
+	var along := 0.0
+	var next_chevron := GUIDE_CHEVRON * 0.5
+
+	for i in path.size() - 1:
+		var a := path[i]
+		var b := path[i + 1]
+		var ra := _right(path, i) * half
+		var rb := _right(path, i + 1) * half
+		_tri(st, a - ra + lift, b + rb + lift, a + ra + lift, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO)
+		_tri(st, a - ra + lift, b - rb + lift, b + rb + lift, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO)
+		var length := a.distance_to(b)
+
+		while next_chevron < along + length:
+			var t := (next_chevron - along) / maxf(length, 0.001)
+			var c := a.lerp(b, t) + lift
+			var fwd := (b - a).normalized()
+			var side := Vector3(-fwd.z, 0.0, fwd.x)
+			var tip := c + fwd * 2.4
+			_tri(st, c - side * GUIDE_WIDTH * 1.6, tip, c + side * GUIDE_WIDTH * 1.6, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO)
+			next_chevron += GUIDE_CHEVRON
+
+		along += length
+
+	st.generate_normals()
+	var material := StandardMaterial3D.new()
+	material.albedo_color = tint
+	material.roughness = 0.8
+	# Lit a little by its own colour, so it still reads in a storm's dark.
+	material.emission_enabled = true
+	material.emission = tint
+	material.emission_energy_multiplier = 0.35
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var strip := MeshInstance3D.new()
+	strip.name = "Guide_%s" % String(id)
+	strip.mesh = st.commit()
+	strip.material_override = material
+	strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(strip)
 
 
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, ua: Vector2, ub: Vector2, uc: Vector2) -> void:

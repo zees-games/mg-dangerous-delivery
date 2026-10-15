@@ -25,8 +25,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 27
-const CHECKS := 185
+const SECTIONS := 28
+const CHECKS := 190
 
 var _passed := 0
 var _failed := 0
@@ -64,6 +64,7 @@ func _ready() -> void:
 	await _test_the_lot_toys()
 	await _test_buying_and_driving()
 	await _test_roads_and_gates()
+	_test_restart_and_back_to_lot()
 	await _test_stand_in_to_gate()
 	_test_every_mountain()
 	_test_maps_are_documents()
@@ -517,6 +518,16 @@ func _test_roads_and_gates() -> void:
 					if Geometry2D.segment_intersects_segment(Vector2(a[m - 1].x, a[m - 1].z), Vector2(a[m].x, a[m].z), Vector2(b[n - 1].x, b[n - 1].z), Vector2(b[n].x, b[n].z)) != null:
 						crossings += 1
 	_check(crossings == 0, "no two roads cross", "%d" % crossings)
+	# The guide path and the entrance signs are drawn, so only a world that draws has them.
+	if game.draws:
+		var guides := game.land.find_children("Guide_*", "MeshInstance3D", false, false)
+		_check(guides.size() == game.land.roads.size(), "a guide path is painted along every road", "%d" % guides.size())
+		var signs := game.find_children("EntranceSign_*", "Node3D", false, false)
+		var faces_back := true
+		for board in signs:
+			for label in board.find_children("*", "Label3D", true, false):
+				faces_back = faces_back and not (label as Label3D).double_sided and (label as Label3D).global_transform.basis.z.dot(Vector3.BACK) > 0.99
+		_check(signs.size() == game.routes.size() and faces_back, "a one-sided sign at each road's start", "%d" % signs.size())
 	await get_tree().physics_frame
 	var space := get_viewport().world_3d.direct_space_state
 	var solid := 0
@@ -611,6 +622,35 @@ func _test_roads_and_gates() -> void:
 			if ground.height_at(p.x, p.z) > p.y - 1.0:
 				buried += 1
 	_check(buried == 0, "no island's mountain stands over a road of the land's", "%d samples" % buried)
+	_finished_section()
+
+
+## Restart in the lot goes to the start of the course picked; the separate back-to-lot is the
+## way home. Refused with nothing picked.
+func _test_restart_and_back_to_lot() -> void:
+	_section("restart to the course and back to the lot")
+	var was_quick := game.config.quick_start
+	game.config.quick_start = false
+	var me: DdGame.Driver = game.drivers[&"p1"]
+	game.end_trip(&"p1")
+	me.picked_route = &""
+	var none := game.restart(&"p1")
+	_check(not none.ok, "restart from the lot with no course picked says so", none.error.message if none.error != null else "")
+	var first: StringName = game.route_order[0]
+	var gate := game.gates[first] as Node3D
+	var set_off := game.go_to_gate(&"p1", first)
+	_check(set_off.ok and me.picked_route == first, "setting off remembers the course")
+	game.back_to_lot(&"p1")
+	_check(me.on_foot and game.in_lot(&"p1"), "back to the lot: on foot in it, their truck parked")
+	var again := game.restart(&"p1")
+	_check(again.ok and DdGame.roaming(me) and gate.call("at_gate", (me.truck as Node3D).global_position),
+		"restart from the lot is at the start of the picked course")
+	var other: StringName = game.route_order[1]
+	var moved := game.restart(&"p1", other)
+	_check(moved.ok == game.is_unlocked(&"p1", other) and (not moved.ok or (game.gates[other] as Node3D).call("at_gate", (me.truck as Node3D).global_position)),
+		"and a restart naming another course goes to that one", str(moved.ok))
+	game.back_to_lot(&"p1")
+	game.config.quick_start = was_quick
 	_finished_section()
 
 

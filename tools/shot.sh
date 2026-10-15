@@ -8,6 +8,7 @@
 #   tools/shot.sh --view=seller [--truck=semi]            # beside a salesperson: what E does
 #   tools/shot.sh --view=roam --seconds=4                 # at the wheel of a truck handed over in the lot
 #   tools/shot.sh --view=land                             # the lot, the land and every road to the routes' gates
+#   tools/shot.sh --view=sign [--n=0]                       # an entrance sign and the guide path leading out of the lot
 #   tools/shot.sh --view=gate --route=dd_river_cut        # a truck at a route's gate, the delivery offered
 #   tools/shot.sh --view=walk_gate                        # on foot at a gate: as far as anybody walks
 #   tools/shot.sh --view=standin --seconds=40             # a stand-in from the spawn to its truck and up the land's road to a gate
@@ -27,7 +28,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"
 for arg in "$@"; do
     case "$arg" in
         --view=*)    view="${arg#*=}" ;;
@@ -38,6 +39,7 @@ for arg in "$@"; do
         --at=*)      at="${arg#*=}" ;;
         --truck=*)   truck="${arg#*=}" ;;
         --mountain=*) mountain="${arg#*=}" ;;
+        --n=*)       n="${arg#*=}" ;;
         --ballot)    ballot="1" ;;
         --chat=*)    chat="${arg#*=}" ;;
         --people=*)  people="${arg#*=}" ;;
@@ -48,4 +50,4 @@ done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n"

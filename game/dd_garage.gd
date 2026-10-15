@@ -139,6 +139,22 @@ func _ready() -> void:
 	options.add_theme_font_size_override("font_size", 18)
 	options.pressed.connect(func() -> void: settings_requested.emit())
 	foot.add_child(options)
+	# Two more ways round the lot, beside SET OFF: put at the picked course's start, and back
+	# to the lot from wherever the truck is.
+	var restart := Button.new()
+	restart.name = "RestartCourse"
+	restart.text = " RESTART "
+	restart.tooltip_text = "Restart at the start of the picked course"
+	restart.add_theme_font_size_override("font_size", 16)
+	restart.pressed.connect(func() -> void: _do("restart", {"route": String(_picked_route)}))
+	foot.add_child(restart)
+	var home := Button.new()
+	home.name = "BackToLot"
+	home.text = " BACK TO LOT "
+	home.tooltip_text = "Back to the lot"
+	home.add_theme_font_size_override("font_size", 16)
+	home.pressed.connect(func() -> void: _do("lot", {}))
+	foot.add_child(home)
 	var go := Button.new()
 	go.name = "Start"
 	go.text = "  SET OFF  "

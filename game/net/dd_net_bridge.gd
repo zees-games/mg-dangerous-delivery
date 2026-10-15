@@ -1218,7 +1218,9 @@ class DdBridgeActs:
 			"respawn":
 				return world.respawn(key)
 			"restart":
-				return world.restart(key)
+				return world.restart(key, StringName(str(args.get("route", ""))))
+			"lot":
+				return world.back_to_lot(key)
 			"skip":
 				return world.skip(key)
 			"solo":

@@ -36,6 +36,7 @@ const DdMapDoc := preload("dd_map_doc.gd")
 const DdLot := preload("dd_lot.gd")
 const DdLand := preload("dd_land.gd")
 const DdGate := preload("dd_gate.gd")
+const DdSign := preload("dd_sign.gd")
 
 const CHANNEL := "delivery.game"
 
@@ -170,6 +171,9 @@ class Driver:
 	var bot_route: StringName = &""
 	var bot_planned: Node = null
 	var bot_clock: float = 0.0
+	## The delivery course they last picked (set off for, or restarted to): where a restart
+	## from the lot puts them. Empty until they have picked one.
+	var picked_route: StringName = &""
 
 	func on_road() -> bool:
 		return truck != null and trip != null
@@ -654,6 +658,7 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 	if trucks.get_truck(truck_id).is_empty():
 		truck_id = trucks.starter()
 
+	driver.picked_route = route_id
 	_remove_truck(driver)
 	var doc: Dictionary = documents[route_id]
 	var load_def := cargo.get_load(StringName(str(doc.get("cargo", "crates"))))
@@ -738,18 +743,59 @@ func end_trip(key: StringName) -> void:
 	trip_ended.emit(key)
 
 
-func restart(key: StringName) -> DotResult:
+## T. On a road it starts the trip again. In the lot (or roaming in a truck on the land) it
+## teleports to the start of the course [param route_id] names, or failing that the one they last
+## picked: the truck at its gate, the way SET OFF puts it, which is what "restart" means from the
+## lot. [method back_to_lot] is the other way.
+func restart(key: StringName, route_id: StringName = &"") -> DotResult:
 	var driver: Driver = drivers.get(key, null)
 
-	if driver == null or not driver.on_road():
-		return DotResult.fail(DotError.CODE_STATE, "You are not on a road.")
+	if driver == null:
+		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
 
 	if not config.allow_restart:
 		return DotResult.fail(DotError.CODE_FORBIDDEN, "This server does not allow restarting a trip.")
 
+	if not driver.on_road():
+		var course := route_id if route_id != &"" else driver.picked_route
+
+		if course == &"" or not gates.has(course):
+			return DotResult.fail(DotError.CODE_STATE, "Pick a course in the lot first.")
+
+		return _to_course_start(driver, course)
+
 	var trip: DdTrip = driver.trip
 	trip.reset_to_start(config.start_hold_seconds)
 	_put_at(driver, 0)
+	return DotResult.success(null)
+
+
+## [param driver] off a road put at the start of [param route_id]'s course: in the lot as SET
+## OFF does it; already in a truck out on the land, the truck set down at the gate.
+func _to_course_start(driver: Driver, route_id: StringName) -> DotResult:
+	if roaming(driver):
+		if not is_unlocked(driver.key, route_id):
+			return DotResult.fail(DotError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
+
+		var truck := driver.truck as DdTruck
+		var at := (gates[route_id] as DdGate).waiting_spot(truck.half_length + 6.0)
+		at.origin.y += truck.ride_height() + 0.02
+		truck.place(at)
+		driver.picked_route = route_id
+		return DotResult.success(route_id)
+
+	return go_to_gate(driver.key, route_id)
+
+
+## The button beside restart: off a road or on one, back to the lot. A trip's truck goes and
+## they are on foot beside the truck they own, parked in a bay (the trip as it always ended).
+func back_to_lot(key: StringName) -> DotResult:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver == null:
+		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+
+	end_trip(key)
 	return DotResult.success(null)
 
 
@@ -976,6 +1022,7 @@ func _build_land() -> void:
 	land.hill_height = float(map["land"]["hills"])
 	land.coast = float(map["land"]["coast"])
 	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
+	_build_entrance_signs(order)
 
 	# Each mountain held under the roads that cross its ground, now they are known.
 	for id: StringName in routes:
@@ -987,6 +1034,32 @@ func _build_land() -> void:
 				keep.append(p - road.position)
 
 		road.finish_terrain(keep)
+
+
+## A sign at the start of each road out of the lot, on its right shoulder, naming the course and
+## tinted as the guide path painted to it. Drawn only; signs are not collision.
+func _build_entrance_signs(order: Array) -> void:
+	for old in get_children():
+		if str(old.name).begins_with("EntranceSign_"):
+			remove_child(old)
+			old.queue_free()
+
+	if not draws:
+		return
+
+	for i in order.size():
+		var id: StringName = order[i]
+		var line: PackedVector3Array = land.roads.get(id, PackedVector3Array())
+
+		if line.is_empty():
+			continue
+
+		var doc: Dictionary = documents.get(id, {})
+		var board := DdSign.new()
+		board.name = "EntranceSign_%s" % String(id)
+		add_child(board)
+		board.global_position = line[0] + Vector3(DdLand.ROAD_WIDTH * 0.5 + DdSign.BOARD.x * 0.5 + 1.0, 0.0, -2.0)
+		board.build("%s\nLEVEL %d" % [str(doc.get("name", id)).to_upper(), int(doc.get("level", 1))], DdLand.guide_tint(i))
 
 
 ## A road from [param from] (a lot exit) to [param to] (a gate) and on to [param beyond] (the
@@ -1294,6 +1367,7 @@ func go_to_gate(key: StringName, route_id: StringName) -> DotResult:
 	if trucks.get_truck(truck_id).is_empty():
 		truck_id = trucks.starter()
 
+	driver.picked_route = route_id
 	_remove_truck(driver)
 	var made := _make_truck(driver, truck_id, {}, false)
 

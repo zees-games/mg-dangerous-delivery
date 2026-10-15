@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 17
-const CHECKS := 64
+const SECTIONS := 18
+const CHECKS := 68
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -50,6 +50,7 @@ func _ready() -> void:
 		await _test_walkers()
 		await _test_buying_and_driving()
 		await _test_the_gate()
+		await _test_restart_and_back_to_lot()
 		await _test_a_trip()
 		await _test_driving()
 		await _test_weather()
@@ -347,6 +348,43 @@ func _test_the_gate() -> void:
 	_client_bridge.ask_act("garage")
 	_exchange()
 	await _steps(2)
+	_server_game.config.quick_start = true
+	_finished_section()
+
+
+## Restart from the lot puts the player's truck at the start of the course they picked (the
+## server's own `picked_route` when the client names none), and the separate lot act takes them
+## back to the lot on foot. Both over the wire.
+func _test_restart_and_back_to_lot() -> void:
+	_section("restart to the course, and back to the lot")
+	_server_game.config.quick_start = false
+	var server_me: DdGame.Driver = _server_game.drivers[_key]
+	_client_bridge.ask_act("start", {"route": "dd_foothills"})
+	_exchange()
+	await _steps(6)
+	_client_bridge.ask_act("lot")
+	_exchange()
+	await _steps(4)
+	_check(server_me.on_foot and _server_game.in_lot(_key),
+		"the lot act puts them on foot in the lot", "on_foot=%s" % server_me.on_foot)
+	_client_bridge.ask_act("restart", {"route": "dd_foothills"})
+	_exchange()
+	await _steps(6)
+	var gate: Node3D = _server_game.gates[&"dd_foothills"]
+	_check(DdGame.roaming(server_me) and gate.call("at_gate", (server_me.truck as Node3D).global_position),
+		"restart from the lot is at the start of the course they picked")
+	_client_bridge.ask_act("lot")
+	_exchange()
+	await _steps(4)
+	_client_bridge.ask_act("restart")
+	_exchange()
+	await _steps(6)
+	_check(DdGame.roaming(server_me) and gate.call("at_gate", (server_me.truck as Node3D).global_position),
+		"and with no course named, the server remembers the one they picked")
+	_client_bridge.ask_act("lot")
+	_exchange()
+	await _steps(4)
+	_check(server_me.on_foot and _server_game.in_lot(_key), "back to the lot again, on foot")
 	_server_game.config.quick_start = true
 	_finished_section()
 
