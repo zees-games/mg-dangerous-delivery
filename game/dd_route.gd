@@ -18,6 +18,7 @@ const DdRouteDoc := preload("dd_route_doc.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdTerrain := preload("dd_terrain.gd")
+const DdLoad := preload("dd_load.gd")
 
 ## The drop's slope: [constant SKIRT_DEPTH] down for every DROP_OUT across. Drawn only: nothing
 ## stands on it.
@@ -148,6 +149,11 @@ var _terrain_node: MeshInstance3D = null
 ## through it. A route built alone (a suite, a tool) builds its mountain at once.
 var terrain_later: bool = false
 
+## False once the route is cleared or rebuilt: a mountain laid over frames drops itself.
+var _terrain_wanted: bool = false
+## The last paint of each zone, for a mountain that arrives after the weather did.
+var _painted: Dictionary = {}
+
 ## Route-local points of the land's roads that cross this route's ground: the mountain is held
 ## under them and nothing grows on them.
 var _keep := PackedVector3Array()
@@ -195,6 +201,8 @@ func clear() -> void:
 	_car_at = PackedVector3Array()
 	_car_state = []
 	zone_materials = {}
+	_painted = {}
+	_terrain_wanted = false
 	terrain = null
 	_terrain_node = null
 	_body = null
@@ -702,6 +710,7 @@ func _build_geometry() -> void:
 	_build_gate(length() - 1.0, "DEPOT")
 
 	if draws and not terrain_later:
+		_terrain_wanted = true
 		_build_mountain()
 	_build_ice()
 	_build_debris()
@@ -835,28 +844,48 @@ func _cap(rock: SurfaceTool, i: int, e0: Vector3, e1: Vector3, side: float, firs
 
 
 ## The mountain, its camera body and its pines and rocks.
-func _build_mountain() -> void:
-	terrain = make_terrain(_keep)
+## [param tree], when given, spreads the heightfield over frames (see [member DdTerrain.tree]); the
+## route's `terrain` is set only once it is whole, so nothing sees half a mountain.
+func _build_mountain(tree: SceneTree = null) -> void:
+	var made := DdTerrain.new()
+	made.tree = tree
+	await _compute_terrain(made, _keep)
+
+	if tree != null and (not is_inside_tree() or not _terrain_wanted):
+		return
+
+	terrain = made
 	_terrain_node = terrain.make_node(texture("rock_cliff", _noise(0.05, 0.6)))
 	add_child(_terrain_node)
 	_build_camera_mountain()
 	_build_scenery()
+	# Weather that came while the mountain was being laid: it was painted on the road alone.
+	for zone: String in _painted:
+		var was: Array = _painted[zone]
+		terrain.paint(_terrain_node, zone, was[0], was[1])
 
 
 ## Builds the mountain a [member terrain_later] route waited with, held clear of [param keep]
 ## (route-local points along the land's roads). Drawn routes only; once.
-func finish_terrain(keep: PackedVector3Array) -> void:
+func finish_terrain(keep: PackedVector3Array, tree: SceneTree = null) -> void:
 	if not draws or terrain != null:
 		return
 
 	_keep = keep
-	_build_mountain()
+	_terrain_wanted = true
+	await _build_mountain(tree)
 
 
 ## The heightfield under this route, from its samples alone (and the land's roads through it,
 ## [param keep]): what [method build] draws, and what a suite asks without drawing.
 func make_terrain(keep: PackedVector3Array = PackedVector3Array()) -> DdTerrain:
 	var made := DdTerrain.new()
+	_compute_terrain(made, keep)
+	return made
+
+
+## Fills [param made] from this route; a coroutine only when [member DdTerrain.tree] is set.
+func _compute_terrain(made: DdTerrain, keep: PackedVector3Array) -> void:
 	var pads: Array = []
 
 	for is_lot: bool in [true, false]:
@@ -864,8 +893,7 @@ func make_terrain(keep: PackedVector3Array = PackedVector3Array()) -> DdTerrain:
 		var along := -PAD_SIZE.y * 0.5 + 2.0 if is_lot else PAD_SIZE.y * 0.5 - 2.0
 		pads.append({"centre": at.origin + at.basis * Vector3(0.0, 0.0, -along), "basis": at.basis})
 
-	made.compute(self, WALL_HEIGHT, SLAB, SKIRT_DEPTH / DROP_OUT, _lowest_y - SKIRT_DEPTH, pads, PAD_SIZE * 0.5, keep)
-	return made
+	await made.compute(self, WALL_HEIGHT, SLAB, SKIRT_DEPTH / DROP_OUT, _lowest_y - SKIRT_DEPTH, pads, PAD_SIZE * 0.5, keep)
 
 
 ## The centre line, dashed: three metres on, three off, a hair above the surface.
@@ -981,6 +1009,7 @@ func paint_zone(zone: String, snowy: bool, rainy: bool) -> void:
 	if material == null:
 		return
 
+	_painted[zone] = [snowy, rainy]
 	material.albedo_color = SNOW if snowy else (WET if rainy else ASPHALT)
 	material.roughness = 0.35 if rainy and not snowy else 0.9
 

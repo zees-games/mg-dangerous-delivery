@@ -24,6 +24,8 @@ const DdAudio := preload("dd_audio.gd")
 const DdSettings := preload("dd_settings.gd")
 const DdWalker := preload("dd_walker.gd")
 const DdLot := preload("dd_lot.gd")
+const DdLoad := preload("dd_load.gd")
+const DdLoadScreen := preload("dd_load_screen.gd")
 
 ## Where dot-server's client publishes its link before the game scene loads. Present: this
 ## client is connected; absent: it is offline and owns its world.
@@ -143,8 +145,41 @@ const FOOT_CAMERA_BACK := 4.2
 const FOOT_CAMERA_UP := 0.6
 
 
+## Whether to put a loading screen up from the first frame and lay the mountains over the
+## frames after (the real entry, dd.tscn, sets it). Off, [method _ready] builds everything
+## before it returns, which every suite and tool relies on.
+@export var staged_load: bool = false
+
+var _built: bool = false
+
+## The loading screen, until the player stands in the lot.
+var loading: DdLoadScreen = null
+
+
 func _ready() -> void:
+	DdLoad.begin()
+	# Nothing runs against a half-built client while the loading screen paints first.
+	set_process(not staged_load)
+	set_physics_process(not staged_load)
+	set_process_unhandled_input(not staged_load)
+	var layer := CanvasLayer.new()
+	layer.name = "UI"
+	add_child(layer)
+
+	if staged_load:
+		loading = DdLoadScreen.new()
+		# Its own layer, above the HUD, the garage, the chat and the menu, which are added after this.
+		var cover := CanvasLayer.new()
+		cover.name = "LoadingLayer"
+		cover.layer = 100
+		add_child(cover)
+		cover.add_child(loading)
+		loading.set_step("Connecting" if DotRegistry.get_node_service(LINK_SERVICE) != null and not OS.get_cmdline_user_args().has("--offline") else "Starting", 0.02)
+		# One frame to paint it before the first piece of work, which is the part that is slow.
+		await get_tree().process_frame
+
 	_build_environment()
+	DdLoad.mark("environment")
 
 	link = DotRegistry.get_node_service(LINK_SERVICE)
 	_offline = link == null or OS.get_cmdline_user_args().has("--offline")
@@ -157,7 +192,17 @@ func _ready() -> void:
 	# would fight it for the name) and not ticking itself (the bridge ticks it on the clock).
 	game.register_service = _offline
 	game.self_tick = _offline
+	game.staged_terrain = staged_load
+	game.terrain_progress.connect(func(done: int, total: int) -> void:
+		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
+			print(DdLoad.report()))
+	_step("Building the world" if _offline else "Waiting for the server", 0.1 if _offline else 0.15)
+
+	if staged_load and _offline:
+		await get_tree().process_frame
+
 	add_child(game)
+	DdLoad.mark("world (total)")
 
 	if _offline:
 		game.walker_placed.connect(func(key: StringName) -> void:
@@ -175,9 +220,7 @@ func _ready() -> void:
 
 	_build_weather()
 
-	var layer := CanvasLayer.new()
-	layer.name = "UI"
-	add_child(layer)
+	_step("Setting up the lot", 0.5)
 	hud = DdHud.new()
 	hud.name = "Hud"
 	layer.add_child(hud)
@@ -189,16 +232,21 @@ func _ready() -> void:
 	chat = new_chat()
 	add_child(chat)
 	garage.chat_window = chat.window
+	DdLoad.mark("camera, weather, hud, garage, chat")
+	_step("Sound", 0.6)
 	_build_audio()
+	DdLoad.mark("audio")
 	_build_effects()
 
 	_build_settings()
+	DdLoad.mark("effects, settings")
 	_listen_for_rock()
 
 	if not _offline:
 		_show_garage(false)
 		DotLog.result(CHANNEL, "the netcode", _build_netcode())
 		DotLog.result(CHANNEL, "chat and voice", chat.attach(bridge))
+		_go()
 		return
 
 	DotLog.result(CHANNEL, "chat, offline", chat.attach(null))
@@ -228,6 +276,9 @@ func _ready() -> void:
 	# On foot in the lot, not in a menu: the panel is G (or a salesperson's E).
 	_show_garage(false)
 	_place_walker(_on_foot_transform())
+	DdLoad.mark("walker")
+	_go()
+	_report_load()
 
 	if auto_route != &"":
 		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
@@ -523,6 +574,9 @@ func _build_settings() -> void:
 		# The HUD in the menu's theme and at the player's HUD size, live.
 		if hud != null:
 			hud.follow_menu(settings.menu)
+
+		if loading != null:
+			loading.follow_menu(settings.menu)
 
 	# The HUD's key list from the table, now and whenever the menu closes (a key may have
 	# moved on its Controls page).
@@ -955,6 +1009,7 @@ func _place_walker(where: Transform3D) -> void:
 	walker.visible = true
 	walker.put(where)
 	_mouse = Vector2.ZERO
+	_finish_loading()
 
 
 ## Somebody's look on foot, the same on every machine: picked from their key by the MD5 roll
@@ -1390,3 +1445,50 @@ static func new_chat() -> DotGameChatClient:
 func _toy_sound(id: StringName, at: Vector3, strength: float) -> void:
 	if audio != null and audio.manager != null:
 		var _played := audio.manager.play_at(id, at, clampf(strength, 0.25, 1.0))
+
+
+## The client is built: its callbacks may run, and a placement that came first lifts the loading
+## screen now.
+func _go() -> void:
+	_built = true
+	set_process(true)
+	set_physics_process(true)
+	set_process_unhandled_input(true)
+
+	if walker != null:
+		_finish_loading()
+
+	if not staged_load:
+		_report_load()
+
+
+## `--dd-load-times` prints where the time went, a line per step; otherwise it is a debug line.
+func _report_load() -> void:
+	if OS.get_cmdline_user_args().has("--dd-load-times"):
+		print(DdLoad.report())
+	else:
+		DotLog.debug(CHANNEL, "load times", {"report": DdLoad.report()})
+
+
+## Words and a fraction to the loading screen, while there is one.
+func _step(words: String, fraction: float) -> void:
+	if loading != null:
+		loading.set_step(words, fraction)
+
+
+## The player is placed: the loading screen goes after the frame that shows the lot has been
+## drawn (taking it off in the same frame would flash the grey this is here to hide). The
+## mountains are still being laid over the frames after, a route at a time.
+func _finish_loading() -> void:
+	if loading == null or not _built:
+		return
+
+	var screen := loading
+	loading = null
+	screen.set_step("Ready", 1.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cover := screen.get_parent()
+	screen.queue_free()
+	cover.queue_free()
+	_report_load()

@@ -15,6 +15,10 @@ func _ready() -> void:
 		if arg.begins_with("--") and arg.contains("="):
 			_args[arg.substr(2, arg.find("=") - 2)] = arg.substr(arg.find("=") + 1)
 
+	if str(_args.get("view", "")) == "loading":
+		await _loading()
+		return
+
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
 	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin"]
@@ -313,3 +317,19 @@ func _show_ballot(world: Node) -> void:
 	while waited < 1.0:
 		waited += get_process_delta_time()
 		await get_tree().process_frame
+
+
+## The loading screen as a player meets it: the real entry's client with `staged_load`, drawn at
+## the frame after it was put up. Later it is gone (it leaves two frames after the player is
+## placed), so this is the one picture of it.
+func _loading() -> void:
+	var client := DdClient.new()
+	client.staged_load = true
+	add_child(client)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var image := get_viewport().get_texture().get_image()
+	var path := str(_args.get("out", "res://screenshots/loading.png"))
+	var saved := image.save_png(path)
+	print("shot: ", path, " ", image.get_size(), " status=", client.loading.status() if client.loading != null else "(gone)", " saved=", saved == OK)
+	get_tree().quit()

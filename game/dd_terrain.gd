@@ -122,6 +122,11 @@ var _slab: float = 0.0
 var _drop_slope: float = 0.0
 var _noise_cache: Dictionary = {}
 
+## When set, [method compute] gives the frame back between its passes (a coroutine to await).
+## Unset, it runs straight through, which is what a suite and a server want. A browser tab has one
+## thread: a whole mountain in one frame is a frozen window, and in pieces it is a smooth one.
+var tree: SceneTree = null
+
 
 ## Builds the heightfield for [param route] (a built [DdRoute], untyped so the two scripts do
 ## not preload each other). [param pads] is [code][{"centre": Vector3, "basis": Basis}][/code]
@@ -198,8 +203,11 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 	nz = int(ceil((hi.y - lo.y + MARGIN * 2.0) / CELL)) + 1
 	var count := nx * nz
 
+	await _pause()
 	_nearest_samples(points)
+	await _pause()
 	_second_samples(points)
+	await _pause()
 
 	# What the ground wants to be: the nearest sample's cliff side climbs, its drop side falls
 	# under the drop's rock slope to the water.
@@ -234,8 +242,11 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 	# Where two stretches of road meet in the grid (either leg of a switchback) their wishes
 	# disagree by tens of metres across one cell. Smoothed before the band is applied, so the
 	# smoothing never drags the band's trench up out from under the road.
+	await _pause()
+
 	for _pass in 3:
 		_blur()
+		await _pause()
 
 	for k in count:
 		var x := origin.x + float(k % nx) * CELL
@@ -250,11 +261,15 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 		var edge := float(mini(mini(gx, nx - 1 - gx), mini(gz, nz - 1 - gz))) * CELL
 		heights[k] = lerpf(water_y - 8.0, heights[k], smoothstep(0.0, FALLOFF, edge))
 
+	await _pause()
+
 	# The lot and the depot stand on ground: a bank under each, out to EMBANKMENT metres. The
 	# mountain gives way past the road's ends, and without this both pads stood on nothing at
 	# the edge of the lake, a slab in the air seen from every hairpin above them.
 	for pad: Dictionary in pads:
 		_bank_up_pad(pad["centre"], pad["basis"], pad_half, (pad["centre"] as Vector3).y - slab - CLEARANCE)
+
+	await _pause()
 
 	# The band, last: nothing above may undo it.
 	for i in n:
@@ -266,8 +281,15 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 	for p in keep:
 		_hold_under(Vector2(p.x, p.z), KEEP_HALF + BAND, p.y - slab - CLEARANCE)
 
+	await _pause()
 	_normals()
 	DotLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})
+
+
+## One frame back to the engine when [member tree] is set; nothing otherwise.
+func _pause() -> void:
+	if tree != null:
+		await tree.process_frame
 
 
 ## Height of the drawn surface at route-local [param x], [param z]: the same two triangles a

@@ -4,3 +4,4 @@
 
 [node name="DangerousDelivery" type="Node3D"]
 script = ExtResource("1")
+staged_load = true

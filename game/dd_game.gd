@@ -38,6 +38,7 @@ const DdLot := preload("dd_lot.gd")
 const DdLand := preload("dd_land.gd")
 const DdGate := preload("dd_gate.gd")
 const DdSign := preload("dd_sign.gd")
+const DdLoad := preload("dd_load.gd")
 
 const CHANNEL := "delivery.game"
 
@@ -267,6 +268,17 @@ func _init() -> void:
 	maps.assign(DdMountains.shipped())
 
 
+## Whether each route's mountain is laid over frames after the rest is built, instead of inside
+## [method build_routes]. Set by a client that draws and shows a loading screen; a server draws
+## none, and a suite wants it all there when the call returns.
+var staged_terrain: bool = false
+
+## Mountains laid so far, of how many ([member staged_terrain] only).
+signal terrain_progress(done: int, total: int)
+
+var _terrain_gen: int = 0
+
+
 func _ready() -> void:
 	# Over whatever was set before: a file, the environment and the command line only change
 	# what they name.
@@ -485,6 +497,7 @@ func add_map(doc: Variant) -> DotResult:
 
 ## Builds every document as a route, side by side along +X. Rebuilds from scratch.
 func build_routes() -> void:
+	_terrain_gen += 1
 	# Out of the tree now, not at the frame's end: the new routes take the same node names,
 	# and a name still held by a node waiting to be freed becomes "@Route_…" on the new one.
 	for id: StringName in routes:
@@ -517,6 +530,7 @@ func build_routes() -> void:
 		route.terrain_later = true
 		add_child(route)
 		var _built := route.build(documents[id])
+		DdLoad.mark("route %s" % String(id))
 		var lo := INF
 		var hi := -INF
 
@@ -542,8 +556,10 @@ func build_routes() -> void:
 			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": route.position.x})
 
 	_build_lot()
+	DdLoad.mark("lot")
 	_build_land()
 	_refresh_weather(true)
+	DdLoad.mark("weather")
 
 
 ## The documents as a client is sent them, in the garage's order.
@@ -1032,10 +1048,14 @@ func _build_land() -> void:
 
 	land.hill_height = float(map["land"]["hills"])
 	land.coast = float(map["land"]["coast"])
+	DdLoad.mark("gates, road lines")
 	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
+	DdLoad.mark("land")
 	_build_entrance_signs(order)
 
 	# Each mountain held under the roads that cross its ground, now they are known.
+	var finishing: Array = []
+
 	for id: StringName in routes:
 		var road: DdRoute = routes[id]
 		var keep := PackedVector3Array()
@@ -1044,7 +1064,37 @@ func _build_land() -> void:
 			for p: Vector3 in land.roads[line_id]:
 				keep.append(p - road.position)
 
-		road.finish_terrain(keep)
+		finishing.append([road, keep])
+
+
+	_terrain_gen += 1
+
+	if staged_terrain and is_inside_tree():
+		_lay_terrain(finishing, _terrain_gen)
+		return
+
+	for pair: Array in finishing:
+		pair[0].finish_terrain(pair[1])
+	DdLoad.mark("terrain")
+
+
+## The mountains one at a time, each over several frames, behind the lot that is already up
+## (a browser tab has one thread, and all of them at once is seconds with nothing drawn). A
+## rebuild while this runs bumps [member _terrain_gen] and it stops: the routes it holds are
+## already freed. Emits [signal terrain_progress] after each.
+func _lay_terrain(finishing: Array, gen: int) -> void:
+	var done := 0
+	terrain_progress.emit(0, finishing.size())
+
+	for pair: Array in finishing:
+		await (pair[0] as DdRoute).finish_terrain(pair[1], get_tree())
+
+		if gen != _terrain_gen or not is_inside_tree():
+			return
+
+		done += 1
+		DdLoad.mark("mountain %d/%d" % [done, finishing.size()])
+		terrain_progress.emit(done, finishing.size())
 
 
 ## A sign at the start of each road out of the lot, on its right shoulder, naming the course and

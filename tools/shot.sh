@@ -18,6 +18,7 @@
 #   tools/shot.sh --view=drive --sky=snow                  # force the weather everywhere
 #   tools/shot.sh --view=drive --route=dd_snowline --at=880 --seconds=4   # put the truck 880 m along first
 #   tools/shot.sh --mountain=low_country                   # the lot on another mountain (DdMountains)
+#   tools/shot.sh --view=loading                           # the loading screen, as the real entry puts it up
 #   tools/shot.sh --ballot --out=res://screenshots/ballot.png   # the mountain vote's ballot, mid-vote, as the client shell draws it
 #   tools/shot.sh --ballot --chat=8                        # and a chat log filled with eight lines over the lot
 #
