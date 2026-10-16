@@ -149,13 +149,17 @@ func _ready() -> void:
 	_speed = _label(speed_plate, "0 km/h", 34, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	# The keys, down the right side: the defaults until the client says what is bound
-	# ([method show_keys]).
+	# ([method show_keys]). Stacked on the speed plate, not centred: the shell's ballot column
+	# runs down the right edge from 110 px to about 440, and a centred plate (290..465 at 720)
+	# had its first lines under it. Growing upward keeps the bottom row fixed whatever it lists.
 	var keys_plate := _plate(self)
-	keys_plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+	keys_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	keys_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	keys_plate.grow_vertical = Control.GROW_DIRECTION_BOTH
+	keys_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	keys_plate.offset_left = -160.0
 	keys_plate.offset_right = -12.0
+	keys_plate.offset_top = -82.0
+	keys_plate.offset_bottom = -82.0
 	# On a plate, in the theme's words: it is read over snow and sky, where the faded list
 	# disappeared.
 	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
