@@ -11,6 +11,21 @@ extends RefCounted
 ## every field is applied to a [DotVehicleTunables], so the chassis that drives a truck is
 ## the one every vehicle in the family is driven by.
 
+## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs are solid (the glass is a painted face, not a hole), so the seat is set half into the driver's side window: head, shoulders and the wheel hand show from outside, and the rest is inside the shell.
+const SEATS := {
+	&"box_truck": {"at": Vector3(-0.85, 1.0, -1.15), "height": 1.1},
+	&"flatbed": {"at": Vector3(-0.9, 1.05, -1.0), "height": 1.1},
+	&"hauler": {"at": Vector3(-0.9, 1.25, -0.9), "height": 1.1},
+	&"semi": {"at": Vector3(-0.9, 1.25, -0.9), "height": 1.1},
+	&"bulk": {"at": Vector3(-1.0, 1.3, -1.6), "height": 1.1},
+}
+
+
+## The seat for a truck id, with a fallback for a modded truck the table does not know.
+static func seat_of(id: StringName) -> Dictionary:
+	return SEATS.get(id, {"at": Vector3(-0.45, 1.5, -1.6), "height": 1.2})
+
+
 ## The trucks, in the order the garage shows them.
 ##
 ## [b]The drive is an engine, a gearbox and the air, not a top speed[/b] ([DdDrivetrain]):
@@ -199,12 +214,16 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	var raise := 0.0 if def.has("trailer") else float(cargo_def.get("com_raise", 0.0)) * fill
 	t.centre_of_mass_drop = maxf(float(def.get("centre_of_mass_drop", 0.6)) - raise, 0.05)
 	t.suspension_travel = 0.3
-	t.suspension_stiffness = 60.0
+	# Stiffer than the 60 it was: wind (a lateral central force) rocked the body 2 to 5 degrees every
+	# few seconds on a level road, and the lean falls with the spring. 75 is as far as it goes:
+	# at 110 the semi's trailer test crawled and a truck hopped off two wheels when the settle
+	# hold let go; relaxation damping 1.25 (up from 0.95) takes the hop out and 1.5 slowed the semi.
+	t.suspension_stiffness = 75.0
 	# Damped near Godot's "typical" values: at dot-vehicle's lighter defaults a loaded truck,
 	# with nothing proportional to speed damping the body any more (DdTruck), nodded on its
 	# springs after being put down until the front wheels left the road.
-	t.damping_compression = 0.85
-	t.damping_relaxation = 0.95
+	t.damping_compression = 0.9
+	t.damping_relaxation = 1.25
 	return t
 
 

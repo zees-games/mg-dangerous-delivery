@@ -14,6 +14,9 @@
 #   tools/shot.sh --view=standin --seconds=40             # a stand-in from the spawn to its truck and up the land's road to a gate
 #   tools/shot.sh --view=drive --route=dd_snowline --seconds=40   # a stand-in at the wheel, chase camera
 #   tools/shot.sh --view=cab --route=dd_river_cut --seconds=20    # from the cab
+#   tools/shot.sh --view=cab_side [--truck=semi] [--dx=-5 --dy=2.2 --dz=-1.6]   # beside the driver's door: the seated person
+#   tools/shot.sh --view=drive --orbit=70,15              # the chase camera dragged round (yaw,pitch degrees)
+#   tools/shot.sh --view=standin --near=3.5 --seconds=3   # a walker close up, mid-stride (--near is the metres behind)
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above
 #   tools/shot.sh --view=drive --sky=snow                  # force the weather everywhere
 #   tools/shot.sh --view=drive --route=dd_snowline --at=880 --seconds=4   # put the truck 880 m along first
@@ -29,7 +32,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"
 for arg in "$@"; do
     case "$arg" in
         --view=*)    view="${arg#*=}" ;;
@@ -44,6 +47,11 @@ for arg in "$@"; do
         --ballot)    ballot="1" ;;
         --chat=*)    chat="${arg#*=}" ;;
         --people=*)  people="${arg#*=}" ;;
+        --near=*)    near="${arg#*=}" ;;
+        --orbit=*)   orbit="${arg#*=}" ;;
+        --dx=*)      dx="${arg#*=}" ;;
+        --dy=*)      dy="${arg#*=}" ;;
+        --dz=*)      dz="${arg#*=}" ;;
         --panel)     panel="1" ;;
         *)           echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
@@ -51,4 +59,4 @@ done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz"

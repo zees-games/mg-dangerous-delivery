@@ -132,12 +132,29 @@ func _ready() -> void:
 		var _bot = client.game.join(&"standin", "Stand-in", true)
 		_follow(client, &"standin")
 
+	# A held-button orbit: --orbit=yaw_degrees,pitch_degrees, as if dragged and held.
+	if str(_args.get("orbit", "")) != "":
+		var parts := str(_args["orbit"]).split(",")
+		client._orbit = Vector2(deg_to_rad(float(parts[0])), deg_to_rad(float(parts[1])))
+		client._orbit_held = true
+
 	if view == "cab":
 		client.camera_mode = DdClient.CameraMode.CAB
 	elif view == "high":
 		client.camera_mode = DdClient.CameraMode.HIGH
 
 	await get_tree().create_timer(float(_args.get("seconds", "6"))).timeout
+
+	# Beside the driver's door, to size and place the seated person in a truck.
+	if view == "cab_side":
+		var rig: Node3D = client.game.drivers[client.local_key].truck
+		var side := Camera3D.new()
+		side.far = 500.0
+		side.fov = 45.0
+		add_child(side)
+		side.global_position = rig.global_position + rig.global_basis * Vector3(float(_args.get("dx", "-5")), float(_args.get("dy", "2.2")), float(_args.get("dz", "-1.6")))
+		side.look_at(rig.global_position + rig.global_basis * Vector3(-0.4, 1.7, float(_args.get("dz", "-1.6"))))
+		side.current = true
 
 	if view == "land":
 		var lot_node: Node3D = client.game.lot
@@ -258,7 +275,7 @@ func _follow(client: Node, key: StringName) -> void:
 		var back: Vector3 = body.global_basis.z
 		back.y = 0.0
 		back = back.normalized() if back.length() > 0.01 else Vector3.BACK
-		var want: Vector3 = body.global_position + back * (7.0 if who.on_foot else 16.0) + Vector3.UP * (4.0 if who.on_foot else 8.0)
+		var want: Vector3 = body.global_position + back * (float(_args.get("near", "0")) * 1.0 if str(_args.get("near", "0")) != "0" and who.on_foot else (7.0 if who.on_foot else 16.0)) + Vector3.UP * (1.4 if str(_args.get("near", "0")) != "0" and who.on_foot else (4.0 if who.on_foot else 8.0))
 		smooth = want if not smooth.is_finite() else smooth.lerp(want, 0.08)
 		cam.global_position = smooth
 		cam.look_at(body.global_position + Vector3.UP * 1.5)

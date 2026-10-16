@@ -14,6 +14,7 @@ const DdGame := preload("dd_game.gd")
 const DdHud := preload("dd_hud.gd")
 const DdGarage := preload("dd_garage.gd")
 const DdRoute := preload("dd_route.gd")
+const DdTrucks := preload("dd_trucks.gd")
 const DdTrip := preload("dd_trip.gd")
 const DdTruck := preload("dd_truck.gd")
 const DdWeather := preload("dd_weather.gd")
@@ -71,6 +72,9 @@ var _sun: DirectionalLight3D = null
 var _clear_sun := 1.0
 var _env: Environment = null
 var _look := Vector3.ZERO
+## The chase camera's orbit round the truck (yaw, pitch in radians) while the left button is held, and the button.
+var _orbit := Vector2.ZERO
+var _orbit_held := false
 
 ## The server's `mp_forceview`, the family's numbering: 0 any camera, 1 the cab only (the
 ## first-person view), 2 the chase and high cameras only. Followed through the link.
@@ -133,6 +137,9 @@ var _mouse := Vector2.ZERO
 
 ## Radians per pixel of mouse movement on foot.
 const MOUSE_SENSITIVITY := 0.0025
+## How far the held-button orbit may tilt the chase camera, radians: down toward the road is short because the road sweeps it anyway.
+const ORBIT_PITCH_MIN := -0.25
+const ORBIT_PITCH_MAX := 1.0
 
 ## On foot, the camera: behind the shoulder (third person) or at the eyes (first person, F5,
 ## or the only view under `mp_forceview 1`).
@@ -676,10 +683,19 @@ func board_snapshot() -> Dictionary:
 func _unhandled_input(event: InputEvent) -> void:
 	# The mouse looks round on foot, only while it is captured (a menu or the panel frees it).
 	var motion := event as InputEventMouseMotion
+	var button := event as InputEventMouseButton
+
+	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
+		_orbit_held = button.pressed and _can_orbit()
+		return
 
 	if motion != null:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _walking():
 			_mouse += motion.relative
+		elif _orbit_held and _can_orbit():
+			# The on-foot look, the same scale and signs ([DotTpsMotor]): drag right to swing the view right.
+			_orbit.x = wrapf(_orbit.x - motion.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+			_orbit.y = clampf(_orbit.y + motion.relative.y * MOUSE_SENSITIVITY, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX)
 		return
 
 	var key := event as InputEventKey
@@ -836,6 +852,7 @@ func _process(delta: float) -> void:
 		if other.truck != null and is_instance_valid(other.truck):
 			var seen := game.sees(me, other)
 			(other.truck as Node3D).visible = seen
+			_seat_driver(k, other, me, seen)
 
 			if other != me:
 				_feed_engine(other, seen, delta)
@@ -973,6 +990,12 @@ func _apply_pointer() -> void:
 
 
 # --- On foot -----------------------------------------------------------------
+
+## Whether a held left button may orbit the camera: driving, in the chase or the high view, with no menu or garage up. The cab view looks out of the windscreen and keeps it.
+func _can_orbit() -> bool:
+	var me := _driver()
+	return me != null and me.truck != null and not _walking() and camera_mode != CameraMode.CAB and pointer_mode() != Input.MOUSE_MODE_VISIBLE
+
 
 ## Whether this player is walking now: on foot, with a body, not on a road.
 func _walking() -> bool:
@@ -1123,6 +1146,8 @@ func toggle_foot_view() -> void:
 ## The camera on foot: at the eyes in first person, behind and over them in third, swept from
 ## the head so a wall or a truck never comes between.
 func _follow_walker(delta: float) -> void:
+	_orbit = Vector2.ZERO
+	_orbit_held = false
 	var yaw := walker.view_yaw()
 	var pitch := walker.view_pitch()
 	var eyes := walker.global_position + Vector3.UP * DdWalker.EYE_HEIGHT
@@ -1176,7 +1201,7 @@ func _present_walkers(me: DdGame.Driver) -> void:
 			person.name = "Person"
 			other.walker.add_child(person)
 			person.build(look_of(k), DdWalker.HEIGHT)
-			person.auto_animate = true
+			DdWalker.tune(person)
 			var tag := Label3D.new()
 			tag.name = "Name"
 			tag.font_size = 36
@@ -1193,6 +1218,35 @@ func _present_walkers(me: DdGame.Driver) -> void:
 			tag_node.text = other.name
 
 		other.walker.visible = other.on_foot and game.sees(me, other)
+
+
+## The person at the wheel of [param other]'s truck, the same person as their walker: built the first time, a child of the truck so it rides the truck's snapshot with nothing of its own to sync, with no body and on no physics layer. Seated with the hands on the wheel at the cab's seat ([constant DdTrucks.SEATS]). Gone while they are on foot (the walker is the person then), and in the cab view for the local player, where it would be the inside of the head.
+##
+## Not DotVehicleRide: that reparents the figure to a seat and a rider's body would have to be handed back on every exit and snapshot; this one is drawn and never owns the player.
+func _seat_driver(k: StringName, other: DdGame.Driver, me: DdGame.Driver, truck_seen: bool) -> void:
+	var truck := other.truck as DdTruck
+	var person := truck.get_node_or_null("Driver") as DotHumanoidFigure
+	var wanted := game.draws and truck_seen and not other.on_foot
+	var seat: Dictionary = DdTrucks.seat_of(truck.truck_id)
+
+	if other == me and camera_mode == CameraMode.CAB:
+		wanted = false
+
+	if not wanted:
+		if person != null:
+			person.visible = false
+		return
+
+	if person == null:
+		person = DotHumanoidFigure.new()
+		person.name = "Driver"
+		truck.add_child(person)
+		person.build(look_of(k), float(seat["height"]))
+		person.set_motion({"seated": true, "driving": true, "on_floor": true})
+		person.animate(0.0, 0.0)
+		person.position = (seat["at"] as Vector3) - Vector3.UP * person.seat_height()
+
+	person.visible = true
 
 
 ## The camera key: the next camera the server's `mp_forceview` allows, and a line when it
@@ -1269,6 +1323,17 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	# Leaving the cab, the chase eases out from where the camera was, as it always did. After
 	# a teleport it cuts: eased from the old place, it flew through the mountain to the new
 	# one (the play test's fly-through at a route's start, 1:27).
+	# Orbited by hand while the button is held, easing back behind the truck when it is let go.
+	if not _orbit_held:
+		_orbit = _orbit.lerp(Vector2.ZERO, 1.0 - exp(-delta * 3.0))
+	if _orbit.length() > 0.001:
+		var pivot := truck.global_position + Vector3.UP * PIVOT_HEIGHT
+		var off := (target - pivot).rotated(Vector3.UP, _orbit.x)
+		var axis := off.cross(Vector3.UP)
+		if axis.length() > 0.001:
+			off = off.rotated(axis.normalized(), _orbit.y)
+		target = pivot + off
+
 	var teleported := _last_truck_at.distance_to(truck.global_position) > CUT_DISTANCE
 	_last_truck_at = truck.global_position
 	if teleported:

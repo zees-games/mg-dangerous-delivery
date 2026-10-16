@@ -84,7 +84,14 @@ func setup(key: StringName, look: DotHumanoidLook, draws: bool = true) -> void:
 		figure.name = "Person"
 		add_child(figure)
 		figure.build(look if look != null else DotHumanoidLook.stock(0), HEIGHT)
-		figure.auto_animate = true
+		tune(figure)
+
+
+## Makes a person animate from how far it moved, as a walker rather than a runner. The walking pace (4.2) sits just over the state machine's default run threshold (4.0), which played the hunched run clip at a crawl; only the sprint (7.5) should run. The speed is averaged because the body moves in physics ticks or on 30 Hz snapshots, so its per-frame speed alternates and the clip flipped between states.
+static func tune(person: DotHumanoidFigure) -> void:
+	person.set_run_speeds(5.8, 5.2)
+	person.auto_smooth_time = 0.15
+	person.auto_animate = true
 
 
 ## One tick of walking.
