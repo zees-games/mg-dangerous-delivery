@@ -8,7 +8,7 @@
 	"routes": [],
 	"layout": {
 		"gap": 360,
-		"clearance": 420,
+		"clearance": 800,
 		"roads": {
 			"dd_devils_spine": [[1900, 590], [2450, 430], [2330, 230]]
 		}

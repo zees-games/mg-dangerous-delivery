@@ -138,7 +138,7 @@ func _test_the_module_loads() -> void:
 	add_child(scene)
 	await get_tree().process_frame
 	game = DotRegistry.get_node_service(DdGame.SERVICE) as DdGame
-	_check(game != null and game.routes.size() == 5, "the server scene builds the mountain and publishes it")
+	_check(game != null and game.routes.size() == 6, "the server scene builds the mountain and publishes it")
 	_check(game != null and not game.draws, "and draws nothing")
 
 	var script := load("res://game/dd_module.gd") as GDScript
@@ -347,7 +347,7 @@ func _test_the_mountain_vote() -> void:
 	game.end_trip(hauler)
 	module.call("_game_tick", 0, 0.05)
 	module.call("_game_tick", 0, director.rules.apply_delay_sec + 0.5)
-	_check(game.mountain_id == &"low_country" and game.routes.size() == 3 and not game.routes.has(&"dd_devils_spine"),
+	_check(game.mountain_id == &"low_country" and game.routes.size() == 4 and not game.routes.has(&"dd_devils_spine"),
 		"the road clear, the world is rebuilt on the mountain voted for", "%s, %d routes" % [game.mountain_id, game.routes.size()])
 	_check(director.current_id() == &"low_country" and not director.clock.is_expired() and server.games.current_map() == "low_country",
 		"its clock starts over, and the server reports it", "%s, %s" % [director.current_id(), server.games.current_map()])
@@ -368,7 +368,7 @@ func _test_the_mountain_vote() -> void:
 	var _m := _run_command("dd_vote_minutes 30")
 	_check(is_equal_approx(director.rules.duration_sec, 1800.0) and is_equal_approx(game.config.mountain_minutes, 30.0),
 		"dd_vote_minutes sets the window", "%.0f s" % director.rules.duration_sec)
-	_check(_said(_run_command("dd_mountain range"), "Whole Range") and game.routes.size() == 5 and director.current_id() == &"range" \
+	_check(_said(_run_command("dd_mountain range"), "Whole Range") and game.routes.size() == 6 and director.current_id() == &"range" \
 			and is_equal_approx(director.clock.duration, 1800.0),
 		"an operator's dd_mountain moves the server back, on the new window", "%d routes, %.0f s" % [game.routes.size(), director.clock.duration])
 	_check(_said(_run_command("dd_mountain nowhere"), "No mountain") and game.mountain_id == &"range",

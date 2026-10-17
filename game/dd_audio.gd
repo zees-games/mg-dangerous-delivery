@@ -128,6 +128,7 @@ static func ids() -> Array[StringName]:
 const ROUTE_BED := {
 	&"dd_foothills": &"amb_outdoor",
 	&"dd_river_cut": &"amb_outdoor",
+	&"dd_slate_quarry": &"amb_wind",
 	&"dd_snowline": &"amb_wind",
 	&"dd_wind_ridge": &"amb_wind",
 	&"dd_devils_spine": &"amb_wind",

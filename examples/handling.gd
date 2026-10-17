@@ -20,7 +20,7 @@ const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
 const SECTIONS := 10
-const CHECKS := 46
+const CHECKS := 47
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.

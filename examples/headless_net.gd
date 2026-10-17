@@ -141,7 +141,7 @@ func _build() -> bool:
 	_server_game = _make_game(true, server_side)
 	_client_game = _make_game(false, client_side)
 	await get_tree().process_frame
-	_check(_server_game.routes.size() == 5 and _client_game.routes.is_empty(), "the server reads its routes; the client reads none")
+	_check(_server_game.routes.size() == 6 and _client_game.routes.is_empty(), "the server reads its routes; the client reads none")
 
 	_server_net = _make_manager(true, server_side)
 	_client_net = _make_manager(false, client_side)
@@ -193,10 +193,10 @@ func _test_joining() -> void:
 	_exchange()
 	await _steps(4)
 	_check(_client_bridge.local_key == _key, "the client is told who it is", String(_client_bridge.local_key))
-	_check(_client_game.routes.size() == 5 and absf(_client_game.routes[&"dd_snowline"].length() - _server_game.routes[&"dd_snowline"].length()) < 0.001,
+	_check(_client_game.routes.size() == 6 and absf(_client_game.routes[&"dd_snowline"].length() - _server_game.routes[&"dd_snowline"].length()) < 0.001,
 		"it builds every route from the documents it was sent, to the centimetre")
 	_check(_client_game.seed_value == _server_game.seed_value, "it has the weather's seed")
-	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 5 and int(_client_bridge.garage_view.get("money", -1)) == 0,
+	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 6 and int(_client_bridge.garage_view.get("money", -1)) == 0,
 		"and its garage")
 	# The site's name, arriving after the seat as dot-platform's admission does.
 	var renamed := _server_bridge.rename(SESSION, "Ada Lovelace")
@@ -334,7 +334,7 @@ func _test_the_gate() -> void:
 	_client_net.interpolate_frame(1.0)
 	var server_me: DdGame.Driver = _server_game.drivers[_key]
 	var gate: Node3D = _server_game.gates[&"dd_foothills"]
-	_check(DdGame.roaming(server_me) and gate.call("at_gate", (server_me.truck as Node3D).global_position) and _client_game.gates.size() == 5,
+	_check(DdGame.roaming(server_me) and gate.call("at_gate", (server_me.truck as Node3D).global_position) and _client_game.gates.size() == 6,
 		"SET OFF drives the truck to the route's gate, and the client has every gate too")
 	var owns := func(_id: StringName) -> bool: return true
 	var mirror_offer := _client_game.use_choice(_key, owns, 0)
@@ -644,13 +644,13 @@ func _test_another_mountain() -> void:
 	var moved := _server_game.set_mountain(&"low_country")
 	_exchange()
 	await _steps(4)
-	_check(moved.ok and _client_game.mountain_id == &"low_country" and _client_game.routes.size() == 3 \
+	_check(moved.ok and _client_game.mountain_id == &"low_country" and _client_game.routes.size() == 4 \
 			and absf(_client_game.routes[&"dd_snowline"].length() - _server_game.routes[&"dd_snowline"].length()) < 0.001,
-		"the client rebuilds the mountain's three routes from the documents it was sent", "%s, %d routes" % [_client_game.mountain_id, _client_game.routes.size()])
+		"the client rebuilds the mountain's four routes from the documents it was sent", "%s, %d routes" % [_client_game.mountain_id, _client_game.routes.size()])
 	var mirror: DdGame.Driver = _client_game.drivers.get(_key, null)
 	_check(was_on_road and mirror != null and mirror.truck == null and not bool(_client_bridge.trip_view.get("on_road", true)),
 		"the trip it was on ended, on both ends", str(_client_bridge.trip_view.get("on_road", "?")))
-	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 3 and str(_client_bridge.garage_view.get("mountain", "")) == "Low Country",
+	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 4 and str(_client_bridge.garage_view.get("mountain", "")) == "Low Country",
 		"and its garage lists the mountain's routes under its name", str(_client_bridge.garage_view.get("mountain", "")))
 	# A map only the server has (a map pack's): the client builds it from the document it is sent.
 	var only_here := {"format": 1, "kind": "map", "id": "server_only", "name": "Server Only", "routes": ["dd_foothills", "dd_wind_ridge"],
@@ -669,7 +669,7 @@ func _test_another_mountain() -> void:
 	var _back := _server_game.set_mountain(&"range")
 	_exchange()
 	await _steps(2)
-	_check(_client_game.routes.size() == 5 and _client_game.mountain_id == &"range", "and back to the whole range")
+	_check(_client_game.routes.size() == 6 and _client_game.mountain_id == &"range", "and back to the whole range")
 	_finished_section()
 
 

@@ -117,7 +117,7 @@ func _test_documents() -> void:
 		if f.get_extension() == "json" and DdRouteDoc.normalise(JSON.parse_string(FileAccess.get_file_as_string("res://routes/" + f))).ok:
 			accepted += 1
 
-	_check(accepted == 5, "every shipped route is accepted", "%d" % accepted)
+	_check(accepted == 6, "every shipped route is accepted", "%d" % accepted)
 	_check(not DdRouteDoc.normalise(_doc([{"length": 10}], {"format": 2})).ok, "a newer format is refused")
 	_check(not DdRouteDoc.normalise(_doc([{"length": 20, "turn": 90}])).ok, "a bend no truck can take is refused")
 	_check(not DdRouteDoc.normalise(_doc([{"length": 20, "climb": 10}])).ok, "a climb too steep is refused")
@@ -168,7 +168,7 @@ func _test_mountain() -> void:
 	var crowded: Array = []
 	var same := true
 
-	for file in ["dd_foothills", "dd_river_cut", "dd_snowline", "dd_wind_ridge", "dd_devils_spine"]:
+	for file in ["dd_foothills", "dd_river_cut", "dd_slate_quarry", "dd_snowline", "dd_wind_ridge", "dd_devils_spine"]:
 		var doc: Dictionary = DdRouteDoc.normalise(JSON.parse_string(FileAccess.get_file_as_string("res://routes/%s.json" % file))).value
 		var road := DdRoute.new()
 		road.draws = false
@@ -382,11 +382,11 @@ func _test_sql() -> void:
 func _test_unlocking() -> void:
 	_section("levels open in order")
 	var _me := game.join(&"p1", "Player One")
-	_check(game.route_order.size() == 5 and game.route_order[0] == &"dd_foothills", "the routes are in level order")
+	_check(game.route_order.size() == 6 and game.route_order[0] == &"dd_foothills", "the routes are in level order")
 	_check(game.is_unlocked(&"p1", &"dd_foothills") and not game.is_unlocked(&"p1", &"dd_river_cut"), "level 1 is open and level 2 is not")
 	_check(not game.start_trip(&"p1", &"dd_snowline").ok, "a locked route cannot be started")
 	var view := game.garage_view(&"p1")
-	_check((view["routes"] as Array).size() == 5 and bool(view["routes"][1]["locked"]), "the garage shows which are locked")
+	_check((view["routes"] as Array).size() == 6 and bool(view["routes"][1]["locked"]), "the garage shows which are locked")
 	_finished_section()
 
 
@@ -764,12 +764,12 @@ func _test_every_mountain() -> void:
 			names_clean = names_clean and String((game.routes[id] as Node).name) == "Route_%s" % String(id)
 
 	var _back := game.set_mountain(DdMountains.DEFAULT)
-	_check(built and game.routes.size() == 5, "each one builds, and the lot names it", String(game.mountain_id))
+	_check(built and game.routes.size() == 6, "each one builds, and the lot names it", String(game.mountain_id))
 	_check(names_clean, "a rebuilt route keeps its node name (the old one leaves the tree first)")
 
 	var narrowed := {}
 
-	for id: String in ["dd_foothills", "dd_river_cut", "dd_snowline"]:
+	for id: String in ["dd_foothills", "dd_river_cut", "dd_slate_quarry", "dd_snowline"]:
 		narrowed[StringName(id)] = game.library[StringName(id)]
 
 	var offered: Array = DdMountains.allowed(narrowed).map(func(m: Dictionary) -> String: return String(m["id"]))

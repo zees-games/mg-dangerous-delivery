@@ -1,0 +1,110 @@
+{
+	"format": 1,
+	"kind": "route",
+	"id": "dd_slate_quarry",
+	"name": "Slate Quarry",
+	"author": "mg-dangerous-delivery",
+	"blurb": "Up a haul road out of a working quarry: gravel underfoot, roadworks, rockfall and the quarry's own trucks coming down.",
+	"level": 2,
+	"pay": 420,
+	"width": 7.8,
+	"cargo": "gravel",
+	"zones": {
+		"pit": {
+			"name": "The Pit",
+			"rain": 0.1,
+			"wind": 0.35
+		},
+		"bench": {
+			"name": "The Benches",
+			"rain": 0.3,
+			"wind": 0.5
+		}
+	},
+	"segments": [
+		{
+			"length": 70.0,
+			"turn": 0.0,
+			"climb": 0.0,
+			"wall": "left",
+			"rail": "none"
+		},
+		{
+			"length": 120.0,
+			"turn": 20.0,
+			"climb": 6.0,
+			"wall": "left",
+			"rail": "none",
+			"zone": "pit",
+			"gravel": 1,
+			"traffic": 1
+		},
+		{
+			"length": 100.0,
+			"turn": -35.0,
+			"climb": 8.0,
+			"wall": "left",
+			"rail": "right",
+			"zone": "pit",
+			"checkpoint": true,
+			"works": 1
+		},
+		{
+			"length": 130.0,
+			"turn": 0.0,
+			"climb": 12.0,
+			"wall": "left",
+			"rail": "none",
+			"zone": "pit",
+			"boulders": 1,
+			"gravel": 1
+		},
+		{
+			"length": 95.0,
+			"turn": 180.0,
+			"climb": 6.0,
+			"wall": "right",
+			"rail": "left",
+			"zone": "bench",
+			"width": 9.3
+		},
+		{
+			"length": 120.0,
+			"turn": 0.0,
+			"climb": 12.0,
+			"wall": "right",
+			"rail": "none",
+			"zone": "bench",
+			"checkpoint": true,
+			"debris": 1,
+			"traffic": 1
+		},
+		{
+			"length": 110.0,
+			"turn": -30.0,
+			"climb": 8.0,
+			"wall": "left",
+			"rail": "none",
+			"zone": "bench",
+			"boulders": 2,
+			"gravel": 1
+		},
+		{
+			"length": 130.0,
+			"turn": 25.0,
+			"climb": 6.0,
+			"wall": "left",
+			"rail": "none",
+			"zone": "bench",
+			"ice": 1,
+			"works": 1
+		},
+		{
+			"length": 90.0,
+			"turn": 0.0,
+			"climb": 0.0,
+			"wall": "none",
+			"rail": "both"
+		}
+	]
+}
