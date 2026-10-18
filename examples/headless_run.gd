@@ -10,6 +10,7 @@ extends Node
 const DdGame := preload("res://game/dd_game.gd")
 const DdSettings := preload("res://game/dd_settings.gd")
 const DdRoute := preload("res://game/dd_route.gd")
+const DdBindings := preload("res://game/dd_bindings.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 const DdTrucks := preload("res://game/dd_trucks.gd")
@@ -26,7 +27,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 28
-const CHECKS := 204
+const CHECKS := 207
 
 var _passed := 0
 var _failed := 0
@@ -1341,6 +1342,34 @@ func _test_walking_client() -> void:
 	_check(camera.global_position.distance_to(walker.global_position) < 7.0 and camera.global_position.y > walker.global_position.y,
 		"the camera follows on foot, behind and over them", str(camera.global_position - walker.global_position))
 	_check(str((client.get("hud").get("_stage") as Label).text).begins_with("THE LOT"), "and the HUD says they are in the lot")
+
+	# The wheel jumps on foot only (two extra rows on dot_fps_jump; Space stays the handbrake).
+	var wheel_keys := DdBindings.make()
+	var wheel_up := wheel_keys.row_for_setting(&"bind_jump_wheel_up")
+	var wheel_down := wheel_keys.row_for_setting(&"bind_jump_wheel_down")
+	_check(not wheel_up.is_empty() and not wheel_down.is_empty() and str(wheel_up["default"]) == "Wheel up"
+		and str(wheel_down["default"]) == "Wheel down" and wheel_keys.row_for_action(DdBindings.HANDBRAKE)["default"] == "Space",
+		"the Controls page has Wheel up and Wheel down for jump, and the handbrake stays on Space")
+	client.set("walk_override", null)
+	var tick := InputEventMouseButton.new()
+	tick.button_index = MOUSE_BUTTON_WHEEL_UP
+	tick.pressed = true
+	client.call("_unhandled_input", tick)
+	var wheel_intent: DotPlayerIntent = client.call("_sample_walk")
+	var again: DotPlayerIntent = client.call("_sample_walk")
+	_check((wheel_intent.buttons & DotPlayerIntent.Btn.JUMP) != 0 and (again.buttons & DotPlayerIntent.Btn.JUMP) == 0,
+		"a wheel tick on foot is one jump, latched from the event", str(wheel_intent.buttons))
+	client.set("walk_override", DotPlayerIntent.new())
+	var driver_now: DdGame.Driver = (client.get("game") as DdGame).drivers[client.get("local_key")]
+	driver_now.on_foot = false
+	client.call("_unhandled_input", tick)
+	var cmd: DotVehicleCommand = client.call("_sample", driver_now)
+	driver_now.on_foot = true
+	client.set("walk_override", null)
+	var after: DotPlayerIntent = client.call("_sample_walk")
+	client.set("walk_override", DotPlayerIntent.new())
+	_check(not cmd.handbrake and (after.buttons & DotPlayerIntent.Btn.JUMP) == 0,
+		"in a truck the wheel does nothing: no handbrake, and no jump saved for later")
 
 	# Up to the salesperson of the truck they start with: E hands it over, and E gets out.
 	var starter: StringName = world.trucks.starter()

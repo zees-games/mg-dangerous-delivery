@@ -42,6 +42,10 @@ static func make() -> DotMenuBindings:
 
 	keys.add(USE, &"bind_use", "Use: buy from a salesperson, get in or out, accept a delivery at a gate", "E", "On foot")
 	keys.add(RUN, &"bind_run", "Run (on foot)", "Shift", "On foot")
+	# The wheel jumps on foot only. Space is the handbrake in a truck, so the wheel is two extra
+	# rows on the family's `dot_fps_jump` (which nothing in a truck reads), never on HANDBRAKE:
+	# a scrolled handbrake would lock the wheels.
+	keys.add_wheel_jump("On foot")
 
 	keys.add(RESPAWN, &"bind_respawn", "Back to the last checkpoint (costs what a fall costs)", "R", "The trip")
 	keys.add(RESTART, &"bind_restart", "Restart the trip", "T", "The trip")

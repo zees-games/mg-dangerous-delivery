@@ -134,6 +134,9 @@ var walk_override: DotPlayerIntent = null
 
 ## The mouse's movement since the last tick, for the walker's look.
 var _mouse := Vector2.ZERO
+## A wheel tick on foot, latched from the event: a tick is a press and a release in one frame,
+## so polling the action never sees it. Consumed by the next on-foot sample.
+var _wheel_jump := false
 
 ## Radians per pixel of mouse movement on foot.
 const MOUSE_SENSITIVITY := 0.0025
@@ -689,6 +692,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_orbit_held = button.pressed and _can_orbit()
 		return
 
+	if button != null and button.pressed and button.is_action(DotMenuBindings.JUMP_ACTION):
+		# Wheel up or down (Controls page), on foot only: in a truck the wheel does nothing.
+		if _walking() and not garage.visible and not (chat != null and chat.is_typing()):
+			_wheel_jump = true
+		return
+
 	if motion != null:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _walking():
 			_mouse += motion.relative
@@ -1073,6 +1082,7 @@ func _sample_walk() -> DotPlayerIntent:
 
 	if garage.visible or menu_open or (chat != null and chat.is_typing()):
 		_mouse = Vector2.ZERO
+		_wheel_jump = false
 		return intent
 
 	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up")
@@ -1081,8 +1091,10 @@ func _sample_walk() -> DotPlayerIntent:
 	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right")
 	intent.move = Vector2(clampf(right - left, -1.0, 1.0), clampf(forward - back, -1.0, 1.0))
 
-	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0:
+	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump:
 		intent.buttons |= DotPlayerIntent.Btn.JUMP
+
+	_wheel_jump = false
 
 	if _held(DdBindings.RUN, KEY_SHIFT) > 0.0:
 		intent.buttons |= DotPlayerIntent.Btn.SPRINT
