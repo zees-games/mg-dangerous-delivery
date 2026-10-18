@@ -27,7 +27,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 28
-const CHECKS := 207
+const CHECKS := 208
 
 var _passed := 0
 var _failed := 0
@@ -1386,6 +1386,21 @@ func _test_walking_client() -> void:
 	client.set("walk_override", DotPlayerIntent.new())
 	_check(not cmd.handbrake and (after.buttons & DotPlayerIntent.Btn.JUMP) == 0,
 		"in a truck the wheel does nothing: no handbrake, and no jump saved for later")
+	# A wheel row moved onto a key on the Controls page: that key jumps on foot too. The latch
+	# once tested for a mouse button only, so a key there did nothing.
+	var row_key := InputEventKey.new()
+	row_key.physical_keycode = KEY_J
+	InputMap.action_add_event(DotMenuBindings.JUMP_ACTION, row_key)
+	var press := InputEventKey.new()
+	press.physical_keycode = KEY_J
+	press.pressed = true
+	client.set("walk_override", null)
+	client.call("_unhandled_input", press)
+	var key_intent: DotPlayerIntent = client.call("_sample_walk")
+	client.set("walk_override", DotPlayerIntent.new())
+	InputMap.action_erase_event(DotMenuBindings.JUMP_ACTION, row_key)
+	_check((key_intent.buttons & DotPlayerIntent.Btn.JUMP) != 0, "a key moved onto a wheel row jumps on foot",
+		str(key_intent.buttons))
 
 	# Up to the salesperson of the truck they start with: E hands it over, and E gets out.
 	var starter: StringName = world.trucks.starter()

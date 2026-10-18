@@ -738,7 +738,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_orbit_held = button.pressed and _can_orbit()
 		return
 
-	if button != null and button.pressed and button.is_action(DotMenuBindings.JUMP_ACTION):
+	# Any input on the row, not only a mouse button: a player who moved a wheel row onto a key
+	# on the Controls page expects that key to jump, and a button-only test left it doing nothing.
+	if event.is_action_pressed(DotMenuBindings.JUMP_ACTION):
 		# Wheel up or down (Controls page), on foot only: in a truck the wheel does nothing.
 		if _walking() and not garage.visible and not (chat != null and chat.is_typing()):
 			_wheel_jump = true
