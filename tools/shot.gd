@@ -15,7 +15,7 @@ func _ready() -> void:
 		if arg.begins_with("--") and arg.contains("="):
 			_args[arg.substr(2, arg.find("=") - 2)] = arg.substr(arg.find("=") + 1)
 
-	if str(_args.get("view", "")) == "loading":
+	if str(_args.get("view", "")) in ["loading", "cover"]:
 		await _loading()
 		return
 

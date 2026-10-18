@@ -111,14 +111,19 @@ var _shaken := Vector3.ZERO
 ## The player's own settings: the field of view and the volume. See [DdSettings].
 var settings: DdSettings = null
 
-## The player's console. See [method DotConsoleKit.build].
-var console: DotConsoleController = null
+## The player's console: the platform's, kept under this name for the suites.
+var console: Node = null
 var net: DotNetManager = null
 var bridge: DdNetBridge = null
 var link: Node = null
 
-## The Tab board, the menu's. See [method _wire_board].
+## The Tab board, the menu's (held on [constant DdBindings.SCOREBOARD]). See [method _wire_board].
 var board: DotMenuScoreboard = null
+
+## The platform layer: loading gate, settings and menu, console, Tab, M, the input block and the
+## browser flush. The pointer stays this client's ([method pointer_mode]), so its
+## [member DotGameClient.capture_pointer] is off.
+var platform: DotGameClient = null
 
 ## When this client started, for an offline board's "time".
 var _started_msec: int = Time.get_ticks_msec()
@@ -173,6 +178,7 @@ var gate: DotLoadGate = null
 func _ready() -> void:
 	DdLoad.begin()
 	# First, before anything is drawn or awaited: the world arrives after this node is in the tree.
+	_build_platform()
 	_build_gate()
 	# Nothing runs against a half-built client while the loading screen paints first.
 	set_process(not staged_load)
@@ -183,15 +189,12 @@ func _ready() -> void:
 	add_child(layer)
 
 	if staged_load:
-		loading.set_step("Connecting" if DotRegistry.get_node_service(LINK_SERVICE) != null and not OS.get_cmdline_user_args().has("--offline") else "Starting", 0.02)
+		loading.set_step("Starting" if _offline else "Connecting", 0.02)
 		# One frame to paint it before the first piece of work, which is the part that is slow.
 		await get_tree().process_frame
 
 	_build_environment()
 	DdLoad.mark("environment")
-
-	link = DotRegistry.get_node_service(LINK_SERVICE)
-	_offline = link == null or OS.get_cmdline_user_args().has("--offline")
 
 	game = DdGame.new()
 	game.name = "World"
@@ -296,19 +299,34 @@ func _ready() -> void:
 		_act("start", {"route": String(auto_route)})
 
 
+## The platform is the first child, so its cover is the first thing drawn; it knows the link
+## and whether this is a connected client.
+func _build_platform() -> void:
+	platform = DotGameClient.new()
+	platform.name = "Platform"
+	platform.spawned_text = "Joining"
+	platform.spawned_fn = func() -> bool:
+		return walker != null and camera != null and camera.is_inside_tree() and camera.current and _landed()
+	# The Tab board is a row of the key table.
+	platform.scoreboard_action = DdBindings.SCOREBOARD
+	# The pointer is [method pointer_mode]'s, every frame: captured on foot, hidden at the wheel,
+	# free over the lot.
+	platform.capture_pointer = false
+	add_child(platform)
+	link = platform.link
+	_offline = platform.offline
+	gate = platform.gate
+
+
 ## The load gate: covered, and the walker and the world's clock still, until the routes and
 ## mountains are laid and the player stands in the lot with the camera current.
 ##
 ## The staged loading screen is the gate's cover (it knows the steps; the gate only decides when
 ## it goes), so the gate's warm-up runs under it and no frame between screen and world is bare.
 func _build_gate() -> void:
-	gate = DotLoadGate.new()
-	gate.name = "LoadGate"
 	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
 	# and uncover half of them.
 	gate.timeout_sec = 120.0
-	# A headless run draws nothing to compile; its warm-up would only wait out its timeout.
-	gate.warm_up_on_open = DisplayServer.get_name() != "headless"
 
 	if staged_load:
 		loading = DdLoadScreen.new()
@@ -319,15 +337,12 @@ func _build_gate() -> void:
 		cover.add_child(loading)
 		gate.cover = loading
 
-	add_child(gate)
 	_cover_world()
 
 
 ## Holds the gate for a world that is about to be (re)built, and until the player is placed.
 func _cover_world() -> void:
 	gate.hold(&"map", "Loading the mountains")
-	gate.require(&"spawned", func() -> bool:
-		return walker != null and camera != null and camera.is_inside_tree() and camera.current and _landed(), "Joining")
 
 
 ## Whether the walker is out of the air: standing, or not the one in play (in a truck).
@@ -602,18 +617,22 @@ func _frame_garage_camera() -> void:
 
 
 ## The player's settings, bound to the camera; the lot's SETTINGS button and O open them.
+## The platform builds them, the Escape menu, the console, Tab and M; this binds what they act on.
 func _build_settings() -> void:
-	settings = DdSettings.new()
-	settings.name = "Settings"
-	add_child(settings)
+	platform.settings = DdSettings.new()
+	platform.hud = hud
+	platform.hud_accent = DdHud.piece_theme()
+	platform.chat = chat
+	platform.board_snapshot_fn = board_snapshot
+	platform.maps_rows_fn = func() -> Array: return game.mountain_rows() if game != null else []
+	platform.maps_change_fn = func(id: StringName) -> DotResult: return game.set_mountain(id)
+	platform.maps_title = "Change mountain"
+	platform.maps_noun = "mountains"
+	DotLog.result(CHANNEL, "the platform", platform.setup())
+	settings = platform.settings as DdSettings
+	console = platform.console
 
-	var built: DotResult = settings.setup()
-
-	if not built.ok:
-		DotLog.warn(CHANNEL, "no settings; everything is at its default", {"why": built.error.message})
-		remove_child(settings)
-		settings.free()
-		settings = null
+	if settings == null:
 		return
 
 	settings.bind_camera(camera)
@@ -633,12 +652,7 @@ func _build_settings() -> void:
 		# The pointer is this client's ([method pointer_mode]): the menu would capture it on
 		# closing even over the lot.
 		settings.menu.manage_pointer = false
-		settings.menu.busy = func() -> bool: return chat != null and chat.is_typing()
-		# The console (the key under Escape): net_stat and every other setting by name, and
-		# the server's console when one runs in this process. One of the menu's overlays, so
-		# opening it stops the player and frees the pointer exactly as the menu does.
-		console = DotConsoleKit.build(self, settings.settings, settings.menu)
-		# The HUD in the menu's theme and at the player's HUD size, live.
+		# The HUD re-follows the menu's theme when its own accent changes.
 		if hud != null:
 			hud.follow_menu(settings.menu)
 
@@ -668,22 +682,6 @@ func _build_settings() -> void:
 		)
 
 	_wire_board()
-	_wire_maps()
-
-
-## M: the mountain list (dot-menu's map menu). Solo a choice moves the world to that mountain's
-## routes at once; connected the server decides, by the owner's `sv_map_menu_flag`, and anybody
-## without it gets a vote instead (dot-vote's map menu, wired in [DdModule]). By name, so a
-## client shell older than the map menu still runs the game without it.
-func _wire_maps() -> void:
-	if settings == null or not settings.has_method(&"use_maps"):
-		return
-	var maps: Variant = settings.call(&"use_maps",
-		func() -> Array: return game.mountain_rows() if game != null else [],
-		func(id: StringName) -> DotResult: return game.set_mountain(id))
-	if maps is Object:
-		(maps as Object).set(&"title", "Change mountain")
-		(maps as Object).set(&"noun", "mountains")
 
 
 ## The Tab board: who is driving, in what, with how much money and how many deliveries, how
@@ -691,9 +689,9 @@ func _wire_maps() -> void:
 ## online the columns come from [DdModule]'s `_game_board_fields`; offline the bank is this
 ## client's own.
 func _wire_board() -> void:
-	if settings == null or settings.menu == null:
+	if platform.board == null:
 		return
-	board = settings.menu.scoreboard
+	board = platform.board as DotMenuScoreboard
 	board.title_text = "Dangerous Delivery"
 	board.columns = [
 		{"key": &"name", "title": "Driver", "width": 3.0},
@@ -705,19 +703,6 @@ func _wire_board() -> void:
 		{"key": &"ping", "title": "Ping", "kind": DotMenuScoreboard.KIND_PING},
 	]
 	board.sort_by = &"money"
-	if not _offline and link != null and link.has_signal(&"scoreboard_received"):
-		board.feed_from(link)
-	else:
-		board.source = board_snapshot
-
-
-func _show_board(on: bool) -> void:
-	if board == null:
-		return
-	if on:
-		board.open()
-	else:
-		board.close()
 
 
 ## The board from this client's own world. Public so a suite can read it.
@@ -769,11 +754,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	var key := event as InputEventKey
-
-	# The Tab board, held: shown while the key is down, released when it comes up.
-	if key != null and key.is_action(DdBindings.SCOREBOARD) and not key.echo:
-		_show_board(key.pressed)
-		return
 
 	if key == null or not key.pressed or key.echo:
 		return

@@ -1173,14 +1173,14 @@ func _test_the_client_settings() -> void:
 	var tab := InputEventKey.new()
 	tab.physical_keycode = KEY_TAB
 	tab.pressed = true
-	client.call("_unhandled_input", tab)
+	menu.handle_event(tab)
 	var board: DotMenuScoreboard = client.get("board")
 	_check(board != null and board.is_open() and board.rows().any(func(r: Dictionary) -> bool:
 			return bool(r.get("you", false)) and r.has("money") and str(r.get("truck", "")) != ""),
 		"Tab holds the board up: this driver, their truck and their money",
 		str(board.rows()) if board != null else "no board")
 	tab.pressed = false
-	client.call("_unhandled_input", tab)
+	menu.handle_event(tab)
 	_check(board != null and not board.is_open(), "and letting go puts it away")
 
 	# The family's rule since the first play test: H opens help, nothing else in the table is
