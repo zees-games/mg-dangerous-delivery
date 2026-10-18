@@ -165,9 +165,15 @@ var _built: bool = false
 ## The loading screen, until the player stands in the lot.
 var loading: DdLoadScreen = null
 
+## Keeps the screen covered, the walker still and the world's clock stopped until the routes and
+## mountains are laid and the player stands in the lot. See [method _build_gate].
+var gate: DotLoadGate = null
+
 
 func _ready() -> void:
 	DdLoad.begin()
+	# First, before anything is drawn or awaited: the world arrives after this node is in the tree.
+	_build_gate()
 	# Nothing runs against a half-built client while the loading screen paints first.
 	set_process(not staged_load)
 	set_physics_process(not staged_load)
@@ -177,13 +183,6 @@ func _ready() -> void:
 	add_child(layer)
 
 	if staged_load:
-		loading = DdLoadScreen.new()
-		# Its own layer, above the HUD, the garage, the chat and the menu, which are added after this.
-		var cover := CanvasLayer.new()
-		cover.name = "LoadingLayer"
-		cover.layer = 100
-		add_child(cover)
-		cover.add_child(loading)
 		loading.set_step("Connecting" if DotRegistry.get_node_service(LINK_SERVICE) != null and not OS.get_cmdline_user_args().has("--offline") else "Starting", 0.02)
 		# One frame to paint it before the first piece of work, which is the part that is slow.
 		await get_tree().process_frame
@@ -203,6 +202,7 @@ func _ready() -> void:
 	game.register_service = _offline
 	game.self_tick = _offline
 	game.staged_terrain = staged_load
+	_hold_for_world()
 	game.terrain_progress.connect(func(done: int, total: int) -> void:
 		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
 			print(DdLoad.report()))
@@ -294,6 +294,63 @@ func _ready() -> void:
 		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
 		game.config.quick_start = true
 		_act("start", {"route": String(auto_route)})
+
+
+## The load gate: covered, and the walker and the world's clock still, until the routes and
+## mountains are laid and the player stands in the lot with the camera current.
+##
+## The staged loading screen is the gate's cover (it knows the steps; the gate only decides when
+## it goes), so the gate's warm-up runs under it and no frame between screen and world is bare.
+func _build_gate() -> void:
+	gate = DotLoadGate.new()
+	gate.name = "LoadGate"
+	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
+	# and uncover half of them.
+	gate.timeout_sec = 120.0
+	# A headless run draws nothing to compile; its warm-up would only wait out its timeout.
+	gate.warm_up_on_open = DisplayServer.get_name() != "headless"
+
+	if staged_load:
+		loading = DdLoadScreen.new()
+		var cover := CanvasLayer.new()
+		cover.name = "LoadingLayer"
+		cover.layer = 100
+		add_child(cover)
+		cover.add_child(loading)
+		gate.cover = loading
+
+	add_child(gate)
+	_cover_world()
+
+
+## Holds the gate for a world that is about to be (re)built, and until the player is placed.
+func _cover_world() -> void:
+	gate.hold(&"map", "Loading the mountains")
+	gate.require(&"spawned", func() -> bool:
+		return walker != null and camera != null and camera.is_inside_tree() and camera.current and _landed(), "Joining")
+
+
+## Whether the walker is out of the air: standing, or not the one in play (in a truck).
+func _landed() -> bool:
+	return walker == null or not walker.visible or walker.is_on_floor()
+
+
+## A world is built from the first time and on each mountain change: held from the moment the
+## old one starts to go, released once the last mountain is laid.
+func _hold_for_world() -> void:
+	game.world_clearing.connect(func() -> void:
+		if gate != null and gate.is_inside_tree():
+			_cover_world())
+	game.world_rebuilt.connect(func() -> void:
+		if gate != null:
+			gate.release(&"map"))
+	game.hold_clock = _covered
+
+
+## True while the load gate covers the screen: no input, no sampling, no round clock. False
+## without a gate (a suite that adopts a client without its _ready).
+func _covered() -> bool:
+	return gate != null and not gate.is_open()
 
 
 ## The sounds. Without them (a broken catalogue) the game is silent, which is all.
@@ -684,6 +741,10 @@ func board_snapshot() -> Dictionary:
 # --- Controls ----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Nothing acts behind the cover: no look, key, orbit or panel.
+	if _covered():
+		return
+
 	# The mouse looks round on foot, only while it is captured (a menu or the panel frees it).
 	var motion := event as InputEventMouseMotion
 	var button := event as InputEventMouseButton
@@ -758,7 +819,7 @@ func _physics_process(delta: float) -> void:
 	_walk(me, delta)
 
 	if _offline:
-		if me != null and me.truck != null and not me.on_foot and not garage.visible and not me.assisted:
+		if not _covered() and me != null and me.truck != null and not me.on_foot and not garage.visible and not me.assisted:
 			game.set_command(local_key, command)
 
 		return
@@ -772,6 +833,11 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var ticks := net.clock.advance(delta)
+
+	# The clock has advanced; only what is sent waits, so the server sees an idle body until the cover lifts.
+	if _covered():
+		return
+
 	bridge.walk_report = [walker.global_position, walker.facing()] if walker != null and me != null and me.on_foot and walker.visible else []
 
 	for i in range(ticks):
@@ -781,6 +847,11 @@ func _physics_process(delta: float) -> void:
 
 ## What the keys say, as a command. Idle in the garage, so a truck is not driven from a menu.
 func _sample(me: DdGame.Driver) -> DotVehicleCommand:
+	if _covered():
+		var held := DotVehicleCommand.new()
+		held.brake = 1.0
+		return held
+
 	if command_override != null:
 		return command_override
 
@@ -1062,6 +1133,14 @@ func _walk(me: DdGame.Driver, delta: float) -> void:
 	walker.process_mode = Node.PROCESS_MODE_INHERIT if walking else Node.PROCESS_MODE_DISABLED
 
 	if not walking:
+		return
+
+	# Covered, the walker still falls and lands (an idle intent) but no key reaches it, and it
+	# is not reported: the lot's spot is the server's to hold until the picture lifts.
+	if _covered():
+		_mouse = Vector2.ZERO
+		_wheel_jump = false
+		walker.step(DotPlayerIntent.new(), delta)
 		return
 
 	walker.step(_sample_walk(), delta)
@@ -1560,12 +1639,5 @@ func _finish_loading() -> void:
 	if loading == null or not _built:
 		return
 
-	var screen := loading
-	loading = null
-	screen.set_step("Ready", 1.0)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var cover := screen.get_parent()
-	screen.queue_free()
-	cover.queue_free()
+	loading.set_step("Ready", 1.0)
 	_report_load()

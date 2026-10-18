@@ -276,6 +276,20 @@ var staged_terrain: bool = false
 ## Mountains laid so far, of how many ([member staged_terrain] only).
 signal terrain_progress(done: int, total: int)
 
+## The routes are about to be rebuilt (a mountain change, or the first build): the client's load
+## gate holds on it.
+signal world_clearing()
+
+## The routes, the land and every mountain are laid (after the last staged mountain, when
+## [member staged_terrain]). The client's load gate releases on it.
+signal world_rebuilt()
+
+## Asked every offline tick: true while the client's load gate covers the screen. The world
+## does not step then, so trips, weather, rock and the bots wait for the picture instead of
+## running behind it. Unset, never held. Only the self-ticking path asks; the server's module
+## and the bridge call [method step] themselves.
+var hold_clock: Callable = Callable()
+
 var _terrain_gen: int = 0
 
 
@@ -497,6 +511,7 @@ func add_map(doc: Variant) -> DotResult:
 
 ## Builds every document as a route, side by side along +X. Rebuilds from scratch.
 func build_routes() -> void:
+	world_clearing.emit()
 	_terrain_gen += 1
 	# Out of the tree now, not at the frame's end: the new routes take the same node names,
 	# and a name still held by a node waiting to be freed becomes "@Route_…" on the new one.
@@ -1076,6 +1091,7 @@ func _build_land() -> void:
 	for pair: Array in finishing:
 		pair[0].finish_terrain(pair[1])
 	DdLoad.mark("terrain")
+	world_rebuilt.emit()
 
 
 ## The mountains one at a time, each over several frames, behind the lot that is already up
@@ -1086,6 +1102,9 @@ func _lay_terrain(finishing: Array, gen: int) -> void:
 	var done := 0
 	terrain_progress.emit(0, finishing.size())
 
+	if finishing.is_empty():
+		world_rebuilt.emit()
+
 	for pair: Array in finishing:
 		await (pair[0] as DdRoute).finish_terrain(pair[1], get_tree())
 
@@ -1095,6 +1114,8 @@ func _lay_terrain(finishing: Array, gen: int) -> void:
 		done += 1
 		DdLoad.mark("mountain %d/%d" % [done, finishing.size()])
 		terrain_progress.emit(done, finishing.size())
+
+	world_rebuilt.emit()
 
 
 ## A sign at the start of each road out of the lot, on its right shoulder, naming the course and
@@ -1609,6 +1630,10 @@ func _step_roaming(driver: Driver, delta: float) -> void:
 # --- The tick ----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	# Covered: only the engine's own bodies settle; no trip clock, rock or weather runs.
+	if hold_clock.is_valid() and hold_clock.call():
+		return
+
 	step(delta)
 
 

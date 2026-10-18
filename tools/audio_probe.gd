@@ -15,6 +15,11 @@ func _ready() -> void:
 	client.auto_route = &"dd_foothills"
 	client.autopilot = true
 	add_child(client)
+	for _i in 600:
+		if client.gate.is_open():
+			break
+
+		await get_tree().physics_frame
 
 	await get_tree().process_frame
 	# A stand-in on the same route, a second later: the truck behind, heard positionally.

@@ -65,6 +65,30 @@ func follow_menu(menu: Object) -> void:
 		menu.call(&"follow_hud", self, DdHud.piece_theme())
 
 
+## The load gate's cover contract (`DotLoadGate.cover`). This screen is shown from the first frame
+## by the client and told each step through [method set_step], so the gate's own status line and
+## fraction are ignored; it only decides when the screen goes: [method hide_cover] is the gate
+## opening, after its warm-up, so no frame between the screen and the world is uncovered.
+func show_cover() -> void:
+	visible = true
+
+
+func hide_cover() -> void:
+	var layer := get_parent()
+	queue_free()
+
+	if layer is CanvasLayer:
+		layer.queue_free()
+
+
+func set_status(_text: String) -> void:
+	pass
+
+
+func set_progress(_fraction: float) -> void:
+	pass
+
+
 ## The step under way and how far along the whole load is, 0 to 1. Never goes backwards: two
 ## builders report their own share, and a bar that stepped back would look like a restart.
 func set_step(words: String, fraction: float) -> void:

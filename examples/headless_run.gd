@@ -1120,12 +1120,27 @@ func _seconds(s: float) -> void:
 		await get_tree().physics_frame
 
 
+## Waits for a booted client's load gate to open (the world and the player are in, nothing acts
+## before), with a cap so a gate that never opens fails the checks that follow, not the run.
+func _uncovered(client: Node) -> void:
+	var gate: DotLoadGate = client.get("gate")
+
+	for i in 600:
+		if gate == null or gate.is_open():
+			return
+
+		await get_tree().physics_frame
+
+	_check(false, "the client's load gate opened (held: %s)" % [gate.describe()])
+
+
 ## A real offline client, booted: its settings are read by its camera, and the lot's
 ## SETTINGS button opens them (Escape is the lot's own key here).
 func _test_the_client_settings() -> void:
 	_section("the client's settings are read, and the lot opens them")
 	var client: Node = (load("res://game/dd_client.gd") as GDScript).new()
 	add_child(client)
+	await _uncovered(client)
 
 	for i in 6:
 		await get_tree().process_frame
@@ -1310,6 +1325,7 @@ func _test_walking_client() -> void:
 	_section("walking, on the client")
 	var client: Node = (load("res://game/dd_client.gd") as GDScript).new()
 	add_child(client)
+	await _uncovered(client)
 
 	for i in 4:
 		await get_tree().physics_frame
@@ -1522,7 +1538,7 @@ func _test_sound_and_effects() -> void:
 	client.set("auto_route", &"dd_foothills")
 	client.set("autopilot", true)
 	add_child(client)
-	await get_tree().process_frame
+	await _uncovered(client)
 	var world: DdGame = client.get("game")
 	var _bot := world.join(&"bot", "Stand-in", true)
 	var _started := world.start_trip(&"bot", &"dd_foothills")

@@ -24,6 +24,11 @@ func _ready() -> void:
 	client.auto_route = StringName(str(_args.get("route", "dd_snowline")))
 	client.autopilot = true
 	add_child(client)
+	for _i in 600:
+		if client.gate.is_open():
+			break
+
+		await get_tree().physics_frame
 	client.game.config.levels_unlock_in_order = false
 	client.game.end_trip(client.local_key)
 	client._act("start", {"route": str(client.auto_route)})

@@ -28,6 +28,11 @@ func _ready() -> void:
 		client.autopilot = true
 
 	add_child(client)
+	for _i in 600:
+		if client.gate.is_open():
+			break
+
+		await get_tree().physics_frame
 	client.game.config.levels_unlock_in_order = false
 
 	var mountain := str(_args.get("mountain", ""))
@@ -40,6 +45,13 @@ func _ready() -> void:
 
 		client._refresh_garage()
 		client._frame_garage_camera()
+
+		# The new mountain is covered until it is laid.
+		for _i in 600:
+			if client.gate.is_open():
+				break
+
+			await get_tree().physics_frame
 
 	var truck := str(_args.get("truck", ""))
 
