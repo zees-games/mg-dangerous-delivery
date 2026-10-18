@@ -7,4 +7,5 @@
 | [terrain.md](terrain.md) | the road's mesh and trimesh, and the mountain: the heightfield, the band and why 8 m, cliff tops, drop strips, snow, what is left |
 | [netcode.md](netcode.md) | nothing predicted; the four-byte drive; bodies in snapshots, the rest as JSON; HELLO and client-side weather; ACTs; names; the operator surface |
 | [testing.md](testing.md) | the four suites, the tools (loudness among them), rules, the delivered-pack check |
+| [not-yet.md](not-yet.md) | what the game does not do yet (Workshop map limits) |
 | [history.md](history.md) | bugs worth recognising again |

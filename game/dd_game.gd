@@ -213,6 +213,14 @@ var mountain_id: StringName = DdMountains.DEFAULT
 ## packs brought ([method load_directory]); a client adds the one it is sent. See [DdMapDoc].
 var maps: Array[Dictionary] = []
 
+## id -> pack title, for the maps in [member maps] a subscribed pack provided (solo only). The
+## game's own are never in it, and an id of theirs is never taken by a pack.
+var workshop: Dictionary = {}
+
+## The Workshop's index and the `map_kind`s taken from it; see [method follow_content].
+var content_index: DotContentIndex = null
+var content_kinds: PackedStringArray = PackedStringArray()
+
 ## route id -> DdRoute (in the tree, offset).
 var routes: Dictionary = {}
 
@@ -260,12 +268,16 @@ var _site_cooldown: Dictionary = {}
 
 var _now: float = 0.0
 
+## entry key -> the normalised map a pack's document made (empty when refused).
+var _workshop_docs: Dictionary = {}
+
 
 ## Made here rather than in _ready, so whoever builds the world can set its rules before it
 ## is in the tree: the first suite to try wrote to a null config.
 func _init() -> void:
 	config = DdConfig.new()
 	maps.assign(DdMountains.shipped())
+	follow_content(DotContentIndex.shared(), DdMountains.accepted_map_kinds())
 
 
 ## Whether each route's mountain is laid over frames after the rest is built, instead of inside
@@ -416,13 +428,14 @@ func _select_mountain() -> void:
 ## current}`, its routes under the name. Solo the client's list, online the server's (the
 ## module hands it to dot-vote's map menu), so both say the same.
 func mountain_rows() -> Array:
+	sync_content()
 	var out: Array = []
 	for mountain in DdMountains.allowed(library, maps):
 		var names := PackedStringArray()
 		for route_id in DdMountains.routes_of(mountain, library):
 			var doc: Variant = library.get(route_id)
 			names.append(str((doc as Dictionary).get("name", route_id)) if doc is Dictionary else String(route_id))
-		out.append({"id": String(mountain["id"]), "name": str(mountain["name"]), "current": mountain["id"] == mountain_id,
+		out.append({"id": String(mountain["id"]), "name": label_of(mountain["id"]), "current": mountain["id"] == mountain_id,
 			"detail": "%d routes: %s" % [names.size(), ", ".join(names)]})
 	return out
 
@@ -432,6 +445,7 @@ func mountain_rows() -> Array:
 ## [signal mountain_changed] tells the bridge to send the routes on. Already on it is a
 ## success that changes nothing. Server side.
 func set_mountain(id: StringName) -> DotResult:
+	sync_content()
 	var mountain := DdMountains.by_id(id, maps)
 
 	if mountain.is_empty():
@@ -507,6 +521,110 @@ func add_map(doc: Variant) -> DotResult:
 	maps.append(map)
 	DdMountains.sort(maps)
 	return normal
+
+
+## Takes the maps subscribed packs provide, for the index's current session only. Opt-in. A
+## pack's map is a [b]map document[/b] ([DdMapDoc], the JSON `maps/` holds) named by the entry's
+## `scene` path, with `map_kind` one of [param accepted_kinds] ("*" is every kind, empty none).
+## It names routes this game already has, so it ships no code and needs no second format.
+##
+## [b]Synced on every read rather than copied once[/b]: the index filters by its current
+## session, so a game that goes online loses them with no signal to miss.
+func follow_content(index: DotContentIndex, accepted_kinds: PackedStringArray = PackedStringArray()) -> void:
+	content_index = index
+	content_kinds = accepted_kinds
+	sync_content()
+
+
+## Brings [member maps] in line with the index's current session: a pack map in, one that left
+## out. The game's own ids win, and a pack map that is not a valid document is listed in
+## [member refused] and left out. A mountain the world stands on that leaves falls back to the
+## default at the next [method _select_mountain].
+func sync_content() -> void:
+	var wanted := {}
+
+	if content_index != null:
+		for entry in content_index.entries(&"map"):
+			var kind := str(entry.raw.get("map_kind", ""))
+
+			if kind == "" or not (content_kinds.has("*") or content_kinds.has(kind)):
+				continue
+
+			var id := entry.id
+
+			if wanted.has(id) or (not DdMountains.by_id(StringName(id), maps).is_empty() and not workshop.has(id)):
+				continue
+
+			var map := _workshop_map(entry)
+
+			if not map.is_empty():
+				wanted[id] = [map, entry.pack_title]
+
+	var changed := false
+
+	for id: String in workshop.keys():
+		if not wanted.has(id):
+			for i in range(maps.size() - 1, -1, -1):
+				if str(maps[i]["id"]) == id:
+					maps.remove_at(i)
+
+			workshop.erase(id)
+			changed = true
+
+	for id: String in wanted:
+		if not workshop.has(id):
+			maps.append(wanted[id][0])
+			workshop[id] = wanted[id][1]
+			changed = true
+
+	if changed:
+		DdMountains.sort(maps)
+
+
+func _workshop_map(entry: DotContentEntry) -> Dictionary:
+	if _workshop_docs.has(entry.key):
+		return _workshop_docs[entry.key]
+
+	var path := entry.path("scene")
+	var parsed: Variant = null
+
+	if path != "" and FileAccess.file_exists(path):
+		# An instance, not parse_string: that prints an engine error for a document that is
+		# not JSON, and a refusal here is a normal outcome.
+		var json := JSON.new()
+		if json.parse(FileAccess.get_file_as_string(path)) == OK:
+			parsed = json.data
+
+	var map: Dictionary = {}
+
+	if parsed is Dictionary:
+		(parsed as Dictionary)["id"] = entry.id
+		var normal := DdMapDoc.normalise(parsed)
+
+		if normal.ok:
+			map = normal.value
+		else:
+			refused[entry.key] = normal.error.message
+	else:
+		refused[entry.key] = "empty or unreadable: %s" % path
+
+	if map.is_empty():
+		DotLog.warn(CHANNEL, "a Workshop map was refused", {"entry": entry.key, "why": refused[entry.key]})
+
+	_workshop_docs[entry.key] = map
+	return map
+
+
+## Whether [param id] came from a subscribed pack.
+func is_workshop(id: Variant) -> bool:
+	return workshop.has(str(id))
+
+
+## The name a menu shows: "Name [Pack]" for a pack's map, the plain name otherwise.
+func label_of(id: Variant) -> String:
+	var name := str(DdMountains.by_id(StringName(str(id)), maps).get("name", id))
+	var pack := str(workshop.get(str(id), ""))
+	return "%s [%s]" % [name, pack] if pack != "" else name
 
 
 ## Builds every document as a route, side by side along +X. Rebuilds from scratch.

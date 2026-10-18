@@ -19,6 +19,8 @@ extends Node
 ## [b]Server side only.[/b] A client draws the ballot from the notice [member ballot_fn] sends
 ## (the client shell's [DotBallotPanel]) and never holds a director.
 
+const DdMountains := preload("dd_mountains.gd")
+
 const CHANNEL := "delivery.vote"
 
 ## The key in the running game's descriptor metadata an operator's overrides are read from —
@@ -40,6 +42,11 @@ const COMMAND_NAMES := {"vote": "vote"}
 
 ## [code]func() -> Array[/code] of [code][id, name][/code] pairs: every mountain a ballot may offer.
 var mountains_fn: Callable = Callable()
+
+## The Workshop's index and the `map_kind`s taken from it. Null and empty are the shared index
+## and `provides.json`'s `accepts.map_kinds`; a suite sets both to a fixture.
+var content_index: DotContentIndex = null
+var accepted_kinds: PackedStringArray = PackedStringArray()
 
 ## [code]func(id: StringName) -> DotResult[/code]: build this mountain now.
 var apply_fn: Callable = Callable()
@@ -83,6 +90,12 @@ func setup() -> DotResult:
 	source.apply_fn = func(id: StringName) -> DotResult:
 		return apply_fn.call(id) if apply_fn.is_valid() else DotResult.success(id)
 	refresh_mountains()
+	# The Workshop's maps of the kinds this game plays, read from the index on every ballot.
+	# Solo they are listed; online the index has no subscription entry, so none appear. The
+	# game's own ids are in the entries and win.
+	source.follow_content(
+		content_index if content_index != null else DotContentIndex.shared(),
+		DdMountains.accepted_map_kinds() if accepted_kinds.is_empty() else accepted_kinds)
 
 	director = DotVoteDirector.new()
 	director.name = "VoteDirector"

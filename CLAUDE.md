@@ -34,7 +34,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | `routes/` | the route documents, written by `tools/build_routes.py` |
 | `assets/kenney/` | Car Kit trucks, cars and cones, a City Kit barrier, Nature Kit pines and rocks, CC0 |
 | `assets/polyhaven/` | rock, asphalt and gravel photographs, CC0, greyed and levelled (sources in its `License.txt`) |
-| `examples/` | `headless_run`, `headless_net`, `dedicated`, `handling` |
+| `examples/` | `headless_run`, `headless_workshop`, `headless_net`, `dedicated`, `handling` |
 | `tools/` | `build_routes.py`, `drive.sh` (a stand-in delivers every route), `shot.sh`, `camera_check.sh`, `loudness.sh`, `audio_probe` |
 
 ## Running and testing

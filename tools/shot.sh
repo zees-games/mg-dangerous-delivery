@@ -23,6 +23,7 @@
 #   tools/shot.sh --mountain=low_country                   # the lot on another mountain (DdMountains)
 #   tools/shot.sh --view=loading                           # the loading screen, as the real entry puts it up
 #   tools/shot.sh --view=cover                            # the same, under its platform-layer name
+#   tools/shot.sh --view=maps                              # M: the solo mountain list with a Workshop fixture map (Name [Pack])
 #   tools/shot.sh --ballot --out=res://screenshots/ballot.png   # the mountain vote's ballot, mid-vote, as the client shell draws it
 #   tools/shot.sh --ballot --chat=8                        # and a chat log filled with eight lines over the lot
 #

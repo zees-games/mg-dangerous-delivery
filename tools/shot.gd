@@ -19,9 +19,14 @@ func _ready() -> void:
 		await _loading()
 		return
 
+	# --view=maps: a fixture map pack in the shared index, as the solo shell leaves one after a
+	# subscribed pack mounts, so the M menu shows what a player would see.
+	if str(_args.get("view", "")) == "maps":
+		_subscribe_fixture()
+
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin"]
+	var on_foot := view in ["maps", "garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -220,6 +225,15 @@ func _ready() -> void:
 	if str(_args.get("ballot", "0")) == "1":
 		await _show_ballot(client.game)
 
+	if view == "maps":
+		# M: the solo mountain list, with the Workshop's map among the game's own.
+		for _i in 30:
+			await get_tree().process_frame
+		var menu: Variant = (client.get("settings") as Object).get("menu")
+		menu.call(&"open_maps")
+		for _i in 10:
+			await get_tree().process_frame
+
 	# A full chat log: the lines a busy server's vote and joins put in the box, long enough to
 	# wrap the way a vote's list of games does.
 	var chat_lines := int(_args.get("chat", "0"))
@@ -241,6 +255,27 @@ func _ready() -> void:
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
 	get_tree().quit()
+
+
+## The fixture pack of --view=maps: a map document naming two of the game's routes under a
+## layout none of the shipped maps has, written to user://.
+func _subscribe_fixture() -> void:
+	var dir := "user://ws_shot_dd/"
+	DirAccess.make_dir_recursive_absolute(dir)
+	var file := FileAccess.open(dir + "pass.json", FileAccess.WRITE)
+	file.store_string(JSON.stringify({"format": 1, "kind": "map", "id": "fixture_pass", "name": "Fixture Pass",
+		"blurb": "From the Workshop.", "routes": ["dd_foothills", "dd_snowline"], "layout": {"gap": 333}}))
+	file.close()
+	var index := DotContentIndex.shared()
+	index.set_session(DotContentIndex.SESSION_SOLO)
+	var _added := index.add_pack({
+		"content_id": "fixture/passes", "version": "1.0.0", "prefix": dir,
+		"session": DotContentIndex.SESSION_SOLO, "source": &"subscription",
+		"provides": {"schema": 1, "title": "Hilltop Pack", "kinds": ["map"], "entries": [
+			{"kind": "map", "id": "fixture_pass", "name": "Fixture Pass", "scene": "pass.json", "map_kind": "delivery"},
+			{"kind": "map", "id": "fixture_run", "name": "Fixture Run", "scene": "pass.json", "map_kind": "surf"},
+		]},
+	})
 
 
 ## Walks [param keys] round the showroom for as long as the shot runs, through the world's own

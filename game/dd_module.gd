@@ -245,8 +245,11 @@ func _build_vote(world: DdGame) -> void:
 	vote.mountains_fn = func() -> Array:
 		var out: Array = []
 
+		# The game's own only: the Workshop's come from the source's own follow, which reads
+		# the index on every ballot and so shows none of them online.
 		for mountain in DdMountains.allowed(world.library, world.maps):
-			out.append([mountain["id"], mountain["name"]])
+			if not world.is_workshop(mountain["id"]):
+				out.append([mountain["id"], mountain["name"]])
 
 		return out
 	vote.apply_fn = func(id: StringName) -> DotResult:

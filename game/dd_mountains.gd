@@ -24,6 +24,11 @@ const CHANNEL := "delivery.maps"
 
 const DEFAULT := &"range"
 
+## The file a game pack states what it takes from subscriptions in (dot-cloud's
+## docs/workshop.md, "What a game accepts"). Read from there so the site and this list cannot drift.
+const PROVIDES_PATH := "res://provides.json"
+const ACCEPTED_MAP_KINDS_FALLBACK := ["delivery"]
+
 ## The game's own maps, read once from `maps/` (see [method shipped]).
 static var _shipped: Array[Dictionary] = []
 
@@ -56,6 +61,27 @@ static func shipped() -> Array[Dictionary]:
 	sort(out)
 	_shipped = out
 	return _shipped
+
+
+## The `map_kind`s of subscribed maps this game takes: `accepts.map_kinds` in `provides.json`.
+static func accepted_map_kinds() -> PackedStringArray:
+	var out := PackedStringArray()
+	var path := DdPaths.rebase(PROVIDES_PATH)
+	var parsed: Variant = null
+
+	if FileAccess.file_exists(path):
+		parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+
+	var accepts: Variant = (parsed as Dictionary).get("accepts") if parsed is Dictionary else null
+	var kinds: Variant = (accepts as Dictionary).get("map_kinds") if accepts is Dictionary else null
+
+	if not (kinds is Array):
+		kinds = ACCEPTED_MAP_KINDS_FALLBACK
+
+	for kind: Variant in (kinds as Array):
+		out.append(str(kind))
+
+	return out
 
 
 ## [param catalogue] in ballot order: `order`, then id.
