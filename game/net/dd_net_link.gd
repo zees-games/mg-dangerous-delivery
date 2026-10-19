@@ -65,12 +65,11 @@ var voice_sent: int = 0
 var voice_received: int = 0
 
 
-static func attached_to(parent: Node, p_bridge: Node, server: bool) -> DdNetLink:
+static func attached_to(p_bridge: Node, server: bool) -> DdNetLink:
 	var link := DdNetLink.new()
 	link.name = NODE_NAME
 	link.bridge = p_bridge
 	link.is_server = server
-	parent.add_child(link)
 	return link
 
 

@@ -196,7 +196,11 @@ func open_link(parent: Node) -> void:
 	if parent == null or link != null:
 		return
 
-	link = DdNetLink.attached_to(parent, self, net != null and net.is_server)
+	link = DdNetLink.attached_to(self, net != null and net.is_server)
+	# Not parent.add_child: the link must sit under the server node (RPCs route by path) but die
+	# with this bridge. A bare add_child left a second link after every module reload, Godot
+	# renamed the live one `@Node@n`, and RPCs to real clients were lost without an error.
+	DotGameLink.attach(link, parent, self, DdNetLink.NODE_NAME)
 
 
 ## Snapshots unreliable; everything else reliable, as events from a server and requests from a

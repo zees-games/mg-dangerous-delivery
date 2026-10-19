@@ -10,8 +10,8 @@ const DdNetBridge := preload("../game/net/dd_net_bridge.gd")
 const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
-const SECTIONS := 9
-const CHECKS := 59
+const SECTIONS := 10
+const CHECKS := 64
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -43,6 +43,7 @@ func _run() -> void:
 
 	if server != null and server.state == DotServer.State.RUNNING:
 		await _test_the_module_loads()
+		await _test_a_module_reload()
 		_test_the_console()
 		await _test_stand_ins()
 		_test_the_mountain_vote()
@@ -154,6 +155,27 @@ func _test_the_module_loads() -> void:
 	var net: DotNetManager = module.get("net") if module != null else null
 	_check(net != null and absf(net.config.world_extent - DdGame.NET_WORLD_EXTENT) < 0.01 and not net.config.enable_prediction,
 		"against the world extent a client decodes with, and predicting nothing")
+	_finished_section()
+
+
+## A module reload must leave ONE link under the server, still named for the client's route.
+## Two used to be left, the live one renamed `@Node@n`, and every RPC to a real client was lost
+## without an error. Twice, before any client; the proof is the covered-seat section, where a
+## real client signs on over the socket (server events) and is seated.
+func _test_a_module_reload() -> void:
+	_section("a module reload leaves one live link")
+	for _i in range(2):
+		_check(server.modules.unload_module("delivery").ok, "the module unloads")
+		var again: DotResult = await server.modules.load_module("res://game/dd_module.gd")
+		_check(again.ok, "and loads again", again.error.message if not again.ok else "")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var links := 0
+	for child in server.get_children():
+		if child.get_script() == DdNetLink:
+			links += 1
+	_check(links == 1 and server.has_node(NodePath(String(DdNetLink.NODE_NAME))),
+		"exactly one link, under the name the client routes to", "%d" % links)
 	_finished_section()
 
 
@@ -493,7 +515,9 @@ func _test_a_covered_seat_is_not_harmed() -> void:
 	# snapshots is put back at each phase change (a real game scene does this itself).
 	var attach := func(_a: Variant = null, _b: Variant = null) -> void:
 		if link.get_node_or_null(NodePath(DdNetLink.NODE_NAME)) == null:
-			var _sink := DdNetLink.attached_to(link, null, false)
+			var sink := DdNetLink.attached_to(null, false)
+			sink.name = DdNetLink.NODE_NAME
+			link.add_child(sink)
 	attach.call()
 	link.phase_changed.connect(attach)
 	var spawned := [false]
