@@ -26,8 +26,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 28
-const CHECKS := 208
+const SECTIONS := 29
+const CHECKS := 209
 
 var _passed := 0
 var _failed := 0
@@ -81,6 +81,7 @@ func _ready() -> void:
 	await _test_walking_client()
 	await _test_the_lot_makes_room()
 	await _test_sound_and_effects()
+	await _test_collision_audit()
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -1106,6 +1107,39 @@ func _test_a_trailer() -> void:
 	await get_tree().process_frame
 	_check(me.trailer == null and not is_instance_valid(trailer), "and goes with the truck")
 	game.leave(&"semi")
+	_finished_section()
+
+
+## dot-core's [DotCollisionAudit] over the world as a client draws it: every route, the lot, the
+## land and its gates, and a Semi with its trailer. Visible geometry nothing collides with is
+## walked or driven through. The lenient audit is used because a route's drawing (road, rock,
+## rail) sits beside the one trimesh that serves it rather than under a body of its own.
+func _test_collision_audit() -> void:
+	_section("nothing drawn is walked through")
+	var world := DdGame.new()
+	world.draws = true
+	world.config.seed_value = 78
+	add_child(world)
+	var _j := world.join(&"auditor", "Auditor")
+	var _c := world.bank.credit(&"auditor", 100000, "test")
+	var _b := world.buy_truck(&"auditor", &"semi")
+	var _s := world.start_trip(&"auditor", world.route_order[0])
+	await _seconds(0.5)
+
+	var res := DotCollisionAudit.audit(world, true)
+	var found := 0
+
+	if res.ok:
+		var report: DotCollisionAudit = res.value
+		found = report.count()
+		print("  collision audit: %d of %d" % [found, report.examined])
+
+		for line in report.describe_lines().slice(1, 40):
+			print("    %s" % line)
+
+	_check(res.ok and found == 0, "no drawn geometry without a shape", "" if res.ok else res.error.message)
+	remove_child(world)
+	world.free()
 	_finished_section()
 
 

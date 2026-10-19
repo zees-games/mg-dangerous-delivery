@@ -443,6 +443,18 @@ func _build_lamps() -> void:
 
 	for spot: Vector2 in [Vector2(-half.x + 4, half.y - 4), Vector2(half.x - 4, half.y - 4), Vector2(-half.x + 4, -half.y + 4),
 			Vector2(half.x - 4, -half.y + 4), Vector2(0, half.y - 4), Vector2(-half.x + 4, 0), Vector2(half.x - 4, 0)]:
+		# Solid: a walker or a truck leaving a bay meets the pole, it does not pass through it.
+		var post := StaticBody3D.new()
+		post.name = "LampPost"
+		post.collision_layer = 1 | DdRoute.CAMERA_LAYER
+		post.position = Vector3(spot.x, 6.0, spot.y)
+		add_child(post)
+		var post_shape := CylinderShape3D.new()
+		post_shape.radius = 0.25
+		post_shape.height = 12.0
+		var post_collider := CollisionShape3D.new()
+		post_collider.shape = post_shape
+		post.add_child(post_collider)
 		var pole := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 0.18
@@ -450,9 +462,10 @@ func _build_lamps() -> void:
 		cyl.height = 12.0
 		pole.mesh = cyl
 		pole.material_override = pole_material
-		pole.position = Vector3(spot.x, 6.0, spot.y)
-		add_child(pole)
+		post.add_child(pole)
 		var lamp := MeshInstance3D.new()
+		# Twelve metres up, out of reach of anything that walks or drives; nothing to collide with.
+		lamp.set_meta(&"dot_no_collision", true)
 		var head := BoxMesh.new()
 		head.size = Vector3(1.4, 0.4, 0.8)
 		lamp.mesh = head
