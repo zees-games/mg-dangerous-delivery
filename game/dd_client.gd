@@ -178,6 +178,7 @@ var gate: DotLoadGate = null
 func _ready() -> void:
 	DdLoad.begin()
 	# First, before anything is drawn or awaited: the world arrives after this node is in the tree.
+	_build_cover()
 	_build_platform()
 	_build_gate()
 	# Nothing runs against a half-built client while the loading screen paints first.
@@ -312,35 +313,37 @@ func _build_platform() -> void:
 	# The pointer is [method pointer_mode]'s, every frame: captured on foot, hidden at the wheel,
 	# free over the lot.
 	platform.capture_pointer = false
+	# The staged screen is the gate's cover (null keeps the stock one when not staged).
+	platform.cover = loading
 	add_child(platform)
 	link = platform.link
 	_offline = platform.offline
 	gate = platform.gate
 
 
+## The staged loading screen, built before the platform so [member DotGameClient.cover] hands it
+## to the gate: the gate then never makes (or has to remove) a stock cover of its own.
+func _build_cover() -> void:
+	if not staged_load:
+		return
+
+	loading = DdLoadScreen.new()
+	var cover := CanvasLayer.new()
+	cover.name = "LoadingLayer"
+	cover.layer = 100
+	add_child(cover)
+	cover.add_child(loading)
+
+
 ## The load gate: covered, and the walker and the world's clock still, until the routes and
 ## mountains are laid and the player stands in the lot with the camera current.
 ##
-## The staged loading screen is the gate's cover (it knows the steps; the gate only decides when
-## it goes), so the gate's warm-up runs under it and no frame between screen and world is bare.
+## The staged loading screen is the gate's cover ([method _build_cover]; it knows the steps, the
+## gate only decides when it goes), so the warm-up runs under it and no frame is bare.
 func _build_gate() -> void:
 	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
 	# and uncover half of them.
 	gate.timeout_sec = 120.0
-
-	if staged_load:
-		loading = DdLoadScreen.new()
-		var cover := CanvasLayer.new()
-		cover.name = "LoadingLayer"
-		cover.layer = 100
-		add_child(cover)
-		cover.add_child(loading)
-		# The gate made its own cover when it came up; once ours replaces the reference nothing
-		# hides that one, and it stayed over the lot for good (found by tools/render_cover).
-		if gate.cover != null and is_instance_valid(gate.cover) and gate.cover != loading:
-			gate.cover.queue_free()
-
-		gate.cover = loading
 
 	_cover_world()
 
