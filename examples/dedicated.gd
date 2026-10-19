@@ -6,9 +6,12 @@ extends Node
 ##   godot --headless --path . res://examples/dedicated.tscn
 
 const DdGame := preload("../game/dd_game.gd")
+const DdNetBridge := preload("../game/net/dd_net_bridge.gd")
+const DdNetLink := preload("../game/net/dd_net_link.gd")
+const DdTrip := preload("../game/dd_trip.gd")
 
-const SECTIONS := 8
-const CHECKS := 51
+const SECTIONS := 9
+const CHECKS := 59
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -44,6 +47,7 @@ func _run() -> void:
 		await _test_stand_ins()
 		_test_the_mountain_vote()
 		_test_finish_round_waits_for_a_haul()
+		await _test_a_covered_seat_is_not_harmed()
 		await _test_it_unloads()
 
 	_test_no_message_preloads_itself()
@@ -459,6 +463,106 @@ func _finish_round_probe(hook: Callable, applied: Array) -> DotVoteDirector:
 
 	return probe
 
+
+
+## [b]A driver whose client has not lifted its loading cover loses nothing, and does once it does[/b]
+## (dot-game's "still loading"), over a real ENet socket. A client joins and says nothing, as one
+## still loading its level; a knock and a fall on its truck then cost it neither load nor a
+## counted fall, and the same knock and fall cost it both once its `game.cover` report arrives.
+## Stand-ins never reach this: a bot is never loading.
+func _test_a_covered_seat_is_not_harmed() -> void:
+	_section("a client behind its loading cover loses nothing, and does once it lifts")
+
+	var module := _module()
+	var bridge := module.get("bridge") as DdNetBridge if module != null else null
+	var side := Node.new()
+	side.name = "CoverClient"
+	add_child(side)
+	get_tree().set_multiplayer(MultiplayerAPI.create_default_interface(), side.get_path())
+	var link := DotClientLink.new()
+	link.name = "Server"
+	link.player_name = "Covered"
+	link.transport_preference = "udp"
+	link.udp_address = "127.0.0.1:%d" % PORT
+	# RPC paths are relative to the multiplayer root, so the link sits at the path the server's does.
+	var mirror := Node.new()
+	mirror.name = "Dedicated"
+	side.add_child(mirror)
+	mirror.add_child(link)
+	# The link retires whatever the game left under it when it signs on: a sink for the server's
+	# snapshots is put back at each phase change (a real game scene does this itself).
+	var attach := func(_a: Variant = null, _b: Variant = null) -> void:
+		if link.get_node_or_null(NodePath(DdNetLink.NODE_NAME)) == null:
+			var _sink := DdNetLink.attached_to(link, null, false)
+	attach.call()
+	link.phase_changed.connect(attach)
+	var spawned := [false]
+	link.spawned.connect(func() -> void: spawned[0] = true)
+	link.connect_to_server("127.0.0.1:%d" % PORT)
+	var joined := await _until(func() -> bool:
+		return spawned[0] or link.phase == DotClientLink.Phase.FAILED, 30.0)
+	joined = joined and spawned[0]
+	var peer := side.multiplayer.get_unique_id() if joined else 0
+	var key: StringName = &""
+	if bridge != null and joined:
+		var _seated := await _until(func() -> bool: return bridge.key_of_peer(peer) != &"" and game.drivers.has(bridge.key_of_peer(peer)), 10.0)
+		key = bridge.key_of_peer(peer)
+	var driver: DdGame.Driver = game.drivers.get(key)
+	_check(driver != null, "a client joins over the socket and is seated", "peer %d key %s" % [peer, key])
+
+	if driver == null:
+		for what in [
+			"the server holds it as loading", "a trip starts for it",
+			"a knock costs it no load", "a fall is put right and not counted",
+			"its cover report crosses the wire", "and the same knock now costs load",
+			"and the same fall now counts",
+		]:
+			_check(false, what)
+		link.disconnect_from_server("done")
+		side.queue_free()
+		_finished_section()
+		return
+
+	_check(bool(module.call("is_peer_loading", peer)) and not game.can_be_harmed(key),
+		"the server holds it as loading from its spawn")
+	var started := game.start_trip(key, game.route_order[0])
+	_check(started.ok and driver.trip != null, "a trip starts for it", str(started))
+	var trip: DdTrip = driver.trip
+	trip.cargo = 1.0
+	trip.state = DdTrip.State.DRIVING
+
+	# A speed change the road did not ask for, then a tick (the module steps the world itself).
+	trip.last_velocity = Vector3(90.0, 0.0, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_check(is_equal_approx(trip.cargo, 1.0), "a knock costs it no load", "cargo %.3f" % trip.cargo)
+	game._fall(driver, "fell")
+	_check(trip.falls == 0 and is_equal_approx(trip.cargo, 1.0) and trip.state == DdTrip.State.FALLEN,
+		"a fall is put right and not counted", "falls %d cargo %.3f" % [trip.falls, trip.cargo])
+
+	DotGameClient.report_cover(link, false)
+	var lifted := await _until(func() -> bool: return not bool(module.call("is_peer_loading", peer)), 10.0)
+	_check(lifted and game.can_be_harmed(key), "its cover report crosses the wire and ends the loading state")
+	trip.state = DdTrip.State.DRIVING
+	trip.last_velocity = Vector3(90.0, 0.0, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_check(trip.cargo < 1.0, "and the same knock now costs load", "cargo %.3f" % trip.cargo)
+	game._fall(driver, "fell")
+	_check(trip.falls == 1, "and the same fall now counts", "falls %d" % trip.falls)
+
+	link.disconnect_from_server("done")
+	side.queue_free()
+	_finished_section()
+
+
+func _until(condition: Callable, seconds: float) -> bool:
+	var deadline := Time.get_ticks_msec() + int(seconds * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		if bool(condition.call()):
+			return true
+		await get_tree().physics_frame
+	return bool(condition.call())
 
 
 func _test_it_unloads() -> void:

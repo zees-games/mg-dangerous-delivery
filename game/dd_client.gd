@@ -335,6 +335,11 @@ func _build_gate() -> void:
 		cover.layer = 100
 		add_child(cover)
 		cover.add_child(loading)
+		# The gate made its own cover when it came up; once ours replaces the reference nothing
+		# hides that one, and it stayed over the lot for good (found by tools/render_cover).
+		if gate.cover != null and is_instance_valid(gate.cover) and gate.cover != loading:
+			gate.cover.queue_free()
+
 		gate.cover = loading
 
 	_cover_world()

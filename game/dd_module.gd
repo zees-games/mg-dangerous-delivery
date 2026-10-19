@@ -139,6 +139,15 @@ func _game_load() -> DotResult:
 	if delivered > 0:
 		world.build_routes()
 
+	# dot-game's "still loading": a driver behind their client's cover loses no load and counts
+	# no fall (see DdGame.harm_gate). Asked by driver key, resolved to a peer through the bridge.
+	world.harm_gate = func(driver_key: StringName) -> bool:
+		if bridge == null:
+			return true
+
+		var peer := int((bridge as DdNetBridge).peer_of(driver_key))
+		return peer <= 0 or can_peer_be_harmed(peer)
+
 	add_command("dd_status", _cmd_status, "Show the routes and who is driving where")
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
 	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", DotAdminFlags.CHANGEMAP)

@@ -302,6 +302,11 @@ signal world_rebuilt()
 ## and the bridge call [method step] themselves.
 var hold_clock: Callable = Callable()
 
+## `func(driver_key: StringName) -> bool`: whether a driver may be hurt now (lose load to a knock
+## or a bolt, count a fall), assigned by the module from dot-game's `can_peer_be_harmed`. Unset
+## offline, and a stand-in is never loading. See [method can_be_harmed].
+var harm_gate: Callable = Callable()
+
 var _terrain_gen: int = 0
 
 
@@ -1938,7 +1943,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	# A fragile load feels a smaller knock and loses more to it.
 	var threshold := config.knock_threshold / trip.fragile
 
-	if dv > threshold:
+	if dv > threshold and can_be_harmed(driver.key):
 		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
 
 	# Checkpoints.
@@ -1989,13 +1994,25 @@ func _held() -> DotVehicleCommand:
 
 func _fall(driver: Driver, why: String) -> void:
 	var trip: DdTrip = driver.trip
-	trip.falls += 1
-	trip.cargo = maxf(trip.cargo - config.fall_cargo_loss, 0.0)
+
+	# A driver behind their loading cover is put back all the same (a truck off the mountain
+	# cannot stay there), but the fall costs them neither the count nor the load.
+	if can_be_harmed(driver.key):
+		trip.falls += 1
+		trip.cargo = maxf(trip.cargo - config.fall_cargo_loss, 0.0)
+
 	trip.state = DdTrip.State.FALLEN
 	trip.wait = config.respawn_seconds
 	trip.flipped_for = 0.0
 	trip.hung_for = 0.0
 	fell.emit(driver.key, why)
+
+
+## Whether [param driver_key] may lose load or count a fall now: false while their client is
+## behind its loading cover (dot-game's "still loading"). True for anybody the gate does not
+## know: offline, and every stand-in, which never loads.
+func can_be_harmed(driver_key: StringName) -> bool:
+	return not harm_gate.is_valid() or bool(harm_gate.call(driver_key))
 
 
 func _deliver(driver: Driver) -> void:

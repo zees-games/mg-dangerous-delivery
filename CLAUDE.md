@@ -83,6 +83,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 - The light is a daylight dot-lighting document turned down under Compatibility, dimmed by weather; the surfaces keep the mountain's colours (no pastel grid: snow and wet are read from them). [design](docs/design.md#the-light-is-the-familys-daylight-the-colours-stay-the-mountains)
 - No `class_name`; every own `res://` path through `DdPaths.rebase()` where defined (see [mg-buses-from-hell's delivery.md](../mg-buses-from-hell/docs/delivery.md)).
 - `project.godot` carries no comments (the editor drops them); the reasons for its settings (gravity on the world's space, 60 physics ticks, `gl_compatibility`, uncompressed texture imports) are in [design](docs/design.md#project-settings).
+- **A driver behind their client's loading cover loses nothing on a server** (dot-game's "still loading"): `DdGame.harm_gate` (set by the module from `can_peer_be_harmed`, keyed by driver key through the bridge) is asked by the knock, `_fall` (the truck is still put back, but no load and no counted fall) and the lightning's `_damage`. Offline and stand-ins have no gate. `dedicated` checks it over a real socket; `tools/render_cover.sh` renders the cover and the frames after it lifts (it found the gate's stock cover left up over the lot once `DdLoadScreen` replaced it).
 
 ## Not yet done
 

@@ -149,5 +149,5 @@ func _damage(target: Object, amount: float, _at: Vector3, _ev: Object) -> void:
 	for key: StringName in _game.drivers:
 		var driver: Variant = _game.drivers[key]
 
-		if driver.truck == target and driver.trip != null:
+		if driver.truck == target and driver.trip != null and _game.can_be_harmed(key):
 			driver.trip.cargo = maxf(driver.trip.cargo - amount * 0.004, 0.0)
