@@ -170,7 +170,9 @@ func _ready() -> void:
 		side.fov = 45.0
 		add_child(side)
 		side.global_position = rig.global_position + rig.global_basis * Vector3(float(_args.get("dx", "-5")), float(_args.get("dy", "2.2")), float(_args.get("dz", "-1.6")))
-		side.look_at(rig.global_position + rig.global_basis * Vector3(-0.4, 1.7, float(_args.get("dz", "-1.6"))))
+		# A positive dz is behind the truck: look forward at the seat instead of along the side.
+		var aim_z := float(_args.get("dz", "-1.6"))
+		side.look_at(rig.global_position + rig.global_basis * Vector3(-0.4, 1.7, -1.0 if aim_z > 0.0 else aim_z))
 		side.current = true
 
 	if view == "land":

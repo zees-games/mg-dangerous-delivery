@@ -629,17 +629,20 @@ func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Arr
 	while d < length():
 		var i := index_at_distance(d)
 		var p := points[i]
+		var dodging := false
 
 		# Into the other lane round a pile of debris: a stand-in on the centreline drives into
 		# every pile, because a pile takes one lane and reaches nearly to the line.
 		for pile: Dictionary in debris:
 			if absf(float(pile["d"]) - d) < 16.0:
 				p -= right_of(yaws[i]) * signf(float(pile["lateral"])) * width_at(d) * 0.26
+				dodging = true
 
 		# And round roadworks, the length of them.
 		for job: Dictionary in works:
 			if absf(float(job["d"]) - d) < float(job["length"]) * 0.5 + 12.0:
 				p -= right_of(yaws[i]) * signf(float(job["lateral"])) * width_at(d) * 0.26
+				dodging = true
 
 		# Swing wide round a hairpin, as a long truck must: on the centreline a stand-in's rear
 		# wheels and a trailer cut in and ground along the cliff on the inside.
@@ -647,9 +650,11 @@ func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Arr
 		if absf(float(seg_here["turn"])) >= HAIRPIN_TURN:
 			p += right_of(yaws[i]) * signf(-float(seg_here["turn"])) * width_at(d) * 0.22
 
-		# Keep right where a car comes the other way.
+		# Keep right where a car comes the other way, unless a pile or roadworks are being dodged:
+		# the two shifts cancelled on the Slate Quarry and the stand-in drove into the pile at 17 m/s
+		# and turned over, four times, until the clock ran out. The oncoming car stops for a truck in its lane.
 		for car: Dictionary in traffic:
-			if d > float(car["from"]) - 10.0 and d < float(car["to"]) + 10.0:
+			if not dodging and d > float(car["from"]) - 10.0 and d < float(car["to"]) + 10.0:
 				p += right_of(yaws[i]) * width_at(d) * 0.24
 
 		out.append(p)

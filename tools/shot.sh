@@ -14,7 +14,7 @@
 #   tools/shot.sh --view=standin --seconds=40             # a stand-in from the spawn to its truck and up the land's road to a gate
 #   tools/shot.sh --view=drive --route=dd_snowline --seconds=40   # a stand-in at the wheel, chase camera
 #   tools/shot.sh --view=cab --route=dd_river_cut --seconds=20    # from the cab
-#   tools/shot.sh --view=cab_side [--truck=semi] [--dx=-5 --dy=2.2 --dz=-1.6]   # beside the driver's door: the seated person
+#   tools/shot.sh --view=cab_side [--truck=semi] [--dx=-5 --dy=2.2 --dz=-1.6]   # beside the driver's door: the seated person; dz>0 looks from behind
 #   tools/shot.sh --view=drive --orbit=70,15              # the chase camera dragged round (yaw,pitch degrees)
 #   tools/shot.sh --view=standin --near=3.5 --seconds=3   # a walker close up, mid-stride (--near is the metres behind)
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above

@@ -11,13 +11,13 @@ extends RefCounted
 ## every field is applied to a [DotVehicleTunables], so the chassis that drives a truck is
 ## the one every vehicle in the family is driven by.
 
-## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs are solid (the glass is a painted face, not a hole), so the seat is set half into the driver's side window: head, shoulders and the wheel hand show from outside, and the rest is inside the shell.
+## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs' glass is painted on the body's one surface; [method DdTruck._open_glass] moves those triangles to a see-through surface at load, so the seat is inside the cab, seen through the windows.
 const SEATS := {
-	&"box_truck": {"at": Vector3(-0.85, 1.0, -1.15), "height": 1.1},
-	&"flatbed": {"at": Vector3(-0.9, 1.05, -1.0), "height": 1.1},
-	&"hauler": {"at": Vector3(-0.9, 1.25, -0.9), "height": 1.1},
-	&"semi": {"at": Vector3(-0.9, 1.25, -0.9), "height": 1.1},
-	&"bulk": {"at": Vector3(-1.0, 1.3, -1.6), "height": 1.1},
+	&"box_truck": {"at": Vector3(-0.55, 1.0, -1.15), "height": 1.1},
+	&"flatbed": {"at": Vector3(-0.6, 1.05, -1.0), "height": 1.1},
+	&"hauler": {"at": Vector3(-0.6, 1.25, -0.9), "height": 1.1},
+	&"semi": {"at": Vector3(-0.6, 1.25, -0.9), "height": 1.1},
+	&"bulk": {"at": Vector3(-0.65, 1.3, -1.6), "height": 1.1},
 }
 
 

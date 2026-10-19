@@ -19,8 +19,8 @@ const DdTrip := preload("res://game/dd_trip.gd")
 const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 10
-const CHECKS := 47
+const SECTIONS := 11
+const CHECKS := 50
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -110,6 +110,8 @@ func _ready() -> void:
 		await _test_hung()
 	if _runs(only, "hairpins"):
 		await _test_hairpins()
+	if _runs(only, "piles"):
+		await _test_piles()
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -554,6 +556,46 @@ func _test_every_start() -> void:
 	_finished_section()
 
 
+func _test_piles() -> void:
+	_section("a stand-in steers clear of every pile of debris, and stays upright through the Slate Quarry's")
+	var wrong := []
+	var piles := 0
+	for id: StringName in game.route_order:
+		var road: DdRoute = game.routes[id]
+		var pts := road.route_points(0.0, 8.0)
+		for pile: Dictionary in road.debris:
+			piles += 1
+			var k := clampi(roundi(float(pile["d"]) / 8.0), 0, pts.size() - 1)
+			var lat := road.lateral_at(pts[k])
+			# The cars' keep-right shift once cancelled the dodge, and the stand-in drove into the pile.
+			if signf(lat) == signf(float(pile["lateral"])) or absf(lat) < 1.0:
+				wrong.append("%s %.0f m: pile at %.1f, stand-in at %.1f" % [id, float(pile["d"]), float(pile["lateral"]), lat])
+	_check(wrong.is_empty() and piles >= 5, "the stand-in's route is in the other lane from every pile (%d)" % piles, str(wrong))
+
+	var _f := game.force_weather("clear")
+	var id := &"dd_slate_quarry"
+	var road: DdRoute = game.routes[id]
+	var me := _set_off(&"box_truck", &"gravel", id)
+	me.assisted = true
+	me.idle = 999.0
+	me.autopilot = DotVehicleDriver.new()
+	me.autopilot.target_speed = 17.0
+	await _seconds(0.3)
+	_place_at(me, road, id, 440.0)
+	var tilt := 0.0
+	var t := 0.0
+	while (me.trip as DdTrip).distance < 660.0 and t < 60.0 and (me.trip as DdTrip).falls == 0:
+		await get_tree().physics_frame
+		t += TICK
+		if me.truck != null:
+			tilt = maxf(tilt, rad_to_deg(acos(clampf((me.truck as Node3D).global_basis.y.dot(Vector3.UP), -1.0, 1.0))))
+	_check((me.trip as DdTrip).distance >= 660.0 and (me.trip as DdTrip).falls == 0 and tilt < 30.0, "a stand-in at 17 m/s passes the Slate Quarry's pile upright", "%.0f m, %d falls, tilt %.0f degrees" % [(me.trip as DdTrip).distance, (me.trip as DdTrip).falls, tilt])
+	me.assisted = false
+	me.autopilot = null
+	game.end_trip(&"t")
+	_finished_section()
+
+
 func _test_hung() -> void:
 	_section("hung over an open edge")
 	var road: DdRoute = game.routes[&"dd_river_cut"]
@@ -601,6 +643,7 @@ func _test_hairpins() -> void:
 		where[1] = r.lateral_at((d.truck as Node3D).global_position - r.position, (d.trip as DdTrip).hint)
 	game.fell.connect(on_fell)
 	var taken := 0
+	var worst_tilt := 0.0
 	for truck in [&"box_truck", &"semi", &"bulk"]:
 		for id: StringName in [&"dd_snowline", &"dd_devils_spine"]:
 			var road: DdRoute = game.routes[id]
@@ -628,6 +671,9 @@ func _test_hairpins() -> void:
 					while (me.trip as DdTrip).distance < start + length_m + 25.0 and t < 90.0 and (me.trip as DdTrip).falls == 0:
 						await get_tree().physics_frame
 						t += TICK
+						# Tilt off level, grade and bank included: a hairpin's road never asks for 30 degrees, a roll over does.
+						if me.truck != null:
+							worst_tilt = maxf(worst_tilt, rad_to_deg(acos(clampf((me.truck as Node3D).global_basis.y.dot(Vector3.UP), -1.0, 1.0))))
 					taken += 1
 					if (me.trip as DdTrip).falls > 0 or t >= 90.0:
 						fell.append("%s %s at %.0f m (%s)" % [truck, id, start, ("%s at %.0f m, %.1f m across" % [why[0], where[0], where[1]]) if (me.trip as DdTrip).falls > 0 else "did not get round"])
@@ -637,6 +683,8 @@ func _test_hairpins() -> void:
 				start += length_m
 	game.fell.disconnect(on_fell)
 	_check(fell.is_empty() and taken == 18, "the Box Truck, the Semi and the Bulk Carrier round all six hairpins on snow at a careful pace", str(fell))
+
+	_check(worst_tilt < 30.0, "no truck leans past 30 degrees (a roll or a flip) through the hairpins", "worst %.1f degrees" % worst_tilt)
 
 	# Walking pace straight at the outside rail: the rail holds it.
 	var road: DdRoute = game.routes[&"dd_snowline"]

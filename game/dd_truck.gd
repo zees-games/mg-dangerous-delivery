@@ -92,6 +92,8 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 		_model.rotation.y = MODEL_TURN
 		_model.scale = Vector3.ONE * scale_f
 		bounds = _measure(_model)
+		if draws:
+			_open_glass(_model)
 
 		for child in _model.get_children():
 			if String(child.name).begins_with("wheel"):
@@ -141,6 +143,64 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 		slosh_mass = float(def.get("capacity_kg", 3000.0)) * float(cargo_def.get("fill", 0.5)) * float(cargo_def.get("slosh", 0.0))
 
 	return chassis.bind(instance, tunables)
+
+
+## The Kenney cabs are solid: their glass is a few triangles whose colormap texel is pale blue, on the same surface as the paint. Those triangles go to a second, see-through surface so the driver can be seen from outside, and the cab behind them is the inside of the shell. Pale blue is [code]b == 255, g - r >= 10, r >= 200[/code]: the lamps (yellow) and the paint do not match it. Done at load rather than baked into the .glb, so the CC0 files stay as Kenney shipped them.
+static var _glass_material: StandardMaterial3D = null
+
+static func _is_glass(c: Color) -> bool:
+	return c.b >= 0.98 and c.g - c.r >= 0.04 and c.r >= 0.78
+
+
+func _open_glass(model: Node3D) -> void:
+	if _glass_material == null:
+		_glass_material = StandardMaterial3D.new()
+		_glass_material.albedo_color = Color(0.55, 0.72, 0.85, 0.28)
+		_glass_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_glass_material.roughness = 0.1
+		_glass_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	for child in model.get_children():
+		var inst := child as MeshInstance3D
+
+		if inst == null or inst.mesh == null or String(child.name).begins_with("wheel") or inst.mesh.get_surface_count() != 1:
+			continue
+
+		var paint := inst.mesh.surface_get_material(0) as BaseMaterial3D
+		var tex := paint.albedo_texture if paint != null else null
+		var img: Image = tex.get_image() if tex != null else null
+
+		if img == null:
+			continue
+
+		if img.is_compressed():
+			img.decompress()
+
+		var arrays := inst.mesh.surface_get_arrays(0)
+		var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+		var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var keep := PackedInt32Array()
+		var glass := PackedInt32Array()
+		var w := img.get_width() - 1
+		var h := img.get_height() - 1
+
+		for k in range(0, idx.size(), 3):
+			var uv := (uvs[idx[k]] + uvs[idx[k + 1]] + uvs[idx[k + 2]]) / 3.0
+			var c := img.get_pixel(clampi(int(uv.x * w), 0, w), clampi(int(uv.y * h), 0, h))
+			var dest := glass if _is_glass(c) else keep
+			dest.append(idx[k]); dest.append(idx[k + 1]); dest.append(idx[k + 2])
+
+		if glass.is_empty():
+			continue
+
+		var out := ArrayMesh.new()
+		arrays[Mesh.ARRAY_INDEX] = keep
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		out.surface_set_material(0, paint)
+		arrays[Mesh.ARRAY_INDEX] = glass
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		out.surface_set_material(1, _glass_material)
+		inst.mesh = out
 
 
 ## The model's bounds in its own frame (before the turn and the scale).
