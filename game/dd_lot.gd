@@ -17,6 +17,7 @@ extends Node3D
 ## No `class_name`: this game is delivered as a pack.
 
 const DdPaths := preload("dd_paths.gd")
+const DdTrucks := preload("dd_trucks.gd")
 const DdWeather := preload("dd_weather.gd")
 const DdRoute := preload("dd_route.gd")
 
@@ -511,7 +512,7 @@ func _build_sign() -> void:
 
 
 func _truck_model(file: String, scale_f: float) -> Node3D:
-	var path := DdPaths.rebase("res://assets/kenney/trucks/%s" % file)
+	var path := DdTrucks.model_path(file)
 	var packed: PackedScene = load(path) if ResourceLoader.exists(path) else null
 
 	if packed == null:

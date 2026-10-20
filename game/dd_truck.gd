@@ -14,6 +14,7 @@ extends VehicleBody3D
 ## [DdGame] with one call a tick, the same [method DotVehicleChassis.drive] the spawner calls.
 
 const DdPaths := preload("dd_paths.gd")
+const DdTrucks := preload("dd_trucks.gd")
 const DdDrivetrain := preload("dd_drivetrain.gd")
 
 const CHANNEL := "delivery.truck"
@@ -81,7 +82,7 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 	linear_damp = 0.0
 
 	var scale_f := float(def.get("scale", 1.8))
-	var model_path := DdPaths.rebase("res://assets/kenney/trucks/%s" % str(def.get("model", "truck.glb")))
+	var model_path := DdTrucks.model_path(str(def.get("model", "truck.glb")))
 	var packed: PackedScene = load(model_path) if ResourceLoader.exists(model_path) else null
 	var wheel_spots: Array[Vector3] = []
 	var bounds := AABB(Vector3(-0.75, 0.0, -1.6), Vector3(1.5, 1.6, 3.2))

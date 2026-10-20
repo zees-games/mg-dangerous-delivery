@@ -1,5 +1,7 @@
 extends RefCounted
 
+const DdPaths := preload("dd_paths.gd")
+
 ## Every truck a player can buy, and every upgrade, as data.
 ##
 ## [b]A harder truck pays more, and that is the whole economy in one number.[/b] Each truck
@@ -21,6 +23,11 @@ const SEATS := {
 }
 
 
+## Where a catalogue entry's model file is. A name with a folder in it ("models/x.glb") is one of ours under assets/; a bare name is a Kenney Car Kit truck.
+static func model_path(file: String) -> String:
+	return DdPaths.rebase(("res://assets/%s" if file.contains("/") else "res://assets/kenney/trucks/%s") % file)
+
+
 ## The seat for a truck id, with a fallback for a modded truck the table does not know.
 static func seat_of(id: StringName) -> Dictionary:
 	return SEATS.get(id, {"at": Vector3(-0.45, 1.5, -1.6), "height": 1.2})
@@ -35,7 +42,7 @@ static func seat_of(id: StringName) -> Dictionary:
 ## with a trailer carries its load on the trailer. `brake_force` is newtons at the wheels.
 const DEFAULTS := [
 	{
-		"id": "box_truck", "name": "Box Truck", "model": "delivery.glb", "scale": 1.7,
+		"id": "box_truck", "name": "Box Truck", "model": "models/delivery_truck.glb", "scale": 1.7,
 		"blurb": "Short, forgiving and nimble, and out of breath on a long climb.",
 		"price": 0, "pay": 1.0, "mass": 4500.0, "capacity_kg": 3500.0,
 		"power_kw": 140.0, "torque_nm": 700.0, "gears": [6.2, 3.7, 2.4, 1.6, 1.15, 0.85], "final_drive": 4.3,
