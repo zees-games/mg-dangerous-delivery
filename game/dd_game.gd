@@ -135,6 +135,12 @@ signal mountain_changed(id: StringName)
 signal walker_placed(key: StringName)
 ## A truck was built for somebody (a trip's, or one to drive round in): the bridge replicates it.
 signal truck_made(key: StringName)
+## Something came off [param key]'s truck, a tyre burst or a wheel went ([param event] is
+## [signal DotVehicleBreakage.broke]'s, with `at` and `velocity`), or it was put right (empty).
+## The bridge sends the truck's whole damage state on; the client shows effects from it.
+signal truck_damaged(key: StringName, event: Dictionary)
+## A wheel's hub is on the road at [param at], moving at [param speed]: sparks, every step.
+signal truck_scraping(key: StringName, at: Vector3, speed: float)
 ## Somebody got into or out of their truck off a road: everybody is told (a DRIVER).
 signal seated(key: StringName)
 
@@ -306,6 +312,7 @@ var hold_clock: Callable = Callable()
 ## or a bolt, count a fall), assigned by the module from dot-game's `can_peer_be_harmed`. Unset
 ## offline, and a stand-in is never loading. See [method can_be_harmed].
 var harm_gate: Callable = Callable()
+var _debris: DotVehicleDebris = null
 
 var _terrain_gen: int = 0
 
@@ -874,6 +881,13 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 	truck.name = "Truck_%s" % String(driver.key)
 	add_child(truck)
 	driver.truck = truck
+
+	if truck.breakage != null:
+		var key := driver.key
+		truck.breakage.debris = debris()
+		truck.breakage.harm_gate = func() -> bool: return can_be_harmed(key)
+		truck.damaged.connect(_on_truck_damaged.bind(key))
+		truck.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
 	var trailer_spec: Variant = trucks.get_truck(truck_id).get("trailer")
 
 	if with_trailer and config.trailers and trailer_spec is Dictionary:
@@ -890,6 +904,59 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 
 	truck_made.emit(driver.key)
 	return DotResult.success(truck)
+
+
+## Where every truck's lost pieces go: one budget for the whole mountain. Null when nothing is
+## drawn (a dedicated server), so a part there is only hidden. The pieces touch the road and the
+## rock (the camera layer every solid of the world carries) and never a truck: each machine throws
+## its own, and a piece that could shove a truck would put the client out of step with the server.
+func debris() -> DotVehicleDebris:
+	if not draws:
+		return null
+	if _debris == null or not is_instance_valid(_debris):
+		_debris = DotVehicleDebris.new()
+		_debris.name = "Debris"
+		_debris.collision_layer = 0
+		_debris.collision_mask = DdRoute.CAMERA_LAYER
+		add_child(_debris)
+	return _debris
+
+
+func _on_truck_damaged(event: Dictionary, key: StringName) -> void:
+	var driver: Driver = drivers.get(key, null)
+
+	if driver != null and str(event.get("kind", "")) == "part" and driver.truck != null:
+		var part: DotVehicleDamage.Part = (driver.truck as DdTruck).damage.parts.get(event.get("id", &""), null)
+
+		# A unit of the load gone is its share of the pay gone (the knock test's cargo is the
+		# same 0..1), and a crate in the road where it fell.
+		if part != null and part.kind == &"cargo":
+			var trip: DdTrip = driver.trip
+			if trip != null:
+				trip.cargo = maxf(trip.cargo - 1.0 / float(maxi(_cargo_units(driver.truck), 1)), 0.0)
+			drop_crate(driver.truck, event)
+
+	truck_damaged.emit(key, event)
+
+
+func _cargo_units(truck: DdTruck) -> int:
+	var n := 0
+	for id: StringName in truck.damage.parts:
+		if (truck.damage.parts[id] as DotVehicleDamage.Part).kind == &"cargo":
+			n += 1
+	return n
+
+
+## A crate where a unit of the load came off, moving as it left. Drawn machines only.
+func drop_crate(truck: DdTruck, event: Dictionary) -> void:
+	var pieces := debris()
+	if pieces == null:
+		return
+	var at: Vector3 = event.get("at", truck.global_position)
+	var crate := StandardMaterial3D.new()
+	crate.albedo_color = Color(0.62, 0.45, 0.25)
+	var _b := pieces.spawn_box(Transform3D(truck.global_basis, at), Vector3(0.9, 0.7, 0.9), crate,
+		event.get("velocity", truck.linear_velocity), Vector3(1.5, 0.5, -1.0), 60.0)
 
 
 ## Back to the lot: the trip's truck goes. Anybody (a stand-in too) is on foot beside their

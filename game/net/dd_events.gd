@@ -44,6 +44,10 @@ enum Kind {
 	## natural-disasters' own message (a storm's start, stop or a bolt), carried as it is.
 	## Dropped by a client without the addon.
 	DISASTER,
+	## What a truck has lost: [code]{key, state: DotVehicleDamage.to_dict(), velocities: {part
+	## id or "wheel<i>": [x, y, z]}, crates: [[x, y, z, vx, vy, vz]], event}[/code]. On every loss
+	## and on a repair (state with nothing lost). The client throws its own pieces from it.
+	DAMAGE,
 }
 
 enum Ask {

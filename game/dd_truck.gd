@@ -62,6 +62,18 @@ const SLOSH_REACH := 0.9
 var _model: Node3D = null
 var _wheels: Array[VehicleWheel3D] = []
 
+## What comes off it and what it has lost (dot-vehicle's), and the node that makes it physical.
+## Built in [method configure] from [constant DdTrucks.PARTS] (or the truck's own `parts`) on
+## every machine, so a part's id means the same piece on the server and on every client.
+var damage: DotVehicleDamage = null
+var breakage: DotVehicleBreakage = null
+
+## The body's box in its own frame (x right, y up, z back): what part regions are fractions of.
+var body_box: AABB = AABB()
+
+## A part came off, a tyre burst, a wheel went, or it was all put right ([param event] empty).
+signal damaged(event: Dictionary)
+
 
 ## Builds it from [param p_def] with [param tunables] (from [method DdTrucks.tunables_for]).
 ## Returns the body, ready to add to the tree; [method bind_chassis] once it is in.
@@ -119,6 +131,7 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 	collider.position = centre + Vector3(0.0, clearance * 0.5, 0.0)
 	add_child(collider)
 	half_length = size.z * 0.5
+	body_box = AABB(centre - size * 0.5, size)
 
 	if _model != null and draws:
 		add_child(_model)
@@ -143,7 +156,106 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 	if not def.has("trailer") and not cargo_def.is_empty():
 		slosh_mass = float(def.get("capacity_kg", 3000.0)) * float(cargo_def.get("fill", 0.5)) * float(cargo_def.get("slosh", 0.0))
 
-	return chassis.bind(instance, tunables)
+	var bound := chassis.bind(instance, tunables)
+
+	if bound.ok:
+		_build_damage(draws)
+
+	return bound
+
+
+## The parts, carved off the drawn body where it is drawn, and the breakage that feels the hits.
+## A part whose region holds no triangle of this model is still a part (the server draws
+## nothing and must agree with every client on what the ids are); it just has nothing to throw.
+func _build_damage(draws: bool) -> void:
+	damage = DotVehicleDamage.new()
+	var tough := float(def.get("toughness", 1.0))
+	var list: Variant = def.get("parts", DdTrucks.PARTS)
+
+	for raw: Variant in (list if list is Array else []):
+		if not (raw is Dictionary):
+			continue
+
+		var p: Dictionary = raw
+		var region := part_region(p)
+		var id := StringName(str(p.get("id", "")))
+		var node_path := NodePath("")
+
+		if draws and _model != null:
+			var node := _part_node(p, id, region)
+			if node != null:
+				node_path = NodePath("Model/%s" % node.name)
+
+		var added := damage.add_part(id, StringName(str(p.get("kind", "panel"))), region.get_center(),
+			float(p.get("strength", 6.0)) * tough, float(p.get("reach", 1.2)), float(p.get("mass", 0.0)), node_path)
+		DotLog.result(CHANNEL, "a truck part", added)
+
+	if not def.has("trailer") and not cargo_def.is_empty() and float(cargo_def.get("slosh", 0.0)) <= 0.0:
+		var units := maxi(int(def.get("cargo_units", DdTrucks.CARGO_UNITS)), 1)
+		var each := DdTrucks.load_mass(def, cargo_def) / float(units)
+		var strength := float(def.get("cargo_strength", DdTrucks.CARGO_STRENGTH)) * tough / sqrt(maxf(float(cargo_def.get("fragile", 1.0)), 0.25))
+
+		for k in units:
+			var along := lerpf(0.55, 0.95, float(k) / float(maxi(units - 1, 1)))
+			var at := body_box.position + body_box.size * Vector3(0.5, 0.85, along)
+			var _c := damage.add_part(StringName("cargo_%d" % k), &"cargo", at, strength, 1.4, each)
+
+	breakage = DotVehicleBreakage.new()
+	breakage.name = "Breakage"
+	add_child(breakage)
+	var made := breakage.setup(self, damage, chassis as DotVehicleWheeled,
+		float(def.get("tyre_strength", 10.0)) * tough, float(def.get("hub_strength", 16.0)) * tough)
+	DotLog.result(CHANNEL, "the truck's breakage", made)
+	breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
+
+
+## A part's region in the body's frame, from its fractions of [member body_box].
+func part_region(p: Dictionary) -> AABB:
+	var lo := Vector3(_frac(p, "x", 0), _frac(p, "y", 0), _frac(p, "z", 0))
+	var hi := Vector3(_frac(p, "x", 1), _frac(p, "y", 1), _frac(p, "z", 1))
+	return AABB(body_box.position + body_box.size * lo, body_box.size * (hi - lo))
+
+
+static func _frac(p: Dictionary, axis: String, end: int) -> float:
+	var pair: Variant = p.get(axis, [0.0, 1.0])
+	return float((pair as Array)[end]) if pair is Array and (pair as Array).size() == 2 else float(end)
+
+
+## The drawn node for a part: a named model node, or the body's triangles inside its region.
+func _part_node(p: Dictionary, id: StringName, region: AABB) -> Node3D:
+	if p.has("node"):
+		return _model.get_node_or_null(NodePath(str(p["node"]))) as Node3D
+
+	for child in _model.get_children():
+		var mesh := child as MeshInstance3D
+
+		if mesh == null or String(child.name).begins_with("wheel") or String(child.name).begins_with("Part_"):
+			continue
+
+		var local := (_model.transform * mesh.transform).affine_inverse() * region
+		var cut := DotVehicleDebris.carve(mesh, local)
+
+		if cut != null:
+			cut.name = "Part_%s" % id
+			return cut
+
+	return null
+
+
+## Everything back on (a put-back). The load already lost stays lost in the trip's pay.
+func repair() -> void:
+	if breakage != null and (not damage.lost_parts().is_empty() or _any_wheel_down()):
+		breakage.repair()
+		damaged.emit({})
+
+
+func _any_wheel_down() -> bool:
+	if damage == null:
+		return false
+	for i in damage.wheels.size():
+		if damage.wheel_state(i) != DotVehicleDamage.Wheel.INTACT:
+			return true
+	return false
 
 
 ## The Kenney cabs are solid: their glass is a few triangles whose colormap texel is pale blue, on the same surface as the paint. Those triangles go to a second, see-through surface so the driver can be seen from outside, and the cab behind them is the inside of the shell. Pale blue is [code]b == 255, g - r >= 10, r >= 200[/code]: the lamps (yellow) and the paint do not match it. Done at load rather than baked into the .glb, so the CC0 files stay as Kenney shipped them.
@@ -344,6 +456,8 @@ func place(where: Transform3D) -> void:
 	if chassis is DdDrivetrain:
 		(chassis as DdDrivetrain).reset()
 
+	repair()
+
 
 ## How far above the road this truck's origin is when it stands on its wheels at rest:
 ## the lowest wheel's tyre bottom, measured from the origin. Placing a truck at this
@@ -387,6 +501,7 @@ func describe() -> Dictionary:
 		"truck": String(truck_id), "speed": "%.1f m/s" % linear_velocity.length(),
 		"grip": "%.2f" % grip, "mass": "%.0f kg" % mass, "wheels": "%d/%d" % [wheels_on_ground(), _wheels.size()],
 		"cargo": str(cargo_def.get("id", "none")), "gear": gauge().get("gear", 0),
+		"damage": damage.describe() if damage != null else {},
 	}
 
 

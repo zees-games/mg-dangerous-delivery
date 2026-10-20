@@ -9,6 +9,7 @@ extends Node3D
 ## this client owns, and against a server will be a mirror the bridge keeps. Nothing here
 ## decides a price, a checkpoint or a fall.
 
+const DdPaths := preload("dd_paths.gd")
 const DdBindings := preload("dd_bindings.gd")
 const DdGame := preload("dd_game.gd")
 const DdHud := preload("dd_hud.gd")
@@ -37,6 +38,9 @@ const CHANNEL := "delivery.client"
 ## How far from a rockfall its shake reaches nothing, in metres. The sound carries to 120 m
 ## (the boulder signal's own test); the jolt is felt nearer.
 const ROCK_SHAKE_FALLOFF := 70.0
+## How often one truck's hub throws a burst of sparks, ms.
+const SPARK_EVERY_MS := 90
+var _spark_at: Dictionary = {}
 
 ## Who this player is in [member game].
 @export var local_key: StringName = &"you"
@@ -398,6 +402,8 @@ func _build_audio() -> void:
 ## both, so a connected player cannot be the one who does not hear it (it once was).
 func _listen_for_rock() -> void:
 	game.boulder_dropped.connect(_on_rock)
+	game.truck_damaged.connect(_on_truck_damaged)
+	game.truck_scraping.connect(_on_truck_scraping)
 
 
 func _on_rock(_route_id: StringName, at: Vector3) -> void:
@@ -422,6 +428,17 @@ func _build_effects() -> void:
 	rock.shake_trauma = 0.45
 	catalogue.add(rock)
 
+	# What comes off a truck: a burst tyre's puff and its shreds, a hub's sparks on the road, the
+	# dust of a panel or a wheel going. CPU particles, so the browser build shows them too.
+	for spec: Array in [[&"tyre_puff", 1200, 4], [&"tyre_shreds", 2000, 4], [&"sparks", 500, 24], [&"debris_puff", 1200, 6]]:
+		var fx := DotFxDef.new()
+		fx.id = spec[0]
+		fx.kind = DotFxDef.Kind.SPAWNED
+		fx.scene_path = DdPaths.rebase("res://effects/%s.tscn" % spec[0])
+		fx.lifetime_ms = spec[1]
+		fx.max_concurrent = spec[2]
+		catalogue.add(fx)
+
 	effects = DotFxManager.new()
 	effects.name = "Effects"
 	effects.catalogue = catalogue
@@ -435,6 +452,34 @@ func _build_effects() -> void:
 		remove_child(effects)
 		effects.free()
 		effects = null
+
+
+func _on_truck_damaged(_key: StringName, event: Dictionary) -> void:
+	if effects == null or not (event.get("at") is Vector3):
+		return
+
+	var at := Transform3D(Basis(), event["at"] as Vector3)
+
+	match str(event.get("kind", "")):
+		"popped":
+			var _p := effects.spawn(&"tyre_puff", at)
+			var _s := effects.spawn(&"tyre_shreds", at)
+		"lost":
+			var _d := effects.spawn(&"debris_puff", at)
+			var _k := effects.spawn(&"sparks", at)
+		"part":
+			var _c := effects.spawn(&"debris_puff", at)
+
+
+## Sparks from a hub on the road, a few a second per truck rather than one a physics step.
+func _on_truck_scraping(key: StringName, at: Vector3, speed: float) -> void:
+	var now := Time.get_ticks_msec()
+
+	if effects == null or now - int(_spark_at.get(key, 0)) < SPARK_EVERY_MS:
+		return
+
+	_spark_at[key] = now
+	var _s := effects.spawn(&"sparks", Transform3D(Basis(), at), clampf(speed / 15.0, 0.5, 2.0))
 
 
 ## Once a frame, after the camera has followed the truck: dot-fx computes the jolt and touches

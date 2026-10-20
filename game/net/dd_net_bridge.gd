@@ -187,6 +187,7 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.mountain_changed.connect(_on_mountain_changed)
 		game.walker_placed.connect(_on_walker_placed)
 		game.truck_made.connect(_on_truck_made)
+		game.truck_damaged.connect(_on_truck_damaged)
 		game.seated.connect(func(key: StringName) -> void: _broadcast_driver(key))
 
 	return DotResult.success(true)
@@ -524,7 +525,33 @@ func _driver_body(key: StringName) -> Dictionary:
 		if driver.trailer != null:
 			body["trailer_net_id"] = int(_net_of.get(driver.trailer, 0))
 
+		# A joiner's mirror starts as battered as the server's truck is (no pieces thrown).
+		if truck.damage != null:
+			body["damage"] = truck.damage.to_dict()
+
 	return body
+
+
+## Every loss goes to every client at once, with the velocity it left with, so each throws its
+## own piece the same way; the crates are positions, since a client's mirror carries no load.
+func _on_truck_damaged(key: StringName, event: Dictionary) -> void:
+	var driver: DdGame.Driver = game.drivers.get(key, null)
+	if driver == null or driver.truck == null or (driver.truck as DdTruck).damage == null:
+		return
+
+	var truck := driver.truck as DdTruck
+	var data := {"key": String(key), "state": truck.damage.to_dict(), "event": str(event.get("kind", ""))}
+	var v: Variant = event.get("velocity")
+	var at: Variant = event.get("at")
+
+	if v is Vector3:
+		var piece := str(event.get("id", "")) if event.has("id") else "wheel%d" % int(event.get("wheel", -1))
+		data["velocities"] = {piece: [v.x, v.y, v.z]}
+
+		if at is Vector3 and str(event.get("id", "")).begins_with("cargo_"):
+			data["crates"] = [[at.x, at.y, at.z, v.x, v.y, v.z]]
+
+	_broadcast(DdEvents.Kind.DAMAGE, data)
 
 
 func _broadcast_driver(key: StringName) -> void:
@@ -950,6 +977,8 @@ func _on_event(message: DotNetMessage) -> void:
 			var id := StringName(str(data.get("mountain", "")))
 			game.adopt_documents(data.get("routes", []), id, data.get("map", null))
 			mountain_received.emit(id, str(data.get("name", "")))
+		DdEvents.Kind.DAMAGE:
+			_apply_damage(data)
 		DdEvents.Kind.ROCK:
 			# On the mirror world, where the client listens for it offline too.
 			var at: Variant = data.get("at", [])
@@ -1016,7 +1045,40 @@ func _apply_driver(data: Dictionary) -> void:
 		_mirror_truck(driver, net_id, StringName(str(data.get("truck_id", ""))), data.get("def", {}))
 		_mirror_trailer(driver, int(data.get("trailer_net_id", 0)), data.get("def", {}))
 
+		var mirror := driver.truck as DdTruck
+		if mirror != null and mirror.breakage != null and data.get("damage") is Dictionary:
+			var _shown := mirror.breakage.apply_state(data["damage"])
+
 	driver_changed.emit(key)
+
+
+## The server's losses on the mirror: what newly came off is thrown with the server's velocity,
+## a repair shows everything again, and a unit of load is a crate where it fell.
+func _apply_damage(data: Dictionary) -> void:
+	var driver: DdGame.Driver = game.drivers.get(StringName(str(data.get("key", ""))), null)
+	var truck := driver.truck as DdTruck if driver != null else null
+
+	if truck == null or truck.breakage == null or not (data.get("state") is Dictionary):
+		return
+
+	var state: Dictionary = data["state"]
+	var velocities := {}
+	var sent: Variant = data.get("velocities", {})
+
+	if sent is Dictionary:
+		for k: Variant in sent:
+			var v: Variant = sent[k]
+			if v is Array and (v as Array).size() == 3:
+				velocities[str(k)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
+
+	if (state.get("lost", []) as Array).is_empty() and not (state.get("wheels", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0):
+		truck.breakage.repair()
+	else:
+		var _shown := truck.breakage.apply_state(state, velocities)
+
+	for c: Variant in data.get("crates", []):
+		if c is Array and (c as Array).size() == 6:
+			game.drop_crate(truck, {"at": Vector3(float(c[0]), float(c[1]), float(c[2])), "velocity": Vector3(float(c[3]), float(c[4]), float(c[5]))})
 
 
 func _mirror_truck(driver: DdGame.Driver, net_id: int, truck_id: StringName, def: Variant) -> void:
@@ -1033,6 +1095,16 @@ func _mirror_truck(driver: DdGame.Driver, net_id: int, truck_id: StringName, def
 	truck.freeze = true
 	game.add_child(truck)
 	driver.truck = truck
+
+	# Feels nothing (the server decides every loss) but still throws what DAMAGE says came off,
+	# and makes sparks from a hub as it moves.
+	if truck.breakage != null:
+		truck.breakage.simulate = false
+		truck.breakage.debris = game.debris()
+		var key := driver.key
+		truck.damaged.connect(func(e: Dictionary) -> void: game.truck_damaged.emit(key, e))
+		truck.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: game.truck_scraping.emit(key, at, speed))
+
 	var behaviour := DdTruckNet.new()
 	behaviour.name = "Net"
 	behaviour.body = truck

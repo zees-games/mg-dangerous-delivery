@@ -47,8 +47,9 @@ const DEFAULTS := [
 		"price": 0, "pay": 1.0, "mass": 4500.0, "capacity_kg": 3500.0,
 		"power_kw": 140.0, "torque_nm": 700.0, "gears": [6.2, 3.7, 2.4, 1.6, 1.15, 0.85], "final_drive": 4.3,
 		"redline_rpm": 2600.0, "governor_kmh": 90.0, "drag_area": 4.2,
-		"brake_force": 52000.0, "steering_limit_deg": 36.0, "steering_speed_falloff": 0.4,
-		"friction_slip": 3.2, "rear_grip_fraction": 0.95, "centre_of_mass_drop": 0.7,
+		"brake_force": 40000.0, "steering_limit_deg": 36.0, "steering_speed_falloff": 0.5,
+		"friction_slip": 1.3, "rear_grip_fraction": 1.05, "centre_of_mass_drop": 0.7,
+		"suspension": {"stiffness": 62.0, "compression": 0.85, "relaxation": 1.2, "travel": 0.32},
 	},
 	{
 		"id": "flatbed", "name": "Flatbed", "model": "models/flatbed.glb", "scale": 1.8,
@@ -56,8 +57,9 @@ const DEFAULTS := [
 		"price": 1500, "pay": 1.3, "mass": 5200.0, "capacity_kg": 4500.0,
 		"power_kw": 230.0, "torque_nm": 980.0, "gears": [6.0, 3.6, 2.35, 1.6, 1.15, 0.84], "final_drive": 4.0,
 		"redline_rpm": 2600.0, "governor_kmh": 100.0, "drag_area": 5.0,
-		"brake_force": 58000.0, "steering_limit_deg": 32.0, "steering_speed_falloff": 0.35,
-		"friction_slip": 2.9, "rear_grip_fraction": 0.85, "centre_of_mass_drop": 0.55,
+		"brake_force": 44000.0, "steering_limit_deg": 32.0, "steering_speed_falloff": 0.45,
+		"friction_slip": 1.25, "rear_grip_fraction": 0.98, "centre_of_mass_drop": 0.55,
+		"suspension": {"stiffness": 70.0, "compression": 0.9, "relaxation": 1.25, "travel": 0.3},
 		"wind_scale": 1.4,
 	},
 	{
@@ -66,8 +68,9 @@ const DEFAULTS := [
 		"price": 4000, "pay": 1.6, "mass": 8000.0, "capacity_kg": 9000.0,
 		"power_kw": 290.0, "torque_nm": 1700.0, "gears": [7.5, 5.2, 3.7, 2.7, 1.95, 1.4, 1.0, 0.78], "final_drive": 3.9,
 		"redline_rpm": 2300.0, "governor_kmh": 85.0, "drag_area": 6.5,
-		"brake_force": 95000.0, "steering_limit_deg": 30.0, "steering_speed_falloff": 0.3,
-		"friction_slip": 2.8, "rear_grip_fraction": 0.9, "centre_of_mass_drop": 0.5,
+		"brake_force": 70000.0, "steering_limit_deg": 30.0, "steering_speed_falloff": 0.42,
+		"friction_slip": 1.15, "rear_grip_fraction": 1.1, "centre_of_mass_drop": 0.5,
+		"suspension": {"stiffness": 72.0, "compression": 0.9, "relaxation": 1.25, "travel": 0.3},
 	},
 	{
 		"id": "semi", "name": "Semi", "model": "models/semi.glb", "scale": 1.9,
@@ -75,8 +78,9 @@ const DEFAULTS := [
 		"price": 6500, "pay": 1.9, "mass": 7000.0, "capacity_kg": 9000.0,
 		"power_kw": 300.0, "torque_nm": 1900.0, "gears": [9.0, 6.6, 4.9, 3.6, 2.7, 2.0, 1.5, 1.15, 0.9, 0.74], "final_drive": 3.6,
 		"redline_rpm": 2200.0, "governor_kmh": 90.0, "drag_area": 7.5,
-		"brake_force": 80000.0, "steering_limit_deg": 34.0, "steering_speed_falloff": 0.3,
-		"friction_slip": 2.9, "rear_grip_fraction": 0.95, "centre_of_mass_drop": 0.5,
+		"brake_force": 62000.0, "steering_limit_deg": 34.0, "steering_speed_falloff": 0.42,
+		"friction_slip": 1.2, "rear_grip_fraction": 1.12, "centre_of_mass_drop": 0.5,
+		"suspension": {"stiffness": 75.0, "compression": 0.9, "relaxation": 1.25, "travel": 0.3},
 		"trailer": {"length": 6.5, "mass": 2600.0, "model": "models/trailer.glb"},
 	},
 	{
@@ -85,11 +89,36 @@ const DEFAULTS := [
 		"price": 9000, "pay": 2.1, "mass": 11000.0, "capacity_kg": 13000.0,
 		"power_kw": 260.0, "torque_nm": 1700.0, "gears": [7.8, 5.4, 3.8, 2.8, 2.0, 1.45, 1.05, 0.82], "final_drive": 4.4,
 		"redline_rpm": 2200.0, "governor_kmh": 75.0, "drag_area": 7.0,
-		"brake_force": 115000.0, "steering_limit_deg": 28.0, "steering_speed_falloff": 0.28,
-		"friction_slip": 2.6, "rear_grip_fraction": 0.85, "centre_of_mass_drop": 0.45,
+		"brake_force": 85000.0, "steering_limit_deg": 28.0, "steering_speed_falloff": 0.38,
+		"friction_slip": 1.05, "rear_grip_fraction": 1.15, "centre_of_mass_drop": 0.45,
+		"suspension": {"stiffness": 75.0, "compression": 0.95, "relaxation": 1.3, "travel": 0.28},
 		"wind_scale": 1.2,
 	},
 ]
+
+## What comes off a truck, in the truck's own frame as fractions of the body's box (x 0 is the
+## left side and 1 the right, y 0 the bottom, z 0 the front and 1 the back), so one table fits
+## every model: the triangles of the one-piece Kenney body inside the region are carved off at
+## load ([method DotVehicleDebris.carve]) and come away when the part does. `strength` is the
+## knock (m/s at the part) that takes it off in one go, times the truck's `toughness`; `mass` is
+## kilograms the truck loses with it. A truck's `parts` replaces this list; `node` names a model
+## node to throw instead of a region (the Box Truck's back door).
+const PARTS := [
+	{"id": "bumper_front", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.3], "z": [0.0, 0.07], "strength": 5.0, "mass": 40.0},
+	{"id": "bumper_rear", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.25], "z": [0.94, 1.0], "strength": 5.0, "mass": 40.0},
+	{"id": "mirror_left", "kind": "mirror", "x": [0.0, 0.07], "y": [0.45, 0.85], "z": [0.05, 0.3], "strength": 2.5, "mass": 6.0, "reach": 0.8},
+	{"id": "mirror_right", "kind": "mirror", "x": [0.93, 1.0], "y": [0.45, 0.85], "z": [0.05, 0.3], "strength": 2.5, "mass": 6.0, "reach": 0.8},
+	{"id": "door_left", "kind": "door", "x": [0.0, 0.08], "y": [0.2, 0.75], "z": [0.1, 0.33], "strength": 7.0, "mass": 50.0},
+	{"id": "door_right", "kind": "door", "x": [0.92, 1.0], "y": [0.2, 0.75], "z": [0.1, 0.33], "strength": 7.0, "mass": 50.0},
+	{"id": "panel_left", "kind": "panel", "x": [0.0, 0.07], "y": [0.25, 0.9], "z": [0.42, 0.9], "strength": 8.0, "mass": 60.0, "reach": 1.6},
+	{"id": "panel_right", "kind": "panel", "x": [0.93, 1.0], "y": [0.25, 0.9], "z": [0.42, 0.9], "strength": 8.0, "mass": 60.0, "reach": 1.6},
+]
+
+## The load comes off in this many pieces, from the back of the bed (a truck with a trailer
+## carries its load there, and a tank's does not spill). Each is a share of the load's mass
+## and of what is paid for it; `cargo_strength` (m/s at the bed) knocks one off.
+const CARGO_UNITS := 4
+const CARGO_STRENGTH := 9.0
 
 ## What an upgrade level adds, per kind, and what each level costs as a fraction of the
 ## truck's price (with a floor, so the free truck's upgrades are not free).
@@ -215,22 +244,29 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	t.linear_damp = 0.0
 	t.steering_limit_deg = float(def.get("steering_limit_deg", 32.0))
 	t.steering_speed_falloff = float(def.get("steering_speed_falloff", 0.35))
-	t.friction_slip = float(def.get("friction_slip", 3.0)) * tyres
-	t.rear_grip_fraction = float(def.get("rear_grip_fraction", 0.9))
+	# A load on the truck sits over the back axle and adds no tyre at the front, so the more of
+	# the weight is load the less the front holds against the back: it washes wide (understeers)
+	# instead of turning in. Rear grip above 1 is what keeps a truck from spinning at full lock;
+	# below it (as these were) every truck but the Bulk swapped ends at 55 km/h.
+	var share := on_truck / maxf(float(def.get("mass", 4500.0)) + on_truck, 1.0)
+	t.friction_slip = float(def.get("friction_slip", 3.0)) * tyres * (1.0 - 0.18 * share)
+	t.rear_grip_fraction = clampf(float(def.get("rear_grip_fraction", 0.9)) + 0.25 * share, 0.1, 2.0)
 	# A tall load raises the centre of mass; a trailer's load does not touch the tractor's.
 	var raise := 0.0 if def.has("trailer") else float(cargo_def.get("com_raise", 0.0)) * fill
 	t.centre_of_mass_drop = maxf(float(def.get("centre_of_mass_drop", 0.6)) - raise, 0.05)
-	t.suspension_travel = 0.3
+	var susp: Dictionary = def.get("suspension", {})
+	t.suspension_travel = float(susp.get("travel", 0.3))
 	# Stiffer than the 60 it was: wind (a lateral central force) rocked the body 2 to 5 degrees every
 	# few seconds on a level road, and the lean falls with the spring. 75 is as far as it goes:
 	# at 110 the semi's trailer test crawled and a truck hopped off two wheels when the settle
 	# hold let go; relaxation damping 1.25 (up from 0.95) takes the hop out and 1.5 slowed the semi.
-	t.suspension_stiffness = 75.0
+	# Each truck's own at or below that (`suspension`): the Box Truck softest, so it leans most.
+	t.suspension_stiffness = float(susp.get("stiffness", 75.0))
 	# Damped near Godot's "typical" values: at dot-vehicle's lighter defaults a loaded truck,
 	# with nothing proportional to speed damping the body any more (DdTruck), nodded on its
 	# springs after being put down until the front wheels left the road.
-	t.damping_compression = 0.9
-	t.damping_relaxation = 1.25
+	t.damping_compression = float(susp.get("compression", 0.9))
+	t.damping_relaxation = float(susp.get("relaxation", 1.25))
 	return t
 
 

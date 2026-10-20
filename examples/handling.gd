@@ -19,8 +19,8 @@ const DdTrip := preload("res://game/dd_trip.gd")
 const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 11
-const CHECKS := 50
+const SECTIONS := 12
+const CHECKS := 58
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -112,6 +112,9 @@ func _ready() -> void:
 		await _test_hairpins()
 	if _runs(only, "piles"):
 		await _test_piles()
+	# Last: it puts the test routes back, and the sections above expect the shipped ones.
+	if _runs(only, "damage"):
+		await _test_damage()
 
 	print("")
 	print("%d sections entered, %d finished" % [_entered, _finished])
@@ -714,6 +717,67 @@ func _test_hairpins() -> void:
 
 
 # --- Harness ----------------------------------------------------------------------
+
+## Each truck its own, heavier ones washing wide, and what comes off changing the drive.
+func _test_damage() -> void:
+	_section("trucks handle differently, and what comes off changes the drive")
+	var crates := game.cargo.get_load(&"crates")
+	var empty := game.trucks.tunables_for(&"hauler", {}, {})
+	var laden := game.trucks.tunables_for(&"hauler", {}, game.cargo.get_load(&"gravel"))
+	_check(laden.friction_slip < empty.friction_slip and laden.rear_grip_fraction > empty.rear_grip_fraction,
+		"a load takes grip off the front against the back: a laden truck washes wide",
+		"front %.2f -> %.2f, rear share %.2f -> %.2f" % [empty.friction_slip, laden.friction_slip, empty.rear_grip_fraction, laden.rear_grip_fraction])
+	var box := game.trucks.tunables_for(&"box_truck", {}, crates)
+	var bulk := game.trucks.tunables_for(&"bulk", {}, crates)
+	_check(box.suspension_stiffness < bulk.suspension_stiffness and box.friction_slip > bulk.friction_slip and bulk.rear_grip_fraction > 1.0,
+		"the Box Truck sits softest and grips most, the Bulk Carrier stiffest, and its back holds over its front",
+		"stiffness %.0f / %.0f, grip %.2f / %.2f" % [box.suspension_stiffness, bulk.suspension_stiffness, box.friction_slip, bulk.friction_slip])
+
+	_use_test_routes([FLAT, CLIMB])
+	var me := _set_off(&"box_truck", &"crates", &"t_flat")
+	await _seconds(0.6)
+	var truck := _truck(me)
+	_check(truck.breakage != null and truck.damage.parts.has(&"bumper_front") and truck.damage.parts.has(&"cargo_0") and truck.damage.wheels.size() == 4,
+		"a truck carries its parts, its load in units, and its four wheels", str(truck.damage.describe() if truck.damage != null else {}))
+	var events: Array[String] = []
+	game.truck_damaged.connect(func(_k: StringName, e: Dictionary) -> void: events.append("%s:%s" % [e.get("kind", ""), e.get("id", e.get("wheel", ""))]))
+
+	# Square on the front bumper (the front of the body's box is its -Z end).
+	var front: Vector3 = (truck.damage.parts[&"bumper_front"] as DotVehicleDamage.Part).centre
+	var _h := truck.breakage.hit(front, 6.0)
+	_check(truck.damage.lost_parts().has(&"bumper_front") and not truck.damage.lost_parts().has(&"bumper_rear"),
+		"a knock at the front takes the front bumper and leaves the back one", str(truck.damage.lost_parts()))
+
+	var mass := truck.mass
+	var pay := (me.trip as DdTrip).cargo
+	var bed := truck.body_box.position + truck.body_box.size * Vector3(0.5, 0.85, 0.95)
+	var _c := truck.breakage.hit(bed, 9.5)
+	var gone := truck.damage.lost_parts().filter(func(id: StringName) -> bool: return String(id).begins_with("cargo_")).size()
+	_check(gone >= 1 and truck.mass < mass - 100.0 and (me.trip as DdTrip).cargo <= pay - 0.24,
+		"a hard knock at the back of the bed throws a unit of the load: the truck is lighter and the pay smaller",
+		"%d units, %.0f -> %.0f kg, cargo %.2f -> %.2f" % [gone, mass, truck.mass, pay, (me.trip as DdTrip).cargo])
+
+	var wheel := (truck.chassis as DotVehicleWheeled).wheels()[0]
+	var grip := wheel.wheel_friction_slip
+	var _p := truck.breakage.damage.pop(0)
+	truck.breakage._show(_p, wheel.position, 0.0)
+	_check(wheel.wheel_friction_slip < grip * 0.6 and events.has("popped:0"),
+		"a burst tyre keeps under half its grip, and the client is told", "%.2f -> %.2f, %s" % [grip, wheel.wheel_friction_slip, events])
+
+	var _l := truck.breakage.damage.lose_wheel(3)
+	truck.breakage._show(_l, Vector3.ZERO, 0.0)
+	_check(not (truck.chassis as DotVehicleWheeled).wheels()[3].use_as_traction and events.has("lost:3"),
+		"a lost wheel drives nothing", str(events))
+
+	game.end_trip(&"t")
+	me = _set_off(&"box_truck", &"crates", &"t_flat")
+	await _seconds(0.3)
+	truck = _truck(me)
+	_check(truck.damage.lost_parts().is_empty() and truck.damage.wheel_state(3) == DotVehicleDamage.Wheel.INTACT,
+		"a new trip's truck is whole", str(truck.damage.describe()))
+	game.end_trip(&"t")
+	_finished_section()
+
 
 func _seconds(s: float) -> void:
 	for _i in range(ceili(s * 60.0)):

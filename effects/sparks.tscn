@@ -1,0 +1,30 @@
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StandardMaterial3D" id="m"]
+shading_mode = 0
+transparency = 1
+albedo_color = Color(1, 0.7, 0.2, 1)
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="b"]
+material = SubResource("m")
+size = Vector3(0.03, 0.03, 0.12)
+
+[sub_resource type="Gradient" id="g"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="sparks" type="CPUParticles3D"]
+emitting = true
+amount = 10
+lifetime = 0.35
+one_shot = true
+explosiveness = 0.6
+mesh = SubResource("b")
+direction = Vector3(0, 1, 0)
+spread = 35
+gravity = Vector3(0, -9.8, 0)
+initial_velocity_min = 3.0
+initial_velocity_max = 7.0
+scale_amount_min = 0.5
+scale_amount_max = 1.0
+color_ramp = SubResource("g")
