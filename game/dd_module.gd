@@ -152,7 +152,21 @@ func _game_load() -> DotResult:
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
 	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", DotAdminFlags.CHANGEMAP)
 	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
-	add_command("dd_mountain", _cmd_mountain, "Show the mountains, or move the server to one now: dd_mountain [id]", DotAdminFlags.CHANGEMAP)
+	# maps.yml (read when the world was built): its `commands: names:` block renames the game's own
+	# map command as it does dot-vote's, by the role "dd_mountain".
+	add_command(world.command_name("dd_mountain", "dd_mountain"), _cmd_mountain,
+		"Show the mountains, or move the server to one now: dd_mountain [id] (an unlisted one too)", DotAdminFlags.CHANGEMAP)
+	add_command("dd_rotation", _cmd_rotation, "dd_rotation [name]: switch to a rotation in maps.yml, or list them", DotAdminFlags.CHANGEMAP)
+	add_command("dd_maps_reload", _cmd_maps_reload, "Read maps.yml again", DotAdminFlags.CHANGEMAP)
+	add_cvar("sv_map_rotation_file", world.config.map_rotation_file,
+		"maps.yml: the mountains that rotate, in named rotations. Unlisted mountains stay installed."
+	).changed.connect(
+		func(_old: String, new_value: String) -> void:
+			world.config.map_rotation_file = new_value.strip_edges()
+			var _read := world.load_rotation()
+			if vote != null:
+				vote.refresh_mountains()
+	)
 
 	# [b]How many stand-ins is dot-server's [DotBotQuota], so `bot_quota` and `bot_quota_mode`
 	# mean the same thing on every server in the family.[/b] This game already ran the fill
@@ -251,12 +265,17 @@ func _build_vote(world: DdGame) -> void:
 	vote = DdVote.new()
 	vote.name = "MountainVote"
 	vote.minutes = world.config.mountain_minutes
+	vote.commands_spec_fn = world.rotation_commands
+	vote.in_rotation_fn = func(id: StringName) -> bool: return world.in_rotation(id)
+	vote.rotation_order_fn = func() -> Array:
+		return world.rotation_mountains().map(func(m: Dictionary) -> StringName: return StringName(str(m["id"])))
 	vote.mountains_fn = func() -> Array:
 		var out: Array = []
 
 		# The game's own only: the Workshop's come from the source's own follow, which reads
 		# the index on every ballot and so shows none of them online.
-		for mountain in DdMountains.allowed(world.library, world.maps):
+		# maps.yml: a mountain outside the active rotation is not balloted or nominated.
+		for mountain in world.rotation_mountains():
 			if not world.is_workshop(mountain["id"]):
 				out.append([mountain["id"], mountain["name"]])
 
@@ -529,7 +548,8 @@ func _cmd_mountain(ctx: DotCmdContext) -> void:
 
 	if id == "":
 		for mountain in DdMountains.allowed(world.library, world.maps):
-			ctx.reply("%s %-14s %s" % ["*" if mountain["id"] == world.mountain_id else " ", String(mountain["id"]), mountain["name"]])
+			ctx.reply("%s %-14s %s%s" % ["*" if mountain["id"] == world.mountain_id else " ", String(mountain["id"]), mountain["name"],
+				"" if world.in_rotation(mountain["id"]) else " (not in rotation)"])
 
 		return
 
@@ -540,6 +560,39 @@ func _cmd_mountain(ctx: DotCmdContext) -> void:
 		return
 
 	ctx.reply("The mountain is %s." % world.mountain_name())
+
+
+func _cmd_rotation(ctx: DotCmdContext) -> void:
+	var world := game as DdGame
+
+	if world.rotation_file == null or not world.rotation_file.has_rotations():
+		ctx.reply("There is no maps.yml; every mountain rotates.")
+		return
+
+	if ctx.argc() == 0:
+		ctx.reply("Rotations: %s (active: %s)" % [", ".join(world.rotation_file.rotation_names()), world.rotation_file.active_name()])
+		return
+
+	var switched := world.switch_rotation(ctx.arg(0))
+
+	if not switched.ok:
+		ctx.reply(switched.error.message)
+		return
+
+	if vote != null:
+		vote.refresh_mountains()
+
+	ctx.reply("Rotation: %s" % ctx.arg(0))
+
+
+func _cmd_maps_reload(ctx: DotCmdContext) -> void:
+	var world := game as DdGame
+	var read := world.load_rotation()
+
+	if vote != null:
+		vote.refresh_mountains()
+
+	ctx.reply("maps.yml read." if read.ok else read.error.message)
 
 
 func _cmd_give(ctx: DotCmdContext) -> void:

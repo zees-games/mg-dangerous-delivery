@@ -6,12 +6,13 @@ extends Node
 ##   godot --headless --path . res://examples/dedicated.tscn
 
 const DdGame := preload("../game/dd_game.gd")
+const DdMountains := preload("../game/dd_mountains.gd")
 const DdNetBridge := preload("../game/net/dd_net_bridge.gd")
 const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
-const SECTIONS := 10
-const CHECKS := 64
+const SECTIONS := 11
+const CHECKS := 82
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -47,6 +48,7 @@ func _run() -> void:
 		_test_the_console()
 		await _test_stand_ins()
 		_test_the_mountain_vote()
+		_test_rotation_file()
 		_test_finish_round_waits_for_a_haul()
 		await _test_a_covered_seat_is_not_harmed()
 		await _test_it_unloads()
@@ -402,6 +404,131 @@ func _test_the_mountain_vote() -> void:
 
 	game.leave(hauler)
 	_finished_section()
+
+## Stands in for the module a vote's commands are registered on, recording the names.
+class CommandHost extends Node:
+	var added: Dictionary = {}
+
+	func add_command(full: String, fn: Callable, _help: String, _permission: String) -> Object:
+		added[full] = fn
+		return null
+
+
+func _ballot_ids(vote: Node) -> Array:
+	var out: Array = []
+
+	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
+		out.append(String(choice.id))
+
+	return out
+
+
+## `cfg/maps.yml`: which mountains rotate. The format is dot-map's selftest's; this is what the
+## GAME does with it: a mountain left out is installed and loadable (dd_mountain) and is never on
+## a ballot or accepted as a nomination, and is marked in the lists; a rotation's order (a
+## cycle) orders the ballot; a switch takes effect; a renamed command is registered; a file
+## read from disk gives the same; no file rotates everything.
+func _test_rotation_file() -> void:
+	_section("rotation file")
+	var module := _module()
+	var vote: Node = module.get("vote") if module != null else null
+
+	if vote == null:
+		_check(false, "the module built a mountain vote")
+		_finished_section()
+		return
+
+	var kept: DotMapRotationFile = game.rotation_file
+	var parsed := DotMapRotationFile.from_trees([{"defaults": {
+		"rotation": "a",
+		"rotations": {
+			"a": {"maps": ["low_country", "high_country"], "mode": "random"},
+			"b": {"maps": ["long_haul", "high_country", "low_country"], "mode": "cycle"},
+		},
+		"commands": {"names": {"rtv": "rockit", "dd_mountain": "gomountain"}},
+	}}], "mg-dangerous-delivery")
+	_check(parsed.ok, "a rotation file parses", str(parsed.error))
+	game.rotation_file = parsed.value
+	vote.call("refresh_mountains")
+
+	var ids: Array = _ballot_ids(vote)
+	_check(ids.has("low_country") and ids.has("high_country") and not ids.has("range") and not ids.has("long_haul"),
+		"a mountain outside the rotation is never on the ballot", str(ids))
+	_check(not _said(_run_command("nominate long_haul"), "Nominated"), "and a nomination of it is refused")
+	_check(not DdMountains.by_id(&"long_haul", game.maps).is_empty() and not game.in_rotation(&"long_haul"),
+		"it stays installed", str(game.in_rotation(&"long_haul")))
+
+	var rows: Array = game.mountain_rows()
+	var out_row: Dictionary = {}
+	var in_row: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["id"] == "long_haul":
+			out_row = row
+		elif row["id"] == "low_country":
+			in_row = row
+	_check(not out_row.is_empty() and not bool(out_row["in_rotation"]) and str(out_row["detail"]).contains("not in rotation"),
+		"the map menu marks it")
+	_check(not in_row.is_empty() and bool(in_row["in_rotation"]) and not str(in_row["detail"]).contains("not in rotation"),
+		"and leaves the rotating ones alone")
+	_check(_said(_run_command("dd_mountain"), "(not in rotation)"), "dd_mountain lists it marked")
+
+	var moved := game.set_mountain(&"long_haul")
+	_check(moved.ok and game.mountain_id == &"long_haul", "an admin can still load it", str(moved.error))
+	var back := game.set_mountain(&"range")
+	_check(back.ok and game.mountain_id == &"range", "and move off it again")
+
+	# A switch to the cycle: the written order, a `random` rotation's own set gone.
+	_check(game.switch_rotation("b").ok, "a rotation switch is accepted")
+	vote.call("refresh_mountains")
+	ids = _ballot_ids(vote)
+	_check(ids == ["long_haul", "high_country", "low_country"], "and takes effect: the cycle's order on the ballot", str(ids))
+	game.mountain_id = &"high_country"
+	ids = game.rotation_mountains().map(func(m: Dictionary) -> String: return str(m["id"]))
+	game.mountain_id = &"range"
+	_check(ids == ["low_country", "long_haul", "high_country"], "a cycle goes on after the mountain in play", str(ids))
+	_check(not game.switch_rotation("nowhere").ok and game.rotation_file.active_name() == "b",
+		"an unknown rotation changes nothing")
+
+	_check(game.command_name("dd_mountain", "dd_mountain") == "gomountain"
+			and game.command_name("dd_weather", "dd_weather") == "dd_weather",
+		"the game's own map command is renameable from the file")
+	var host := CommandHost.new()
+	var made: Variant = vote.get("commands")
+	var bound: DotResult = vote.call("install_commands", host)
+	_check(bound.ok and host.added.has("rockit") and not host.added.has("rtv"),
+		"and a renamed rtv is registered under its new name", ", ".join(host.added.keys().slice(0, 6)))
+	vote.set("commands", made)
+	host.free()
+
+	var src: DotVoteListSource = vote.get("source")
+	_check(not ("in_rotation_fn" in src) or (src.get("in_rotation_fn") as Callable).is_valid(),
+		"the source is handed the rotation filter, so merged pack mountains follow the file")
+
+	# The same, read from a file on disk through sv_map_rotation_file's path.
+	var path := "%s/rot_dd.yml" % SERVER_DIR
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("defaults:\n  rotation: only\n  rotations:\n    only:\n      maps: [range]\n")
+	file.close()
+	var stem: String = game.config.map_rotation_file
+	game.config.map_rotation_file = path
+	var read: DotResult = game.load_rotation()
+	vote.call("refresh_mountains")
+	ids = _ballot_ids(vote)
+	_check(read.ok and ids == ["range"], "a file read from disk decides the ballot", str(ids))
+
+	# No file: every mountain rotates, as it always did.
+	game.config.map_rotation_file = "no_such_rot_dd"
+	var _missing: DotResult = game.load_rotation()
+	vote.call("refresh_mountains")
+	ids = _ballot_ids(vote)
+	_check(not game.rotation_file.has_rotations() and ids.size() == 4 and game.in_rotation(&"long_haul"),
+		"with no file every mountain is on the ballot", str(ids))
+
+	game.config.map_rotation_file = stem
+	game.rotation_file = kept
+	vote.call("refresh_mountains")
+	_finished_section()
+
 
 ## [b]`time_up: finish_round` waits for a person mid-haul, never for an empty road.[/b] The
 ## game hands dot-vote its own answer (`round_in_progress_fn` is `_anyone_hauling`). Run on a

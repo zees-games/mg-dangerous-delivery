@@ -354,6 +354,7 @@ func _ready() -> void:
 		mountain_id = wanted if not DdMountains.by_id(wanted, maps).is_empty() else DdMountains.DEFAULT
 		var _read := load_directory(DdPaths.rebase("res://%s" % config.route_directory) if not config.route_directory.begins_with("res://") and not config.route_directory.begins_with("user://") else config.route_directory)
 		build_routes()
+		var _rotation := load_rotation()
 
 	if register_service:
 		DotRegistry.register(SERVICE, self)
@@ -447,9 +448,158 @@ func mountain_rows() -> Array:
 		for route_id in DdMountains.routes_of(mountain, library):
 			var doc: Variant = library.get(route_id)
 			names.append(str((doc as Dictionary).get("name", route_id)) if doc is Dictionary else String(route_id))
+		var detail := "%d routes: %s" % [names.size(), ", ".join(names)]
+		var rotates := in_rotation(mountain["id"])
+		if not rotates:
+			detail += " (not in rotation)"
 		out.append({"id": String(mountain["id"]), "name": label_of(mountain["id"]), "current": mountain["id"] == mountain_id,
-			"detail": "%d routes: %s" % [names.size(), ", ".join(names)]})
+			"in_rotation": rotates, "detail": detail})
 	return out
+
+
+## The server's maps.yml, or null when there is none (every mountain rotates, as it always did).
+var rotation_file: DotMapRotationFile = null
+
+
+## Reads maps.yml (the `--config` directory searched too, under [member DdConfig.map_rotation_file])
+## and keeps it for [method rotation_mountains]. A file that is present and unreadable is an ERROR
+## and changes nothing: rotating every mountain is a better failure than rotating none.
+func load_rotation() -> DotResult:
+	var stem := config.map_rotation_file if config != null else ""
+	var dir := DotMapRotationFile.config_dir_arg()
+	var found := DotMapRotationFile.find(stem, dir)
+
+	if found == "" and stem != "" and (dir != "" or stem != DdConfig.new().map_rotation_file):
+		# The default name being absent is an install with no maps.yml; a name or a directory
+		# somebody chose that finds nothing is a typo they would otherwise never hear about.
+		DotLog.warn(CHANNEL, "the map rotation file was not found; every mountain rotates", {
+			"file": stem, "config_dir": dir,
+		})
+
+	var paths := PackedStringArray()
+
+	if found != "":
+		paths.append(found)
+
+	var read := DotMapRotationFile.load_files(paths, "mg-dangerous-delivery")
+
+	if not read.ok:
+		DotLog.error(CHANNEL, "the map rotation file could not be read; every mountain rotates", {
+			"why": read.error.message,
+		})
+		rotation_file = null
+		return read
+
+	rotation_file = read.value
+
+	if rotation_file.has_rotations():
+		DotLog.info(CHANNEL, "the map rotation file", {
+			"paths": ", ".join(rotation_file.sources), "active": rotation_file.active_name(),
+		})
+
+	return read
+
+
+## Switches to the rotation [param name] in maps.yml; an unknown one changes nothing.
+func switch_rotation(name: String) -> DotResult:
+	if rotation_file == null or not rotation_file.has_rotations():
+		return DotResult.fail(DotError.CODE_STATE, "There is no maps.yml; every mountain rotates.")
+
+	var _mirror := _rotation_mirror()
+	return rotation_file.switch(_rot, name)
+
+
+# dot-map's rotation file marks and orders [DotMapDef]s in a [DotMapCatalogue]; this game keeps
+# its mountains as documents, so a def per mountain is mirrored and the file applied to those.
+# Rebuilt on every ask (a handful of ids), because the mountains on offer change with the
+# routes a server holds and a stale mirror would rotate yesterday's set.
+var _rot: DotMapRotation = null
+
+
+func _rotation_mirror() -> DotMapCatalogue:
+	var mirror := DotMapCatalogue.new()
+	sync_content()
+
+	for mountain in DdMountains.allowed(library, maps):
+		var def := DotMapDef.new()
+		def.id = StringName(str(mountain["id"]))
+		def.display_name = str(mountain["name"])
+		def.scene_path = "doc:%s" % def.id
+		var _added := mirror.add(def)
+
+	_rot = DotMapRotation.of(mirror)
+	return mirror
+
+
+## The mountains maps.yml's active rotation plays, as [DdMountains] documents: in the file's
+## order for a `cycle` (starting after the mountain in play), the catalogue's own otherwise.
+## No file, no rotations or a rotation that matches nothing installed: every mountain, so a
+## rotation can never strand the server.
+func rotation_mountains() -> Array[Dictionary]:
+	var all := DdMountains.allowed(library, maps)
+
+	if rotation_file == null or not rotation_file.has_rotations():
+		return all
+
+	var mirror := _rotation_mirror()
+	# An empty rotation plays every installed mountain: the same set as having no file.
+	rotation_file.fallback_in = func(_map: DotMapDef) -> bool: return true
+	var _applied := rotation_file.apply(_rot)
+	var kept: Array[Dictionary] = []
+
+	for mountain in all:
+		var def := mirror.get_map(StringName(str(mountain["id"])))
+
+		if def == null or def.in_rotation:
+			kept.append(mountain)
+
+	if _rot.mode != DotMapRotation.Mode.SEQUENTIAL or _rot.order.is_empty():
+		return kept
+
+	var ordered: Array[Dictionary] = []
+
+	for id in _rot.order:
+		for mountain in kept:
+			if StringName(str(mountain["id"])) == id:
+				ordered.append(mountain)
+
+	for mountain in kept:
+		if not ordered.has(mountain):
+			ordered.append(mountain)
+
+	# The cycle goes on from where the server is: the first on the ballot is the next in turn.
+	for i in ordered.size():
+		if StringName(str(ordered[i]["id"])) == mountain_id:
+			return ordered.slice(i + 1) + ordered.slice(0, i + 1)
+
+	return ordered
+
+
+## Whether maps.yml's active rotation plays [param id]; true with no file.
+func in_rotation(id: Variant) -> bool:
+	for mountain in rotation_mountains():
+		if str(mountain["id"]) == str(id):
+			return true
+
+	return false
+
+
+## maps.yml's `commands:` block (prefix and names), or empty with no file.
+func rotation_commands() -> Dictionary:
+	return rotation_file.commands() if rotation_file != null else {}
+
+
+## The name a game-specific command answers to: maps.yml's `commands: names:` role (and prefix)
+## over [param default].
+func command_name(role: String, default: String) -> String:
+	var target := DotCommandNamesHolder.new()
+	DotCommandNames.apply(target, rotation_commands())
+	return DotCommandNames.all_of(target.prefix, target.names, {role: default}, role)[0]
+
+
+class DotCommandNamesHolder extends RefCounted:
+	var prefix: String = ""
+	var names: Dictionary = {}
 
 
 ## Rebuilds the world on [param id]'s routes. Every trip ends first (the trucks go back to the

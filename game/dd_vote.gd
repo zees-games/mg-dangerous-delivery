@@ -79,6 +79,15 @@ var round_in_progress_fn: Callable = Callable()
 var director: DotVoteDirector = null
 var source: DotVoteListSource = null
 var commands: DotVoteCommands = null
+
+## `() -> Dictionary`: maps.yml's `commands:` block, so an operator renames vote, rtv and
+## nominate without this game naming any of them. The module points it at the rotation file.
+var commands_spec_fn: Callable = Callable()
+
+## `(id) -> bool` and `() -> Array`: maps.yml's active rotation, handed to the source so the pack
+## mountains dot-vote merges are filtered and ordered like the game's own (dot-vote API level 12).
+var in_rotation_fn: Callable = Callable()
+var rotation_order_fn: Callable = Callable()
 var feed: DotVoteBallotFeed = null
 
 
@@ -96,6 +105,10 @@ func setup() -> DotResult:
 	source.follow_content(
 		content_index if content_index != null else DotContentIndex.shared(),
 		DdMountains.accepted_map_kinds() if accepted_kinds.is_empty() else accepted_kinds)
+	# By name, only where it exists: a delivered pack may run on an older shell dot-vote.
+	if "in_rotation_fn" in source:
+		source.set(&"in_rotation_fn", in_rotation_fn)
+		source.set(&"rotation_order_fn", rotation_order_fn)
 
 	director = DotVoteDirector.new()
 	director.name = "VoteDirector"
@@ -270,7 +283,8 @@ func install_commands(host: Object) -> DotResult:
 
 	commands = DotVoteCommands.new()
 	commands.director = director
-	commands.names = COMMAND_NAMES
+	commands.names = COMMAND_NAMES.duplicate()
+	commands.spec_fn = commands_spec_fn
 	commands.voter_fn = func(ctx: Object) -> StringName:
 		var session: Variant = ctx.get("session")
 

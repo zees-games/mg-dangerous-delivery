@@ -245,6 +245,13 @@ extends DotConfig
 ## mountain on.
 @export_range(0.0, 360.0, 1.0) var mountain_minutes: float = 15.0
 
+## The file that says which mountains a server ROTATES: `cfg/maps.yml` (dot-map's
+## `DotMapRotationFile`: named rotations, `random` or `cycle`, wildcards, command names), also
+## searched in the `--config` directory. Empty, or no such file, rotates every mountain. A
+## mountain the active rotation leaves out stays installed (`dd_mountain <id>` and the map menu
+## still reach it); it is only never balloted or nominated. `sv_map_rotation_file`.
+@export var map_rotation_file: String = "cfg/maps.yml"
+
 
 func env_prefix() -> String:
 	return "DD_"
