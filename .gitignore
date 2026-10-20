@@ -56,3 +56,4 @@ Thumbs.db
 # (game/dd_disasters.gd loads it by path; absent, the game runs without it).
 # No leading slash on purpose: game.sh and dot-ci treat every "/addons/x" line as required.
 addons/natural_disasters
+__pycache__/

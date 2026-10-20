@@ -51,7 +51,7 @@ const DEFAULTS := [
 		"friction_slip": 3.2, "rear_grip_fraction": 0.95, "centre_of_mass_drop": 0.7,
 	},
 	{
-		"id": "flatbed", "name": "Flatbed", "model": "truck-flat.glb", "scale": 1.8,
+		"id": "flatbed", "name": "Flatbed", "model": "models/flatbed.glb", "scale": 1.8,
 		"blurb": "The quickest, lighter at the back, and the load is out in the wind.",
 		"price": 1500, "pay": 1.3, "mass": 5200.0, "capacity_kg": 4500.0,
 		"power_kw": 230.0, "torque_nm": 980.0, "gears": [6.0, 3.6, 2.35, 1.6, 1.15, 0.84], "final_drive": 4.0,
@@ -61,7 +61,7 @@ const DEFAULTS := [
 		"wind_scale": 1.4,
 	},
 	{
-		"id": "hauler", "name": "Hauler", "model": "truck.glb", "scale": 1.9,
+		"id": "hauler", "name": "Hauler", "model": "models/hauler.glb", "scale": 1.9,
 		"blurb": "Heavy and long, eight gears and a big load. It stops late and it does not like hairpins.",
 		"price": 4000, "pay": 1.6, "mass": 8000.0, "capacity_kg": 9000.0,
 		"power_kw": 290.0, "torque_nm": 1700.0, "gears": [7.5, 5.2, 3.7, 2.7, 1.95, 1.4, 1.0, 0.78], "final_drive": 3.9,
@@ -70,7 +70,7 @@ const DEFAULTS := [
 		"friction_slip": 2.8, "rear_grip_fraction": 0.9, "centre_of_mass_drop": 0.5,
 	},
 	{
-		"id": "semi", "name": "Semi", "model": "truck.glb", "scale": 1.9,
+		"id": "semi", "name": "Semi", "model": "models/semi.glb", "scale": 1.9,
 		"blurb": "A tractor and a trailer with the most room and ten gears. The half you are not steering cuts every corner.",
 		"price": 6500, "pay": 1.9, "mass": 7000.0, "capacity_kg": 9000.0,
 		"power_kw": 300.0, "torque_nm": 1900.0, "gears": [9.0, 6.6, 4.9, 3.6, 2.7, 2.0, 1.5, 1.15, 0.9, 0.74], "final_drive": 3.6,
@@ -80,7 +80,7 @@ const DEFAULTS := [
 		"trailer": {"length": 6.5, "mass": 2600.0},
 	},
 	{
-		"id": "bulk", "name": "Bulk Carrier", "model": "garbage-truck.glb", "scale": 2.0,
+		"id": "bulk", "name": "Bulk Carrier", "model": "models/bulk.glb", "scale": 2.0,
 		"blurb": "The most it can carry, the least it can steer, and slow on everything. Pays like it.",
 		"price": 9000, "pay": 2.1, "mass": 11000.0, "capacity_kg": 13000.0,
 		"power_kw": 260.0, "torque_nm": 1700.0, "gears": [7.8, 5.4, 3.8, 2.8, 2.0, 1.45, 1.05, 0.82], "final_drive": 4.4,
