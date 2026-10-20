@@ -788,6 +788,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
+		if _capture_on_click(button):
+			return
 		_orbit_held = button.pressed and _can_orbit()
 		return
 
@@ -1100,8 +1102,26 @@ func pointer_mode() -> Input.MouseMode:
 
 func _apply_pointer() -> void:
 	var want := pointer_mode()
-	if Input.mouse_mode != want:
-		Input.mouse_mode = want
+	if Input.mouse_mode == want:
+		return
+	# A browser grants pointer lock only inside a click. Asked every frame without one, it refused
+	# every frame (thousands of console errors while loading) and then rate-limited the request,
+	# so even the click that should have taken it could be refused. The click takes it instead
+	# ([method _capture_on_click]).
+	if want == Input.MOUSE_MODE_CAPTURED and DotPlatform.is_web():
+		return
+	Input.mouse_mode = want
+
+
+## Takes the pointer in a browser on the click [method _apply_pointer] waits for. True when it did,
+## so that click does not also orbit.
+func _capture_on_click(button: InputEventMouseButton) -> bool:
+	if not button.pressed or not DotPlatform.is_web():
+		return false
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or pointer_mode() != Input.MOUSE_MODE_CAPTURED:
+		return false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	return true
 
 
 # --- On foot -----------------------------------------------------------------

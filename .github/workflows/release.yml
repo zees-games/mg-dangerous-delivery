@@ -33,5 +33,8 @@ jobs:
             contents: write
         with:
             pack: true
+            # The trucks' build scripts and renders: half the pack's bytes, none loaded at runtime.
+            # The same list as dot-server-deploy's content/delivery/pack.json.
+            pack-exclude-dirs: art-src
         secrets:
             DEPS_TOKEN: ${{ secrets.DOT_DEPS_TOKEN }}
