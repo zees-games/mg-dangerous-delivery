@@ -13,6 +13,12 @@ extends VehicleBody3D
 ## there is one at all).
 
 const CHANNEL := "delivery.trailer"
+const DdTrucks := preload("dd_trucks.gd")
+
+## The size art-src/trailer/build.py draws the trailer at.
+const MODEL_LENGTH := 6.5
+const MODEL_WIDTH := 2.5
+const MODEL_BOX_HEIGHT := 2.0
 
 var length: float = 7.0
 var width: float = 2.5
@@ -92,7 +98,21 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 				tyre.material_override = black
 				wheel.add_child(tyre)
 
-	if draws:
+	var model_file := str(spec.get("model", ""))
+	var packed: PackedScene = null
+	if draws and model_file != "":
+		var path := DdTrucks.model_path(model_file)
+		packed = load(path) if ResourceLoader.exists(path) else null
+
+	if draws and packed != null:
+		# Looks only; the collision stays the box. The model is drawn about the box's centre at
+		# MODEL_LENGTH x MODEL_WIDTH x MODEL_BOX_HEIGHT, stretched to this trailer's box.
+		var model := packed.instantiate() as Node3D
+		model.name = "Model"
+		model.position = collider.position
+		model.scale = Vector3(width / MODEL_WIDTH, shape.size.y / MODEL_BOX_HEIGHT, length / MODEL_LENGTH)
+		add_child(model)
+	elif draws:
 		var box := MeshInstance3D.new()
 		var mesh := BoxMesh.new()
 		mesh.size = shape.size
@@ -113,16 +133,16 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 		stripe.material_override = red
 		add_child(stripe)
 
-		if lead > 0.05:
-			var bar := MeshInstance3D.new()
-			var beam := BoxMesh.new()
-			beam.size = Vector3(0.35, 0.25, lead + 0.45)
-			bar.mesh = beam
-			bar.position = Vector3(0, 0.95, (lead + 0.45) * 0.5)
-			var dark := StandardMaterial3D.new()
-			dark.albedo_color = Color(0.12, 0.12, 0.13)
-			bar.material_override = dark
-			add_child(bar)
+	if draws and lead > 0.05:
+		var bar := MeshInstance3D.new()
+		var beam := BoxMesh.new()
+		beam.size = Vector3(0.35, 0.25, lead + 0.45)
+		bar.mesh = beam
+		bar.position = Vector3(0, 0.95, (lead + 0.45) * 0.5)
+		var dark := StandardMaterial3D.new()
+		dark.albedo_color = Color(0.12, 0.12, 0.13)
+		bar.material_override = dark
+		add_child(bar)
 
 
 ## Hitches it to [param truck], both already in the tree and placed.

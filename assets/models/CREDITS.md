@@ -19,3 +19,9 @@ What changed:
 - Bulk Carrier: green repainted yellow (the loader arm too); dark ribs, a belt and a top lip on the hopper, a hazard-striped tail with lamps and a ladder, a roof beacon, a chrome bumper bar and mudflaps added.
 
 What did not change: the four `wheel-*` nodes, the Bulk Carrier's `arm` and `trash` meshes (arm repainted only) and each body's bounds (which DdTruck measures for its collision box). Every body is still one surface on the kit's colormap, and all added parts take their colour from solid blocks of it.
+
+## trailer.glb (the Semi's trailer)
+
+Base: the colormap and the build tools of Kenney's Car Kit 3.1 ([kenney.nl](https://kenney.nl), CC0, public domain): `truck.glb` is imported by `art-src/trailer/build.py` (with `art-src/truck_lib.py`, Blender 4.3, `blender -b --python art-src/trailer/build.py`), emptied of its truck, and the trailer is drawn on the kit's own colormap, so it is one surface like the trucks. Our changes are released under the repository's MIT licence; the base stays CC0.
+
+What it is: a teal box with a white stripe, dark ribs and roof rim, a front header with lamps, rear doors with hinges and tail lamps, a conspicuity-taped rear bar, side markers, a skirt, chassis beams, fenders, mudflaps, landing gear and a kingpin plate. It is looks only: `DdTrailer` keeps its box as the collision and its own wheel nodes (their tyres are still drawn in code); the model is drawn about the box's centre and stretched to the trailer's length.

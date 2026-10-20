@@ -77,7 +77,7 @@ const DEFAULTS := [
 		"redline_rpm": 2200.0, "governor_kmh": 90.0, "drag_area": 7.5,
 		"brake_force": 80000.0, "steering_limit_deg": 34.0, "steering_speed_falloff": 0.3,
 		"friction_slip": 2.9, "rear_grip_fraction": 0.95, "centre_of_mass_drop": 0.5,
-		"trailer": {"length": 6.5, "mass": 2600.0},
+		"trailer": {"length": 6.5, "mass": 2600.0, "model": "models/trailer.glb"},
 	},
 	{
 		"id": "bulk", "name": "Bulk Carrier", "model": "models/bulk.glb", "scale": 2.0,
