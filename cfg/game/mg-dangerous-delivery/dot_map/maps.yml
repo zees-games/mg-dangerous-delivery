@@ -1,0 +1,7 @@
+# Which mountains rotate (dot-map's DotMapRotationFile; the shape of the server's content.yml).
+# A mountain left out stays installed: the map menu (M) and dd_mountain still load it.
+# It is only never balloted and never nominated.
+# A server copies this to its --config directory as cfg/server/addons/dot_map/maps.yml (it replaces this file; start it with `merge: true` to add to it instead) and edits it; sv_map_rotation_file names another file.
+defaults:
+  # A plain list is a rotation called "main".
+  maps: ["*"]

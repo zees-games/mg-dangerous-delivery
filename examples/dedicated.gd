@@ -12,7 +12,7 @@ const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
 const SECTIONS := 11
-const CHECKS := 82
+const CHECKS := 83
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -439,6 +439,8 @@ func _test_rotation_file() -> void:
 		return
 
 	var kept: DotMapRotationFile = game.rotation_file
+	var shipped := DotMapRotationFile.find_layers("", "mg-dangerous-delivery")
+	_check(not shipped.is_empty() and str(shipped[0]).ends_with("cfg/game/mg-dangerous-delivery/dot_map/maps.yml"), "the shipped maps.yml is the game tier file", str(shipped))
 	var parsed := DotMapRotationFile.from_trees([{"defaults": {
 		"rotation": "a",
 		"rotations": {

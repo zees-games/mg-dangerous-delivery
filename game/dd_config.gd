@@ -253,7 +253,7 @@ extends DotConfig
 ## `DotMapRotationFile`: named rotations, `random` or `cycle`, wildcards, command names). Empty, or no such file, rotates every mountain. A
 ## mountain the active rotation leaves out stays installed (`dd_mountain <id>` and the map menu
 ## still reach it); it is only never balloted or nominated. `sv_map_rotation_file`.
-@export var map_rotation_file: String = "cfg/maps.yml"
+@export var map_rotation_file: String = DotMapRotationFile.DEFAULT_STEM
 
 
 func env_prefix() -> String:
