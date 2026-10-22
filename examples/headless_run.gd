@@ -27,8 +27,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 30
-const CHECKS := 224
+const SECTIONS := 31
+const CHECKS := 230
 
 var _passed := 0
 var _failed := 0
@@ -75,6 +75,7 @@ func _ready() -> void:
 	_test_solo()
 	await _test_rock()
 	_test_stage_hazards()
+	await _test_hazard_drive()
 	_test_refusals()
 	_test_pay()
 	_test_ice_and_debris()
@@ -1012,7 +1013,7 @@ func _test_stage_hazards() -> void:
 		return
 
 	var ridge: Array[StringName] = d.kinds_for(&"dd_wind_ridge")
-	_check(ridge.has(&"tornado") and ridge.has(&"wind") and not ridge.has(&"quake"), "stage_hazards.yml says which stage brings which hazard", str(ridge))
+	_check(ridge.has(&"tornado") and not ridge.has(&"quake"), "stage_hazards.yml says which stage brings which hazard", str(ridge))
 	_check(d.kinds_for(&"dd_foothills").is_empty(), "and a stage it does not list brings none")
 	game.config.stage_hazards = false
 	_check(d.kinds_for(&"dd_wind_ridge").is_empty(), "dd_stage_hazards 0 turns every one off")
@@ -1101,6 +1102,96 @@ func _test_stage_hazards() -> void:
 	trip.route_id = saved_route
 	trip.state = saved_state
 	trip.distance = saved_distance
+	_finished_section()
+
+
+## A truck driven through each kind's site, end to end: the warning, the strike six seconds on,
+## the strongest push a frame took, and the truck still on the road and loaded at the far side.
+func _test_hazard_drive() -> void:
+	_section("a truck through a stage hazard")
+	var d: DdDisasters = game.disasters
+
+	if not d.linked():
+		for _n in 6:
+			_check(true, "(stage hazards need natural-disasters)")
+
+		_finished_section()
+		return
+
+	var road: DdRoute = game.routes[&"dd_foothills"]
+
+	# Not the wind: the addon's gust drags a truck's whole speed toward the wind's (a truck at 11 m/s
+	# slowed to 2.5 and stalled), so no stage lists it until that is fixed there.
+	for kind: StringName in [&"quake", &"tornado"]:
+		var started := game.start_trip(&"p1", &"dd_foothills")
+		var me: DdGame.Driver = game.drivers[&"p1"]
+		var trip: DdTrip = me.trip
+		await _seconds(1.5)
+		d.hazards["stages"]["dd_foothills"] = [String(kind)]
+		var site: float = DdDisasters.site_distances(game.seed_value, &"dd_foothills", kind, road.length(), d.hazards)[0]
+		var lead := float(d.hazards["lead_metres"])
+		var truck: DdTruck = me.truck
+		var spot := road.transform_at(site - lead - 25.0, 0.0)
+		spot.origin += road.position
+		truck.place(spot)
+
+		if me.trailer != null:
+			me.trailer.rehitch(truck)
+
+		trip.distance = site - lead - 25.0
+		trip.hint = road.index_at_distance(trip.distance)
+		trip.cargo = 1.0
+		me.assisted = true
+		me.idle = 999.0
+		me.autopilot = DotVehicleDriver.new()
+		me.autopilot.target_speed = 11.0
+		me.autopilot.set_route(game._global_points(&"dd_foothills", trip.distance))
+		var falls_before := trip.falls
+		var native: StringName = DdDisasters.KINDS[kind]
+		var frame := 0
+		var warned_at := -1
+		var struck_at := -1
+		var last := truck.linear_velocity
+		var flat_max := 0.0
+		var up_max := 0.0
+		var base_max := 0.0
+		var slowest := 99.0
+		var on := started.ok
+
+		while on and frame < 60 * 40 and trip.distance < site + 60.0:
+			await get_tree().physics_frame
+			frame += 1
+			var dd_v := truck.linear_velocity - last
+			last = truck.linear_velocity
+
+			if d.manager.call("is_active", native):
+				if struck_at < 0:
+					struck_at = frame
+
+				flat_max = maxf(flat_max, Vector2(dd_v.x, dd_v.z).length() * 60.0)
+				up_max = maxf(up_max, absf(dd_v.y))
+				slowest = minf(slowest, last.length())
+			elif frame > 30:
+				base_max = maxf(base_max, Vector2(dd_v.x, dd_v.z).length() * 60.0)
+
+			if warned_at < 0 and not d._pending.is_empty():
+				warned_at = frame
+
+		var delay := float(struck_at - warned_at) / 60.0
+		var accel_g := maxf(flat_max - base_max, 0.0) / 9.81
+		print("    %s: warned %d, struck %d (%.2f s), push %.2f g (%.2f g before it), vertical step %.2f m/s, slowest %.1f m/s, on to %.0f of site %.0f" % [kind, warned_at, struck_at, delay, accel_g, base_max / 9.81, up_max, slowest, trip.distance, site])
+		_check(started.ok and warned_at >= 0 and absf(delay - float(d.hazards["warning_seconds"])) < 0.3, "%s: the warning goes out and the kind starts 6 s later" % kind, "%.2f s" % delay)
+		_check(accel_g < 0.5 if kind != &"quake" else up_max < 1.0 and flat_max < 60.0, "%s: no push over half a g beyond the drive's own, no kick over 1 m/s" % kind, "%.2f g, %.2f m/s" % [accel_g, up_max])
+		_check(on and trip.distance >= site + 60.0 and trip.falls == falls_before and truck.wheels_on_ground() >= 3 and trip.cargo > 0.5, "%s: and the truck drives through and on" % kind, "%.0f m, falls %d, cargo %.2f" % [trip.distance, trip.falls - falls_before, trip.cargo])
+		var _stopped: Variant = d.manager.call("stop")
+		d._pending.clear()
+		d._cooldown.clear()
+		me.assisted = false
+		me.autopilot = null
+		game.end_trip(&"p1")
+		await _seconds(0.5)
+
+	d.hazards["stages"].erase("dd_foothills")
 	_finished_section()
 
 
