@@ -1,0 +1,9 @@
+# Bot soak
+
+`./game.sh soak [route|all] [minutes]` runs `tools/soak.tscn`: three stand-in drivers (the game's own `DdGame.join(..., true)` autopilots) deliver in the real `DdGame` for the given simulated minutes through dot-bot's `DotBotSoak`, with dot-spawn's `DotSpawnWatch` for the stuck and fell-out verdicts. A map here is a route id (every stand-in starts on it); `all`, the default, lets the stand-ins pick, which spreads them over the routes. The report is `.godot/test-logs/soak-<route|all>.json` plus one `SOAK {...}` line, and the exit code is 1 on failure. Extra flags (`--bots`, `--soak-max-stuck-sec` and the rest of `DotBotSoakConfig`) pass through.
+
+Trucks are physics bodies, so the engine's physics frames tick the world (run with `--fixed-fps 60`, as `game.sh` does) and nothing is stepped by hand. `quick_start` is on, so stand-ins go straight to the start line instead of walking the lot. A mover has a goal while its trip is DRIVING. Tick cost is the wall time between physics frames: `Performance.TIME_PHYSICS_PROCESS` read hundreds of milliseconds under `--fixed-fps` and failed the p95 limit with no cause. There is no navigation mesh and no combat the harness sees, so off-nav, unreachable, kill and damage counters stay 0.
+
+**Needs the linked `addons/dot_spawn`** (gitignored like the other links, made by dot-bootstrap or `ln -s ../../dot-spawn/addons/dot_spawn addons/dot_spawn`; used by the tool only, never by the game), and an `--import` after adding it.
+
+First run, 2026-10-22: `all`, 1 simulated minute, and `dd_foothills`, 4 minutes: no stuck mover, no fell-out, object growth within 1 percent, tick p95 0.5 ms, worst tick 6.9 ms. Nothing to file. A route takes longer than four minutes to deliver, so a longer run per route (`./game.sh soak dd_snowline 15`) is what reaches the later corners.

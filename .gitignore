@@ -38,6 +38,7 @@
 /addons/dot_vote
 /addons/dot_map
 /addons/dot_bot
+/addons/dot_spawn
 
 # Exports
 build/
