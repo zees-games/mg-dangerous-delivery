@@ -28,7 +28,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 31
-const CHECKS := 230
+const CHECKS := 234
 
 var _passed := 0
 var _failed := 0
@@ -1014,7 +1014,7 @@ func _test_stage_hazards() -> void:
 
 	var ridge: Array[StringName] = d.kinds_for(&"dd_wind_ridge")
 	_check(ridge.has(&"tornado") and not ridge.has(&"quake"), "stage_hazards.yml says which stage brings which hazard", str(ridge))
-	_check(d.kinds_for(&"dd_foothills").is_empty(), "and a stage it does not list brings none")
+	_check(d.kinds_for(&"dd_unlisted_stage").is_empty(), "and a stage it does not list brings none")
 	game.config.stage_hazards = false
 	_check(d.kinds_for(&"dd_wind_ridge").is_empty(), "dd_stage_hazards 0 turns every one off")
 	game.config.stage_hazards = true
@@ -1112,7 +1112,7 @@ func _test_hazard_drive() -> void:
 	var d: DdDisasters = game.disasters
 
 	if not d.linked():
-		for _n in 6:
+		for _n in 10:
 			_check(true, "(stage hazards need natural-disasters)")
 
 		_finished_section()
@@ -1120,9 +1120,7 @@ func _test_hazard_drive() -> void:
 
 	var road: DdRoute = game.routes[&"dd_foothills"]
 
-	# Not the wind: the addon's gust drags a truck's whole speed toward the wind's (a truck at 11 m/s
-	# slowed to 2.5 and stalled), so no stage lists it until that is fixed there.
-	for kind: StringName in [&"quake", &"tornado"]:
+	for kind: StringName in [&"quake", &"tornado", &"wind"]:
 		var started := game.start_trip(&"p1", &"dd_foothills")
 		var me: DdGame.Driver = game.drivers[&"p1"]
 		var trip: DdTrip = me.trip
@@ -1156,6 +1154,8 @@ func _test_hazard_drive() -> void:
 		var up_max := 0.0
 		var base_max := 0.0
 		var slowest := 99.0
+		var speed_before := 0.0
+		var win_v := truck.linear_velocity
 		var on := started.ok
 
 		while on and frame < 60 * 40 and trip.distance < site + 60.0:
@@ -1163,16 +1163,25 @@ func _test_hazard_drive() -> void:
 			frame += 1
 			var dd_v := truck.linear_velocity - last
 			last = truck.linear_velocity
+			# Acceleration over a 9-frame window (0.15 s, a quake's pulse period): one frame
+			# of a pulse is a spike no tyre or driver feels as a push.
+			var win_a := 0.0
+			if frame % 9 == 0:
+				var dw := last - win_v
+				win_a = Vector2(dw.x, dw.z).length() / 0.15
+				win_v = last
 
 			if d.manager.call("is_active", native):
 				if struck_at < 0:
 					struck_at = frame
 
-				flat_max = maxf(flat_max, Vector2(dd_v.x, dd_v.z).length() * 60.0)
+				flat_max = maxf(flat_max, win_a)
 				up_max = maxf(up_max, absf(dd_v.y))
 				slowest = minf(slowest, last.length())
 			elif frame > 30:
-				base_max = maxf(base_max, Vector2(dd_v.x, dd_v.z).length() * 60.0)
+				base_max = maxf(base_max, win_a)
+				if struck_at < 0:
+					speed_before = last.length()
 
 			if warned_at < 0 and not d._pending.is_empty():
 				warned_at = frame
@@ -1181,7 +1190,9 @@ func _test_hazard_drive() -> void:
 		var accel_g := maxf(flat_max - base_max, 0.0) / 9.81
 		print("    %s: warned %d, struck %d (%.2f s), push %.2f g (%.2f g before it), vertical step %.2f m/s, slowest %.1f m/s, on to %.0f of site %.0f" % [kind, warned_at, struck_at, delay, accel_g, base_max / 9.81, up_max, slowest, trip.distance, site])
 		_check(started.ok and warned_at >= 0 and absf(delay - float(d.hazards["warning_seconds"])) < 0.3, "%s: the warning goes out and the kind starts 6 s later" % kind, "%.2f s" % delay)
-		_check(accel_g < 0.5 if kind != &"quake" else up_max < 1.0 and flat_max < 60.0, "%s: no push over half a g beyond the drive's own, no kick over 1 m/s" % kind, "%.2f g, %.2f m/s" % [accel_g, up_max])
+		_check(accel_g < 0.5 and up_max < 1.0, "%s: no push over half a g beyond the drive's own (0.15 s mean), no kick over 1 m/s" % kind, "%.2f g, %.2f m/s" % [accel_g, up_max])
+		if kind == &"wind":
+			_check(speed_before - slowest < 3.0, "wind: a gust costs the truck a bounded part of its speed, it does not stall it", "%.1f -> %.1f m/s" % [speed_before, slowest])
 		_check(on and trip.distance >= site + 60.0 and trip.falls == falls_before and truck.wheels_on_ground() >= 3 and trip.cargo > 0.5, "%s: and the truck drives through and on" % kind, "%.0f m, falls %d, cargo %.2f" % [trip.distance, trip.falls - falls_before, trip.cargo])
 		var _stopped: Variant = d.manager.call("stop")
 		d._pending.clear()

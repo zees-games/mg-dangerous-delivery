@@ -26,12 +26,10 @@ hazards:
     intensity: 0.2
     duration: 8.0
     radius: 70.0
-  # `wind` is left out of every stage: natural-disasters' gust pulls a truck's whole speed toward the
-  # wind's, so one at 11 m/s crawled at 2.5 m/s and went over the edge. Back in when that is fixed.
   stages:
-    dd_foothills: []
+    dd_foothills: [wind]
     dd_river_cut: [quake]
     dd_slate_quarry: [quake]
-    dd_snowline: []
-    dd_wind_ridge: [tornado]
+    dd_snowline: [wind]
+    dd_wind_ridge: [wind, tornado]
     dd_devils_spine: [tornado, quake]
