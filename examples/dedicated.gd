@@ -423,7 +423,7 @@ func _ballot_ids(vote: Node) -> Array:
 	return out
 
 
-## `cfg/maps.yml`: which mountains rotate. The format is dot-map's selftest's; this is what the
+## `maps.yml` (dot_map tiers): which mountains rotate. The format is dot-map's selftest's; this is what the
 ## GAME does with it: a mountain left out is installed and loadable (dd_mountain) and is never on
 ## a ballot or accepted as a nomination, and is marked in the lists; a rotation's order (a
 ## cycle) orders the ballot; a switch takes effect; a renamed command is registered; a file
