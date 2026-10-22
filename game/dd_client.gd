@@ -405,6 +405,24 @@ func _listen_for_rock() -> void:
 	game.truck_damaged.connect(_on_truck_damaged)
 	game.truck_scraping.connect(_on_truck_scraping)
 
+	if game.disasters != null:
+		game.disasters.warned.connect(_on_hazard_warned)
+
+
+## A tornado, a gust or a quake is on its way: the siren and the words, for whoever is driving
+## near enough to meet it.
+func _on_hazard_warned(kind: StringName, at: Vector3, seconds: float) -> void:
+	var me := _driver()
+
+	if me == null or me.truck == null or (me.truck as Node3D).global_position.distance_to(at) >= 400.0:
+		return
+
+	var _heard := audio.hazard_warning() if audio != null else false
+	var words: String = {&"tornado": "TORNADO AHEAD", &"wind": "GUSTS AHEAD", &"quake": "QUAKE AHEAD"}.get(kind, "DANGER AHEAD")
+
+	if hud != null:
+		hud.say("%s  (%.0f s)" % [words, seconds], seconds, Color(1.0, 0.6, 0.2))
+
 
 func _on_rock(_route_id: StringName, at: Vector3) -> void:
 	var me := _driver()

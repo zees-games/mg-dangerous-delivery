@@ -19,6 +19,7 @@
 #   tools/shot.sh --view=standin --near=3.5 --seconds=3   # a walker close up, mid-stride (--near is the metres behind)
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above
 #   tools/shot.sh --view=drive --sky=snow                  # force the weather everywhere
+#   tools/shot.sh --view=drive --route=dd_wind_ridge --hazard=tornado   # a stage hazard (tornado, wind, quake) ahead, mid-life
 #   tools/shot.sh --view=drive --route=dd_snowline --at=880 --seconds=4   # put the truck 880 m along first
 #   tools/shot.sh --mountain=low_country                   # the lot on another mountain (DdMountains)
 #   tools/shot.sh --view=loading                           # the loading screen, as the real entry puts it up
@@ -34,7 +35,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"
 for arg in "$@"; do
     case "$arg" in
         --view=*)    view="${arg#*=}" ;;
@@ -42,6 +43,7 @@ for arg in "$@"; do
         --out=*)     out="${arg#*=}" ;;
         --route=*)   route="${arg#*=}" ;;
         --sky=*)     sky="${arg#*=}" ;;
+        --hazard=*)  hazard="${arg#*=}" ;;
         --at=*)      at="${arg#*=}" ;;
         --truck=*)   truck="${arg#*=}" ;;
         --mountain=*) mountain="${arg#*=}" ;;
@@ -61,4 +63,4 @@ done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz"

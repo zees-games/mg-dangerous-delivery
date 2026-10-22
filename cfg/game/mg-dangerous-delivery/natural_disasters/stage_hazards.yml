@@ -1,0 +1,35 @@
+# Which stage hazards natural-disasters brings to which route. A stage not listed has none.
+# Numbers are tuned so a truck can still finish: the strongest push at the centre stays well
+# under a tyre's grip (headless_run measures it). `intensity` 1.0 is the addon's own default.
+hazards:
+  enabled: true
+  # Seconds of siren and HUD warning before the hazard starts.
+  warning_seconds: 6.0
+  # The hazard is set off when a truck is this far (m) short of its site.
+  lead_metres: 110.0
+  # Seconds before the same site can strike again.
+  cooldown_seconds: 120.0
+  # No site this close to the start or the finish.
+  start_margin_m: 150.0
+  finish_margin_m: 120.0
+  # Roughly one site per this many metres of road, for each kind a stage lists.
+  site_spacing_m: 900.0
+  tornado:
+    intensity: 0.2
+    duration: 30.0
+    radius: 50.0
+  wind:
+    intensity: 0.25
+    duration: 30.0
+    radius: 120.0
+  quake:
+    intensity: 0.2
+    duration: 8.0
+    radius: 70.0
+  stages:
+    dd_foothills: []
+    dd_river_cut: [quake]
+    dd_slate_quarry: [quake, wind]
+    dd_snowline: [wind]
+    dd_wind_ridge: [wind, tornado]
+    dd_devils_spine: [tornado, quake, wind]

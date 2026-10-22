@@ -209,6 +209,7 @@ func _game_load() -> DotResult:
 	_tunable_bool("dd_solo", world.config.allow_solo, "Whether players may drive solo (B)", func(v: bool) -> void: world.config.allow_solo = v)
 	_tunable_bool("dd_skip", world.config.allow_skip, "Whether players may skip a stage (N)", func(v: bool) -> void: world.config.allow_skip = v)
 	_tunable_bool("dd_rocks", world.config.boulders_enabled, "Whether rock falls", func(v: bool) -> void: world.config.boulders_enabled = v)
+	_tunable_bool("dd_stage_hazards", world.config.stage_hazards, "Whether stages bring a tornado, gusts or a quake (stage_hazards.yml says which)", func(v: bool) -> void: world.config.stage_hazards = v)
 	# Weather by cvar: a change reaches every client at once, because they compute the same sky
 	# from the same numbers (and the sky is the server's only through them).
 	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, 3.0, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")

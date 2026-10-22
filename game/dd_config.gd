@@ -149,6 +149,10 @@ extends DotConfig
 
 @export_group("Hazards")
 
+## Whether natural-disasters' tornado, wind gusts and quake strike on the stages the cfg names
+## (`cfg/game/mg-dangerous-delivery/natural_disasters/stage_hazards.yml`). Needs the addon.
+@export var stage_hazards: bool = true
+
 ## Whether falling rock is on at all.
 @export var boulders_enabled: bool = true
 

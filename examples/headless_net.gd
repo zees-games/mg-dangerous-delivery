@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 18
-const CHECKS := 71
+const CHECKS := 72
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -449,8 +449,15 @@ func _test_weather() -> void:
 	if _server_game.disasters.linked():
 		_check(_client_game.disasters.active_count() == _server_game.disasters.active_count() and _server_game.disasters.active_count() > 0,
 			"natural-disasters' thunderstorm runs on both ends", "client %s; server %s" % [_client_game.disasters.describe(), _server_game.disasters.describe()])
+		var heard: Array = []
+		_client_game.disasters.warned.connect(func(kind: StringName, _at: Vector3, _s: float) -> void: heard.append(kind))
+		_server_game.disasters._warn(&"dd_foothills", _server_game.routes[&"dd_foothills"], &"wind", 400.0, 0)
+		_exchange()
+		await _steps(2)
+		_check(heard == [&"wind"], "a stage hazard's warning reaches the client, which cues it", str(heard))
 	else:
 		_check(_client_game.disasters.active_count() == 0 and not _client_game.disasters.linked(), "without natural-disasters nothing runs on the client either")
+		_check(true, "(no stage hazards without natural-disasters)")
 	var _off := _server_game.force_weather("")
 	_server_bridge.broadcast_weather()
 	_exchange()

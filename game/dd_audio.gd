@@ -40,6 +40,8 @@ const BRAKE_HISS := &"brake_hiss"
 const ROCKFALL := &"rockfall"
 ## A load delivered and paid for.
 const DELIVERED := &"delivered"
+## The siren before a tornado, a gust or a quake (DdDisasters.warned).
+const HAZARD_WARNING := &"hazard_warning"
 
 ## A loop quieter than this is stopped, and one that should be louder is started: below it
 ## nobody hears it, and a stopped voice is one the pool can give to something else.
@@ -116,7 +118,7 @@ var _fed: Dictionary = {}
 
 
 static func ids() -> Array[StringName]:
-	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED]
+	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]
 	# dot-audio's stock beds and footsteps (the lot and the land are walked). Appended:
 	# a typed array plus a typed array is an untyped one.
 	out.append_array(DotAudioStock.ids())
@@ -151,7 +153,7 @@ static func sound_catalogue() -> DotAudioCatalogue:
 	c.add(_def(RAIN, 1, 50, true))
 	c.add(_def(WIND, 1, 50, true))
 
-	for id: StringName in [BRAKE_HISS, ROCKFALL, DELIVERED]:
+	for id: StringName in [BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]:
 		var shot := _def(id, 1, 70, false)
 		shot.gain_db = SHOT_DB
 		c.add(shot)
@@ -319,6 +321,10 @@ func rock() -> bool:
 	return manager != null and manager.play(ROCKFALL) != 0
 
 
+func hazard_warning() -> bool:
+	return manager != null and manager.play(HAZARD_WARNING) != 0
+
+
 func delivered() -> bool:
 	return manager != null and manager.play(DELIVERED) != 0
 
@@ -414,6 +420,7 @@ static func stand_ins() -> Dictionary:
 		BRAKE_HISS: _hiss_burst(),
 		ROCKFALL: _rumble_burst(),
 		DELIVERED: _chime_tone(),
+		HAZARD_WARNING: _siren(),
 	}
 
 
@@ -502,6 +509,19 @@ static func _rumble_burst() -> AudioStreamWAV:
 		var t := float(i) / DotAudioSynth.RATE
 		last = lerpf(last, rng.randf_range(-1.0, 1.0), 0.05)
 		out[i] = (last * 1.6 + sin(TAU * 38.0 * t) * 0.3) * exp(-t * 1.6) * minf(t * 10.0, 1.0)
+
+	return _wav(out, false)
+
+
+## A rising and falling wail, twice: unlike the chime, nothing else in the game sounds like it.
+static func _siren() -> AudioStreamWAV:
+	var out := _buffer(2.4)
+	var phase := 0.0
+
+	for i in out.size():
+		var t := float(i) / DotAudioSynth.RATE
+		phase += TAU * (620.0 + 260.0 * sin(TAU * t / 1.2 - PI / 2.0)) / DotAudioSynth.RATE
+		out[i] = (sin(phase) + 0.3 * sin(phase * 2.0)) * 0.3 * clampf(minf(t * 10.0, (2.4 - t) * 6.0), 0.0, 1.0)
 
 	return _wav(out, false)
 

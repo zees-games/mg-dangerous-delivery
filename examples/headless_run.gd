@@ -10,6 +10,7 @@ extends Node
 const DdGame := preload("res://game/dd_game.gd")
 const DdSettings := preload("res://game/dd_settings.gd")
 const DdRoute := preload("res://game/dd_route.gd")
+const DdDisasters := preload("res://game/dd_disasters.gd")
 const DdBindings := preload("res://game/dd_bindings.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
@@ -26,8 +27,8 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
-const SECTIONS := 29
-const CHECKS := 209
+const SECTIONS := 30
+const CHECKS := 224
 
 var _passed := 0
 var _failed := 0
@@ -73,6 +74,7 @@ func _ready() -> void:
 	await _test_a_fall()
 	_test_solo()
 	await _test_rock()
+	_test_stage_hazards()
 	_test_refusals()
 	_test_pay()
 	_test_ice_and_debris()
@@ -993,6 +995,112 @@ func _test_rock() -> void:
 	trip.distance = float(site["d"]) - 20.0
 	game._drop_boulder(&"dd_foothills", road, site, 2.0)
 	_check(is_equal_approx(trip.chaos_units - before, game.config.boulder_chaos) and trip.boulders == 2, "but it is paid once per stretch of cliff")
+	_finished_section()
+
+
+func _test_stage_hazards() -> void:
+	_section("stage hazards")
+	var d: DdDisasters = game.disasters
+
+	if not d.linked():
+		_check(d.kinds_for(&"dd_wind_ridge").is_empty() and d.hazards.has("stages"), "without natural-disasters no stage has a hazard")
+		_check(not d.receive({"t": "dd_warn", "k": "wind", "o": [0, 0, 0], "s": 5}).ok, "and a warning from a server that has it is refused")
+		for _n in 13:
+			_check(true, "(stage hazards need natural-disasters)")
+
+		_finished_section()
+		return
+
+	var ridge: Array[StringName] = d.kinds_for(&"dd_wind_ridge")
+	_check(ridge.has(&"tornado") and ridge.has(&"wind") and not ridge.has(&"quake"), "stage_hazards.yml says which stage brings which hazard", str(ridge))
+	_check(d.kinds_for(&"dd_foothills").is_empty(), "and a stage it does not list brings none")
+	game.config.stage_hazards = false
+	_check(d.kinds_for(&"dd_wind_ridge").is_empty(), "dd_stage_hazards 0 turns every one off")
+	game.config.stage_hazards = true
+
+	var road: DdRoute = game.routes[&"dd_wind_ridge"]
+	var len := road.length()
+	var a: PackedFloat32Array = DdDisasters.site_distances(7, &"dd_wind_ridge", &"tornado", len, d.hazards)
+	var b: PackedFloat32Array = DdDisasters.site_distances(7, &"dd_wind_ridge", &"tornado", len, d.hazards)
+	var other: PackedFloat32Array = DdDisasters.site_distances(8, &"dd_wind_ridge", &"tornado", len, d.hazards)
+	var inside := not a.is_empty()
+
+	for m in a:
+		inside = inside and m >= float(d.hazards["start_margin_m"]) and m <= len - float(d.hazards["finish_margin_m"])
+
+	_check(a == b and a != other, "a site is the seed's, the same on every machine", str(a))
+	_check(inside, "and never within the margins of the start or the finish", "%s of %.0f m" % [a, len])
+
+	# Fair: each kind's strongest push on a truck at its own settings stays well under a tyre's grip.
+	var worst := {}
+
+	for kind: StringName in DdDisasters.KINDS:
+		var s: Dictionary = d.hazards[String(kind)]
+		var ev := DotDisasterEvent.new()
+		ev.kind = DdDisasters.KINDS[kind]
+		ev.intensity = float(s["intensity"])
+		ev.duration = float(s["duration"])
+		ev.radius = float(s["radius"])
+		ev.elapsed = ev.duration * 0.5
+		var flat := 0.0
+		var up := 0.0
+
+		for step in 41:
+			var at := ev.origin + Vector3(float(step) - 20.0, 0.0, 0.0) * ev.radius / 20.0
+
+			if kind == &"tornado":
+				var flow := DotDisasterTornado.flow_at(ev, DotDisasterTornado.centre(ev, ev.elapsed) + at)
+				flat = maxf(flat, Vector2(flow.x, flow.z).length())
+				up = maxf(up, flow.y)
+			elif kind == &"wind":
+				ev.heading = 0.0
+				flat = maxf(flat, 10.0 * ev.intensity * 1.0)
+
+		worst[kind] = [flat, up]
+
+	_check(float(worst[&"tornado"][0]) < 4.9 and float(worst[&"tornado"][1]) < 4.9, "the tornado at its settings pushes under half a g, sideways and up", str(worst[&"tornado"]))
+	_check(float(worst[&"wind"][0]) * 1.7 < 4.9, "a gust, counting the body's pull toward the wind, under half a g", str(worst[&"wind"]))
+	var quake: Dictionary = d.hazards["quake"]
+	_check(3.2 * float(quake["intensity"]) < 1.0 and float(quake["duration"]) <= 12.0, "a quake kicks under 1 m/s a pulse and is over in 12 s")
+
+	# The warning, then the strike, through the world's own tick.
+	var driver: DdGame.Driver = game.drivers[&"p2"]
+	var trip: DdTrip = driver.trip
+	var saved_route := trip.route_id
+	var saved_state := trip.state
+	var saved_distance := trip.distance
+	trip.route_id = &"dd_wind_ridge"
+	trip.state = DdTrip.State.DRIVING
+	var site: float = DdDisasters.site_distances(game.seed_value, &"dd_wind_ridge", &"tornado", len, d.hazards)[0]
+	var warnings: Array = []
+	var on_warned := func(kind: StringName, _at: Vector3, seconds: float) -> void: warnings.append([kind, seconds])
+	var _hooked := d.warned.connect(on_warned)
+	var sent: Array = []
+	var old_send := d.send_fn
+	d.send_fn = func(msg: Dictionary) -> void: sent.append(msg)
+	var old_warning: Variant = d.hazards["warning_seconds"]
+	d.hazards["warning_seconds"] = 0.5
+	d.hazards["stages"]["dd_wind_ridge"] = ["tornado"]
+	trip.distance = site - float(d.hazards["lead_metres"]) + 10.0
+	d.step_hazards(0.05)
+	_check(warnings.size() == 1 and warnings[0][0] == &"tornado" and not d.manager.call("is_active", &"tornado"), "a truck coming up to a site is warned first", str(warnings))
+	_check(sent.size() == 1 and str(sent[0].get("t")) == "dd_warn", "and every client is sent the warning")
+	d.step_hazards(0.05)
+	_check(warnings.size() == 1, "once, not every tick")
+	d.step_hazards(0.6)
+	_check(d.manager.call("is_active", &"tornado"), "and the funnel starts when the warning is out", d.describe())
+	_check(sent.size() == 2 and str(sent[1].get("t")) == "start", "and is sent as the addon's own start")
+	_check(d.receive(sent[0]).ok and warnings.size() == 2, "a client turns the warning into the same cue")
+	_check(not d.receive({"t": "dd_warn", "k": "meteor", "o": [0, 0, 0], "s": 5}).ok and not d.receive({"t": "dd_warn", "k": "wind", "o": [0, 0], "s": 5}).ok, "and a forged one is refused")
+	var _stopped: Variant = d.manager.call("stop")
+	d.warned.disconnect(on_warned)
+	d.send_fn = old_send
+	d.hazards["warning_seconds"] = old_warning
+	d.hazards["stages"].erase("dd_wind_ridge")
+	d._load_hazards()
+	trip.route_id = saved_route
+	trip.state = saved_state
+	trip.distance = saved_distance
 	_finished_section()
 
 

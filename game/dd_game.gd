@@ -2017,6 +2017,10 @@ func step(delta: float) -> void:
 			_step_roaming(driver, delta)
 
 	_step_boulders(delta)
+
+	if disasters != null:
+		disasters.step_hazards(delta)
+
 	_advance_toys(delta)
 
 

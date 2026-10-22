@@ -95,6 +95,24 @@ func _ready() -> void:
 		me.trip.hint = road.index_at_distance(at_m)
 		me.autopilot.set_route(client.game._global_points(me.trip.route_id, at_m))
 
+	# A stage hazard (`--hazard=tornado|wind|quake`) a short way up the road, at its mid-life.
+	var hazard := str(_args.get("hazard", ""))
+
+	if hazard != "" and not on_foot and client.game.disasters.linked():
+		var me2 = client.game.drivers[client.local_key]
+		var road2 = client.game.routes[me2.trip.route_id]
+		var ahead: Transform3D = road2.transform_at(me2.trip.distance + 45.0, 0.0)
+		var cfg: Dictionary = client.game.disasters.hazards[hazard]
+		var made: DotResult = client.game.disasters.manager.call("start", client.game.disasters.KINDS[StringName(hazard)], {
+			"origin": road2.position + ahead.origin, "heading": atan2(ahead.basis.x.x, ahead.basis.x.z),
+			"intensity": float(cfg["intensity"]) * float(_args.get("boost", "1")), "duration": float(cfg["duration"]),
+			"radius": float(cfg["radius"]),
+		})
+		# Elapsed set, not stepped: a step that long would apply fifteen seconds of push at once.
+		if made.ok:
+			(made.value as Object).set("elapsed", float(cfg["duration"]) * 0.5)
+			await get_tree().physics_frame
+
 	# Other people on foot, walking to the showroom and round it: what a player sees of
 	# everybody else in the lot (the client draws each one; offline they are the world's).
 	var people := int(_args.get("people", "0"))
