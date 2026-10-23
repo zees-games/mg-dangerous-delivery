@@ -352,6 +352,7 @@ func _test_the_mountain_vote() -> void:
 	var set_off := game.start_trip(hauler, &"dd_foothills")
 	var captured: Array = []
 	vote.set("voters_fn", func() -> Array: return [&"console"])
+	_one_voter_rules(director)
 	vote.set("ballot_fn", func(state: Dictionary) -> void: captured.append(state))
 
 	_check(_said(_run_command("nominate low_country"), "Nominated"), "a player nominates a mountain")
@@ -382,6 +383,7 @@ func _test_the_mountain_vote() -> void:
 
 	# Rock the vote: two minutes in, the players ask, a ballot opens and the winner is built now.
 	vote.call("advance", director.rules.rtv_delay_sec + 1.0)
+	_one_voter_rules(director)
 	var _r := _run_command("rtv")
 	options = director.ballot.option_ids() if director.is_voting() else ([] as Array[StringName])
 	_check(director.is_voting() and options.has(&"high_country"), "rock the vote opens a ballot early", str(options))
@@ -792,3 +794,11 @@ func _check(ok: bool, what: String, detail: String = "") -> void:
 		var line := what if detail == "" else "%s  (%s)" % [what, detail]
 		_failures.append(line)
 		print("  FAIL  %s" % line)
+
+
+## This fixture has one voter; each mountain's rules come back with it, so set this after every change.
+func _one_voter_rules(director: Object) -> void:
+	director.rules.rtv_delay_sec = 0.0
+	director.rules.min_players_to_vote = 1
+	director.rules.rtv_min_players = 1
+	director.rules.allow_single_voter_auto = true
