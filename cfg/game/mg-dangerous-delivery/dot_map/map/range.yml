@@ -1,0 +1,6 @@
+# Starter file for the mountain "range". Every value is commented out: uncomment a line to change that cvar on this mountain only (the next mountain gets the old value back).
+# An operator overrides it in cfg/server/game/mg-dangerous-delivery/dot_map/map/.
+# dd_weather_frequency: 1.0
+# dd_weather_storms: 0.3
+# dd_weather_fog: 0.2
+# mp_forceview: 0

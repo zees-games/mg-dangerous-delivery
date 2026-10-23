@@ -236,6 +236,22 @@ func _game_load() -> DotResult:
 	return DotResult.success(null)
 
 
+## What a mountain's `cfg/game/mg-dangerous-delivery/dot_map/map/<id>.yml` may set: weather, the view rule and the stand-ins' skill, never a command.
+func _map_config_keys() -> Dictionary:
+	return {
+		"dd_weather_frequency": {"type": "float", "min": 0.0, "max": 3.0},
+		"dd_weather_storms": {"type": "float", "min": 0.0, "max": 1.0},
+		"dd_weather_fog": {"type": "float", "min": 0.0, "max": 1.0},
+		"dd_weather_disasters": {"type": "float", "min": 0.0, "max": 1.0},
+		"mp_forceview": {"type": "int", "min": 0, "max": 2},
+		"bot_difficulty": {"type": "string"},
+	}
+
+
+func _map_config_game() -> String:
+	return "mg-dangerous-delivery"
+
+
 func _on_mountain_changed(_id: StringName) -> void:
 	_wire_map(game as DdGame)
 
