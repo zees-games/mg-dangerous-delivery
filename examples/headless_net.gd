@@ -95,7 +95,12 @@ func _ready() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.free()
-	(load("res://game/dd_route.gd") as GDScript).call(&"clear_cache")
+	for path in ["res://game/dd_truck.gd", "res://game/dd_terrain.gd", "res://game/dd_route.gd"]:
+		(load(path) as GDScript).call(&"clear_cache")
+	DotHumanoidFigure.clear_cache()
+	DotHudPiece.clear_cache()
+	DotMenuKit.clear_cache()
+	DotRegistry.clear()
 	get_tree().quit(code)
 
 

@@ -757,6 +757,11 @@ static func _zeros() -> PackedFloat32Array:
 static var _terrain_shader: Shader = null
 
 
+## Drops the shared terrain shader so a process can exit without leaking it.
+static func clear_cache() -> void:
+	_terrain_shader = null
+
+
 static func _shader() -> Shader:
 	if _terrain_shader == null:
 		_terrain_shader = Shader.new()

@@ -261,6 +261,11 @@ func _any_wheel_down() -> bool:
 ## The Kenney cabs are solid: their glass is a few triangles whose colormap texel is pale blue, on the same surface as the paint. Those triangles go to a second, see-through surface so the driver can be seen from outside, and the cab behind them is the inside of the shell. Pale blue is [code]b == 255, g - r >= 10, r >= 200[/code]: the lamps (yellow) and the paint do not match it. Done at load rather than baked into the .glb, so the CC0 files stay as Kenney shipped them.
 static var _glass_material: StandardMaterial3D = null
 
+
+## Drops the shared glass material so a process can exit without leaking it.
+static func clear_cache() -> void:
+	_glass_material = null
+
 static func _is_glass(c: Color) -> bool:
 	return c.b >= 0.98 and c.g - c.r >= 0.04 and c.r >= 0.78
 

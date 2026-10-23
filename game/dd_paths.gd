@@ -22,15 +22,10 @@ extends RefCounted
 ## [b]Which means anything holding one of these paths is a `static var`, not a
 ## `const`.[/b] A constant is folded at parse time and [method root] is not knowable then.
 
-const _SELF := preload("dd_paths.gd")
-
-
 ## This game's content root: `res://` built in, the mount prefix delivered.
 static func root() -> String:
-	# Through [Resource], because a const-preloaded script is typed as its own class and
-	# `resource_path` is not reachable on that — "Cannot find member resource_path in
-	# base res://…". The cast costs nothing and is the only spelling that compiles.
-	var here: Resource = _SELF
+	# new().get_script(), not a self-preload: a script holding itself is never freed at exit.
+	var here: Resource = new().get_script()
 	return here.resource_path.get_base_dir().get_base_dir()
 
 
