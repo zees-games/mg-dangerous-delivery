@@ -984,6 +984,11 @@ static func texture(id: String, fallback: Texture2D) -> Texture2D:
 	return _textures[id]
 
 
+## Drops the cached textures; a process that ends with them held reports them as leaked.
+static func clear_cache() -> void:
+	_textures.clear()
+
+
 ## A tiling grey noise: [param frequency] is the grain, [param contrast] how far it strays
 ## from mid-grey. Multiplied with a material's colour.
 static func _noise(frequency: float, contrast: float) -> NoiseTexture2D:

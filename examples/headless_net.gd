@@ -88,6 +88,14 @@ func _ready() -> void:
 		push_error("%d checks ran, %d declared." % [_passed + _failed, CHECKS])
 		code = 1
 
+	# Torn down here so the callables and bridges that point at each other are gone before the leak report.
+	_server_bridge.link.loopback = Callable()
+	_client_bridge.link.loopback = Callable()
+	_client_bridge.rtt_source = Callable()
+	for child in get_children():
+		remove_child(child)
+		child.free()
+	(load("res://game/dd_route.gd") as GDScript).call(&"clear_cache")
 	get_tree().quit(code)
 
 

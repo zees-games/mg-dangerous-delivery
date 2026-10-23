@@ -103,6 +103,7 @@ func _ready() -> void:
 		push_error("%d checks ran, %d declared." % [_passed + _failed, CHECKS])
 		code = 1
 
+	DdRoute.clear_cache()
 	get_tree().quit(code)
 
 
