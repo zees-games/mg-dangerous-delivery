@@ -368,8 +368,8 @@ func _build_vote(world: DdGame) -> void:
 		"Minutes a mountain is played before the vote for the next one (0: rock the vote only). From the next mountain on.")
 
 	if minutes != null:
-		minutes.changed.connect(func(_old: String, _new: String) -> void:
-			world.config.mountain_minutes = maxf(minutes.get_float(), 0.0)
+		minutes.changed.connect(func(_old: String, new_value: String) -> void:
+			world.config.mountain_minutes = maxf(new_value.to_float(), 0.0)
 
 			if vote != null and vote.director != null:
 				vote.minutes = world.config.mountain_minutes
@@ -445,22 +445,30 @@ func _tunable_weather(cvar_name: String, setting: String, low: float, high: floa
 		return
 
 	cvar.with_range(low, high)
-	cvar.changed.connect(func(_old: String, _new: String) -> void:
-		world.config.set(setting, cvar.get_bool() if current is bool else cvar.get_float())
+	cvar.changed.connect(func(_old: String, new_value: String) -> void:
+		world.config.set(setting, _truthy(new_value) if current is bool else new_value.to_float())
 
 		if bridge != null:
 			bridge.call("broadcast_weather")
 
-		log_info("a setting changed", {"cvar": cvar_name, "now": cvar.get_string()}))
+		log_info("a setting changed", {"cvar": cvar_name, "now": new_value}))
+
+
+## Same truthiness as [method DotConVar.get_bool], from a signal's value string.
+static func _truthy(value: String) -> bool:
+	var s := value.strip_edges().to_lower()
+	if s.is_valid_float():
+		return s.to_float() != 0.0
+	return ["true", "yes", "on", "enabled"].has(s)
 
 
 func _tunable_bool(cvar_name: String, current: bool, description: String, apply: Callable) -> void:
 	var cvar := add_cvar(cvar_name, "1" if current else "0", description)
 
 	if cvar != null:
-		cvar.changed.connect(func(_old: String, _new: String) -> void:
-			apply.call(cvar.get_bool())
-			log_info("a setting changed", {"cvar": cvar_name, "now": cvar.get_string()}))
+		cvar.changed.connect(func(_old: String, new_value: String) -> void:
+			apply.call(_truthy(new_value))
+			log_info("a setting changed", {"cvar": cvar_name, "now": new_value}))
 
 
 ## The browser's map is the mountain the server is on: its id, the name `nominate` takes.
