@@ -694,6 +694,7 @@ func _build_settings() -> void:
 	platform.hud = hud
 	platform.hud_accent = DdHud.piece_theme()
 	platform.chat = chat
+	platform.look_position_fn = _look_position
 	platform.board_snapshot_fn = board_snapshot
 	platform.maps_rows_fn = func() -> Array: return game.mountain_rows() if game != null else []
 	platform.maps_change_fn = func(id: StringName) -> DotResult: return game.set_mountain(id)
@@ -1714,3 +1715,15 @@ func _finish_loading() -> void:
 
 	loading.set_step("Ready", 1.0)
 	_report_load()
+
+
+## Where a roster row's driver is, for dot-game's look-to-gag key (G, K).
+func _look_position(row: Dictionary) -> Variant:
+	if game == null:
+		return null
+	var me := _driver()
+	for k: StringName in game.drivers:
+		var other: DdGame.Driver = game.drivers[k]
+		if other != me and other.name == row["name"] and other.truck is Node3D and game.sees(me, other):
+			return (other.truck as Node3D).global_position + Vector3.UP * 1.5
+	return null
