@@ -12,7 +12,7 @@ const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
 const SECTIONS := 11
-const CHECKS := 83
+const CHECKS := 90
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -157,7 +157,28 @@ func _test_the_module_loads() -> void:
 	var net: DotNetManager = module.get("net") if module != null else null
 	_check(net != null and absf(net.config.world_extent - DdGame.NET_WORLD_EXTENT) < 0.01 and not net.config.enable_prediction,
 		"against the world extent a client decodes with, and predicting nothing")
+	_noblock_and_config(module)
 	_finished_section()
+
+
+## Config cvars, the workbench, and dot-team's block rules through dot-game's DotGameNoblock.
+func _noblock_and_config(module: DotModule) -> void:
+	var teamblock := server.console.find_cvar("mp_teamblock")
+	var enemyblock := server.console.find_cvar("mp_enemyblock")
+	_check(teamblock != null and teamblock.get_string() == "0" and enemyblock != null and enemyblock.get_string() == "1",
+		"mp_teamblock is 0 and mp_enemyblock is 1 by default")
+	_check(game.block_rules != null and not game.body_rules.solid and server.console.has_name("mp_solidplayers"),
+		"the block rules feed body_rules, which is off (players are not solid to each other)")
+	_check(server.console.has_name("dd_boulder_mass") and server.console.has_name("dd_weather_period_sec") and server.console.has_name("dd_upgrade_cost_scale"),
+		"config fields are dd_ cvars")
+	_check(module.get("workbench") != null, "the module hosts the workbench")
+	game.config.allow_solo = false
+	module.call("_on_config_field", "allow_solo", false, "workbench")
+	var solo := server.console.find_cvar("dd_solo")
+	_check(solo != null and solo.get_string() == "0", "a workbench edit reaches the hand-written dd_solo")
+	solo.set_value("1")
+	_check(game.config.allow_solo, "and the hand cvar still writes the config back")
+	_check(game.truck_profiles != null and game.truck_profiles.rel_path == "truck" and game.cargo_profiles != null, "the truck and cargo kinds exist")
 
 
 ## A module reload must leave ONE link under the server, still named for the client's route.
@@ -263,7 +284,7 @@ func _test_stand_ins() -> void:
 	var fast_pace := stand_in.autopilot.target_speed
 	var _easy := _run_command("bot_difficulty easy")
 	game.tune_stand_in(stand_in.autopilot)
-	_check(is_equal_approx(medium_pace, DdGame.STAND_IN_SPEED) and is_equal_approx(medium_brake, DdGame.STAND_IN_BRAKE)
+	_check(is_equal_approx(medium_pace, game.config.stand_in_speed) and is_equal_approx(medium_brake, DdGame.STAND_IN_BRAKE)
 			and fast_pace > medium_pace and stand_in.autopilot.target_speed < medium_pace and stand_in.autopilot.brake_gain < medium_brake,
 		"bot_difficulty sets how a stand-in drives: medium as before, nightmare faster, easy slower and braking late",
 		"%.1f / %.1f / %.1f m/s" % [stand_in.autopilot.target_speed, medium_pace, fast_pace])

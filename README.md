@@ -84,7 +84,7 @@ Console commands:
 
 The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. `dd_vote_minutes` is how long a mountain is played before the vote for the next one (0 leaves only `!rtv`), from the next mountain on. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
 
-Everything else is a setting. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
+Everything else is a setting, also a `dd_<name>` console variable and a key in `cfg/game/mg-dangerous-delivery/config/game.yml`. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
 
 | Setting | Default | |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ Everything else is a setting. Put it in `user://cfg/delivery.json`, or set it wi
 
 The mountain vote itself (how many options, how votes are counted, rock the vote, nominations) is dot-vote's settings: put them in `user://cfg/delivery_vote.json` or under `metadata: mountain_vote:` in `game.yml`. `{"enabled": false}` turns it off.
 
-To change a truck, put it in `user://cfg/delivery_trucks.json` by id, with the same fields as `game/dd_trucks.gd` (for example `{"hauler": {"price": 5000}}`). A new id adds a new truck.
+To change a truck, put its changed keys in `cfg/game/mg-dangerous-delivery/truck/<id>.yml` (a cargo likewise under `cargo/`), or in the workbench (F9), or in `user://cfg/delivery_trucks.json` by id, with the same fields as `game/dd_trucks.gd` (for example `{"hauler": {"price": 5000}}`). A new id adds a new truck.
 
 **Where the money is kept.** By default in one JSON file, `user://delivery_accounts.json`. It can also go in SQLite, PostgreSQL or MySQL, in one table called `delivery_accounts` with money and deliveries as columns (so a web panel can sort by them).
 

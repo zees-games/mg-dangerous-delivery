@@ -32,11 +32,11 @@ const SNOW := 2
 ## [param zone] is the document's zone ({snow, rain, wind} chances); [param frequency]
 ## multiplies every chance (DdConfig.weather_frequency). Snow is drawn before rain, so a zone
 ## that may do both does the colder one when both come up.
-static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, tick_rate: int, frequency: float = 1.0, storm_chance: float = 0.0, fog_chance: float = 0.0) -> Dictionary:
+static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, tick_rate: int, frequency: float = 1.0, storm_chance: float = 0.0, fog_chance: float = 0.0, period_sec: float = PERIOD_SECONDS) -> Dictionary:
 	if zone.is_empty():
 		return {"sky": CLEAR, "wind": false, "storm": false, "fog": false}
 
-	var period := int(floor(float(tick) / (PERIOD_SECONDS * float(maxi(tick_rate, 1)))))
+	var period := int(floor(float(tick) / (period_sec * float(maxi(tick_rate, 1)))))
 	var sky := CLEAR
 
 	if _roll(seed_value, zone_id, period, 1) < float(zone.get("snow", 0.0)) * frequency:

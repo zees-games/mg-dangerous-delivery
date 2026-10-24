@@ -26,7 +26,7 @@ func _ready() -> void:
 
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["maps", "garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin"]
+	var on_foot := view in ["maps", "garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin", "workbench"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -128,6 +128,13 @@ func _ready() -> void:
 
 	if str(_args.get("panel", "0")) == "1":
 		client._act("garage")
+
+	if view == "workbench":
+		var wb := client.get_node_or_null("Workbench") as DotGameWorkbench
+		if wb != null:
+			wb.open()
+			for _i in 20:
+				await get_tree().process_frame
 
 	# Beside a salesperson, the use key's words on screen; or at the wheel of a truck handed over
 	# in the lot, driving round it.

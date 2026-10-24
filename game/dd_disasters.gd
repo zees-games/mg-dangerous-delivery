@@ -148,7 +148,7 @@ func _on_weather_changed(route_id: StringName, zone: String, weather: Dictionary
 
 		var res: DotResult = manager.call("start", &"thunderstorm", {
 			"origin": road.position + _zone_middle(road, zone), "radius": 90.0,
-			"duration": DdWeather.PERIOD_SECONDS, "intensity": 0.8,
+			"duration": _game.config.weather_period_sec, "intensity": 0.8,
 		})
 
 		if res.ok:

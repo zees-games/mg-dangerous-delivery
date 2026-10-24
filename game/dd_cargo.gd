@@ -41,6 +41,12 @@ var order: Array[StringName] = []
 
 
 func _init() -> void:
+	reset()
+
+
+func reset() -> void:
+	loads.clear()
+	order.clear()
 	for def: Dictionary in DEFAULTS:
 		loads[StringName(def["id"])] = def.duplicate(true)
 		order.append(StringName(def["id"]))

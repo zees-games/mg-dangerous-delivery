@@ -33,7 +33,7 @@
 GAME_NAME="Dangerous Delivery"
 PACK="delivery"
 EXTRA_PACKS=""
-SUITES="headless_run headless_workshop headless_net dedicated handling headless_mapcfg"
+SUITES="headless_config headless_run headless_workshop headless_net dedicated handling headless_mapcfg"
 # --------------------------------------------------------------------------------
 
 set -uo pipefail

@@ -60,3 +60,4 @@ Thumbs.db
 # No leading slash on purpose: game.sh and dot-ci treat every "/addons/x" line as required.
 addons/natural_disasters
 __pycache__/
+/addons/dot_team

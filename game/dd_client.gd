@@ -687,6 +687,32 @@ func _frame_garage_camera() -> void:
 	camera.look_at(at.origin + at.basis * Vector3(0.0, 1.0, -30.0))
 
 
+## dot-team's block rules followed from the server, and the F9 tuning panel where this process hosts the world.
+func _add_noblock_and_workbench() -> void:
+	if link != null and not _offline:
+		var _solid := game.body_rules.follow_cvars(link)
+		DotLog.result(CHANNEL, "noblock", platform.add_noblock(game, Callable(game, "team_of_side")))
+		return
+	var wb := DotGameWorkbench.new()
+	wb.name = "Workbench"
+	wb.listen_host_fn = func() -> bool: return true
+	wb.config = {"enabled": false}
+	wb.add_set(game.config_binder.profile_set(), "Game settings")
+	wb.add_set(game.truck_profiles, "Trucks")
+	wb.add_set(game.cargo_profiles, "Cargo")
+	add_child(wb)
+	var started := wb.start()
+	DotLog.result(CHANNEL, "the workbench", started)
+	if started.ok:
+		game.config_binder.attach(wb.api.runtime)
+		wb.api.runtime.add_set(game.truck_profiles)
+		wb.api.runtime.add_set(game.cargo_profiles)
+		wb.api.runtime.profile_changed.connect(func(kind: String, _id: String, _rev: int) -> void:
+			if kind == "truck" or kind == "cargo":
+				DotLog.result(CHANNEL, "the catalogues after an edit", game.reload_catalogues()))
+	platform.add_workbench(wb)
+
+
 ## The player's settings, bound to the camera; the lot's SETTINGS button and O open them.
 ## The platform builds them, the Escape menu, the console, Tab and M; this binds what they act on.
 func _build_settings() -> void:
@@ -701,6 +727,7 @@ func _build_settings() -> void:
 	platform.maps_title = "Change mountain"
 	platform.maps_noun = "mountains"
 	DotLog.result(CHANNEL, "the platform", platform.setup())
+	_add_noblock_and_workbench()
 	settings = platform.settings as DdSettings
 	console = platform.console
 

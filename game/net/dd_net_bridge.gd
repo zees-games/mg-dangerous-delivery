@@ -478,6 +478,7 @@ func _admit(peer_id: int) -> void:
 		"config": {
 			"snow_grip": game.config.snow_grip, "rain_grip": game.config.rain_grip,
 			"allow_solo": game.config.allow_solo, "solo_hidden_from_others": game.config.solo_hidden_from_others,
+			"get_out_speed": game.config.get_out_speed,
 		}.merged(game.weather_config()),
 	})
 

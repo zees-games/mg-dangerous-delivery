@@ -75,7 +75,7 @@ Several trucks share a mountain, so the sky over a zone is `DdWeather.at(seed, "
 
 - **Off the mountain is a height test**: `truck.y < road height at the nearest sample - fall_depth`, not a trigger volume (something falling fast steps over a volume). Flipped and still for `flipped_respawn_seconds` is a fall too.
 - A fall costs `fall_cargo_loss` and puts the truck on its last checkpoint after `respawn_seconds`. **R (respawn) costs the same**, or a player about to go over would press it for free.
-- **A truck put down is a ghost** to other trucks (`GHOST_SECONDS`, and until it is clear of every other truck): two stand-ins put on one start line jammed at full throttle when their ghost time ran out while they still overlapped.
+- **A truck put down is a ghost** to other trucks (`ghost_seconds`, and until it is clear of every other truck): two stand-ins put on one start line jammed at full throttle when their ghost time ran out while they still overlapped.
 - **Rock** comes down when a driving truck is `boulder_trigger_distance` short of a site, on `boulder_chance`, then not again for `boulder_cooldown_seconds` (60): at 20 s a slow truck sent back to the start was met by the same rock every time and fell eleven times in a row. Rock starts above the cliff top (at 9 m it started behind a 16 m face and the cliff caught it).
 
 ## Solo is collision exceptions and visibility

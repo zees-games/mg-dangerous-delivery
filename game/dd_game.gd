@@ -21,6 +21,7 @@ extends Node3D
 ## [member Driver.walker], a node the bridge replicates. Stand-ins never walk.
 
 const DdConfig := preload("dd_config.gd")
+const DdProfiles := preload("dd_profiles.gd")
 const DdRoute := preload("dd_route.gd")
 const DdRouteDoc := preload("dd_route_doc.gd")
 const DdTruck := preload("dd_truck.gd")
@@ -51,18 +52,11 @@ const NET_SNAPSHOT_RATE := 30
 const NET_WORLD_EXTENT := 4096.0
 const SERVICE := &"delivery.game"
 
-## Seconds a truck that was just put down passes through other trucks, so two put on one
-## checkpoint do not explode apart.
-const GHOST_SECONDS := 3.0
-
 ## Seconds a truck put back on a checkpoint is held on its brakes before it is the driver's.
 const SETTLE_SECONDS := 0.4
 
 ## Metres from a truck's side a person on foot can get in from.
 const GET_IN_REACH := 4.5
-
-## Metres a second under which a truck can be got out of.
-const GET_OUT_SPEED := 3.0
 
 ## Metres past the end of a route's start pad that its gate's barrier stands.
 const GATE_SETBACK := 2.0
@@ -316,22 +310,59 @@ var _debris: DotVehicleDebris = null
 
 var _terrain_gen: int = 0
 
+## Binds [member config] to cvars, the cfg/ yml layers and the workbench; made in [method _ready] unless a caller set one.
+var config_binder: DotGameConfigBinder = null
+
+## `mp_solidplayers`. Off here: walkers share the lot and trucks collide by `trucks_collide`; on, a pair of trucks collides only when [member block_rules] says the two block.
+var body_rules: DotPlayerBodyRules = DotPlayerBodyRules.new()
+
+## dot-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `DotGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
+var block_rules: Object = null:
+	set(value):
+		if block_rules != null and block_rules.has_signal(&"changed") and block_rules.is_connected(&"changed", body_rules.refresh):
+			block_rules.disconnect(&"changed", body_rules.refresh)
+		block_rules = value
+		if block_rules != null and block_rules.has_signal(&"changed"):
+			block_rules.connect(&"changed", body_rules.refresh)
+
+## The `truck` and `cargo` profile kinds (see [DdProfiles]); null before [method _ready].
+var truck_profiles: DotProfileSet = null
+var cargo_profiles: DotProfileSet = null
+
+
+## Everybody is one side, because the whole mountain is played together.
+func team_of_side(_key: Variant) -> Variant:
+	return "1"
+
 
 func _ready() -> void:
 	# Over whatever was set before: a file, the environment and the command line only change
 	# what they name.
-	var _loaded := config.load_layered("user://cfg/delivery.json")
+	if config_binder == null:
+		config_binder = DotGameConfigBinder.create(config, "mg-dangerous-delivery", "dd", "user://cfg/delivery.json")
+	var loaded := config_binder.load_layers()
+	if not loaded.ok:
+		DotGameConfigBinder.fail_boot(get_tree(), loaded)
+		return
+	body_rules.solid = false
+	body_rules.changed.connect(_refresh_exceptions)
 
 	tick_rate = Engine.physics_ticks_per_second
 	seed_value = config.seed_value if config.seed_value != 0 else int(Time.get_unix_time_from_system())
 
 	if trucks == null:
 		trucks = DdTrucks.new()
-		var _over := trucks.load_overrides("user://cfg/delivery_trucks.json")
 
 	if cargo == null:
 		cargo = DdCargo.new()
-		var _cover := cargo.load_overrides("user://cfg/delivery_cargo.json")
+
+	trucks.config = config
+	var catalogued := reload_catalogues()
+	if not catalogued.ok:
+		DotLog.result(CHANNEL, "the truck and cargo profiles", catalogued)
+		if config_binder.strict:
+			DotGameConfigBinder.fail_boot(get_tree(), catalogued)
+			return
 
 	if bank == null:
 		bank = DdBank.new()
@@ -1721,7 +1752,7 @@ func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vecto
 			return {"action": "accept", "route": String(gate.route_id),
 				"text": "E  Accept the delivery: %s, %s, from $%s" % [str(doc.get("name", gate.route_id)), str(load_def.get("name", "")).to_lower(), DdLot._thousands(route_pay(gate.route_id))]}
 
-		if absf(truck.forward_speed()) < GET_OUT_SPEED:
+		if absf(truck.forward_speed()) < config.get_out_speed:
 			return {"action": "get_out", "text": "E  Get out"}
 
 	return none
@@ -1864,7 +1895,7 @@ func get_out(key: StringName) -> DotResult:
 
 	var truck := driver.truck as DdTruck
 
-	if absf(truck.forward_speed()) >= GET_OUT_SPEED:
+	if absf(truck.forward_speed()) >= config.get_out_speed:
 		return DotResult.fail(DotError.CODE_STATE, "Stop first.")
 
 	var door := door_of(truck)
@@ -2252,7 +2283,7 @@ func _deliver(driver: Driver) -> void:
 
 
 ## Puts a driver's truck on the checkpoint for [param stage] (0: the start), stopped, and
-## lets it pass through other trucks for [constant GHOST_SECONDS].
+## lets it pass through other trucks for `ghost_seconds`.
 func _put_at(driver: Driver, stage: int) -> void:
 	var trip: DdTrip = driver.trip
 	var road: DdRoute = routes[trip.route_id]
@@ -2273,7 +2304,7 @@ func _put_at(driver: Driver, stage: int) -> void:
 	if trip.state != DdTrip.State.HOLD:
 		trip.state = DdTrip.State.HOLD
 		trip.wait = SETTLE_SECONDS
-	driver.ghost_until = _now + GHOST_SECONDS
+	driver.ghost_until = _now + config.ghost_seconds
 	_refresh_exceptions()
 
 	if driver.autopilot != null:
@@ -2300,6 +2331,24 @@ func _remove_truck(driver: Driver) -> void:
 	driver.truck = null
 	driver.trip = null
 	_refresh_exceptions()
+
+
+## The trucks and cargo as `user://cfg/delivery_trucks.json` / `delivery_cargo.json` (the old place) and then the `truck` / `cargo` profiles (cfg/ tiers, the workbench) hold them.
+## Trucks already on the road keep what they were built with.
+func reload_catalogues() -> DotResult:
+	trucks.reset()
+	cargo.reset()
+	var _over := trucks.load_overrides("user://cfg/delivery_trucks.json")
+	var _cover := cargo.load_overrides("user://cfg/delivery_cargo.json")
+
+	if truck_profiles == null:
+		truck_profiles = DdProfiles.truck_set(PackedStringArray(trucks.order.map(func(id: StringName) -> String: return String(id))), config_binder.strict)
+		cargo_profiles = DdProfiles.cargo_set(PackedStringArray(cargo.order.map(func(id: StringName) -> String: return String(id))), config_binder.strict)
+
+	var applied := DdProfiles.apply(truck_profiles, trucks)
+	if not applied.ok:
+		return applied
+	return DdProfiles.apply(cargo_profiles, cargo)
 
 
 ## Which trucks pass through which: none for a solo truck, none while one is a ghost, and
@@ -2351,7 +2400,8 @@ func _clear_of_others(driver: Driver) -> bool:
 
 
 func may_collide(a: Driver, b: Driver) -> bool:
-	return config.trucks_collide and not a.solo and not b.solo and a.ghost_until <= 0.0 and b.ghost_until <= 0.0
+	return config.trucks_collide and not a.solo and not b.solo and a.ghost_until <= 0.0 and b.ghost_until <= 0.0 \
+		and (not body_rules.solid or body_rules.blocks(a.key, b.key))
 
 
 ## Whether [param viewer] sees [param other]'s truck at all.
@@ -2378,8 +2428,7 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 
 # --- Stand-ins ---------------------------------------------------------------
 
-## A stand-in's cruising speed and corner braking at `bot_difficulty medium`, m/s and gain.
-const STAND_IN_SPEED := 11.0
+## A stand-in's corner braking gain at `bot_difficulty medium` (its speed is `stand_in_speed`).
 const STAND_IN_BRAKE := 1.5
 
 ## A stand-in on foot: a person's walk and run (DdWalker's tunables), m/s, and how near what it
@@ -2401,10 +2450,9 @@ const STAND_IN_GATE_BACK := 7.0
 const STAND_IN_ACCEPT_SPEED := 2.0
 
 ## Metres from the waypoint it is aiming at beyond which a stand-in is off its road and is given
-## the road again from where it is; seconds it may take to reach a gate, and metres under the
-## lot that mean it is in the sea, before it is put back in a bay.
+## the road again from where it is, and metres under the lot that mean it is in the sea (its
+## time on the road is `stand_in_road_seconds`), before it is put back in a bay.
 const STAND_IN_OFF_ROAD := 40.0
-const STAND_IN_ROAD_SECONDS := 240.0
 const STAND_IN_SUNK := 6.0
 
 
@@ -2421,7 +2469,7 @@ const STAND_IN_SUNK := 6.0
 func tune_stand_in(autopilot: DotVehicleDriver) -> void:
 	var p := DotBotSettings.of(self).profile
 	var medium := DotBotProfile.new()
-	autopilot.target_speed = STAND_IN_SPEED * (1.0 + 0.4 * (p.aggression - medium.aggression))
+	autopilot.target_speed = config.stand_in_speed * (1.0 + 0.4 * (p.aggression - medium.aggression))
 	autopilot.brake_gain = clampf(STAND_IN_BRAKE * medium.reaction / maxf(p.reaction, 0.05), 0.5, 4.0)
 
 func _drive_bot(driver: Driver, delta: float) -> void:
@@ -2554,7 +2602,7 @@ func _stand_in_walk(driver: Driver, delta: float) -> void:
 ## at its difficulty's pace, and accepts the delivery there as a person does with E. A truck it
 ## was not given the road for (new, or put back in a bay) is given it first. One that has left
 ## the road is aimed back at it; one that has not reached the gate in
-## [constant STAND_IN_ROAD_SECONDS] (or is in the sea) is put back in a bay to start again.
+## `stand_in_road_seconds` (or is in the sea) is put back in a bay to start again.
 func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 	var truck := driver.truck as DdTruck
 
@@ -2579,7 +2627,7 @@ func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 	driver.bot_clock += delta
 	var sunk := truck.global_position.y < lot.global_position.y - STAND_IN_SUNK
 
-	if driver.bot_clock > STAND_IN_ROAD_SECONDS or sunk:
+	if driver.bot_clock > config.stand_in_road_seconds or sunk:
 		DotLog.debug(CHANNEL, "a stand-in lost its way to a gate; back to a bay", {"driver": driver.name, "route": String(driver.bot_route), "sunk": sunk})
 		_remove_truck(driver)
 
@@ -2663,7 +2711,7 @@ func _refresh_weather(force: bool) -> void:
 		for zone: String in zones:
 			var key := "%s|%s" % [id, zone]
 			var now := forced_weather.duplicate() if not forced_weather.is_empty() \
-				else DdWeather.at(seed_value, key, zones[zone], tick, tick_rate, config.weather_frequency, config.storm_chance, config.fog_chance)
+				else DdWeather.at(seed_value, key, zones[zone], tick, tick_rate, config.weather_frequency, config.storm_chance, config.fog_chance, config.weather_period_sec)
 			var was: Dictionary = weather.get(key, {})
 
 			if was != now:
@@ -2689,7 +2737,7 @@ func force_weather(sky: String, wind: bool = false) -> DotResult:
 
 ## The settings a client needs to compute the same weather the server does: sent in HELLO and
 ## again whenever an operator's cvar changes one.
-const WEATHER_SETTINGS := ["snow_grip", "rain_grip", "storm_grip", "storm_gust", "storm_chance", "fog_chance", "fog_density", "weather_frequency", "weather_disasters"]
+const WEATHER_SETTINGS := ["snow_grip", "rain_grip", "storm_grip", "storm_gust", "storm_chance", "fog_chance", "fog_density", "weather_frequency", "weather_disasters", "weather_period_sec"]
 
 
 func weather_config() -> Dictionary:

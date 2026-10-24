@@ -63,6 +63,10 @@ const AIR_DENSITY := 1.2
 ## The pull a loaded truck's driven axle can put down, in g.
 const TRACTION_G := 0.42
 
+## [constant TRACTION_G] and [constant EFFICIENCY] unless the truck's definition says (`traction_g`, `efficiency`).
+var traction_g: float = TRACTION_G
+var efficiency: float = EFFICIENCY
+
 ## The fraction of the engine's force that reaches the road, after the gearbox and axles.
 const EFFICIENCY := 0.88
 
@@ -80,6 +84,8 @@ func configure_from(def: Dictionary, radius: float, upgrade_engine: float = 1.0)
 	governor = float(def.get("governor_kmh", governor * 3.6)) / 3.6
 	drag_area = float(def.get("drag_area", drag_area))
 	rolling = float(def.get("rolling", rolling))
+	traction_g = float(def.get("traction_g", traction_g))
+	efficiency = float(def.get("efficiency", efficiency))
 	wheel_radius = maxf(radius, 0.1)
 
 
@@ -103,7 +109,7 @@ func torque_at(at_rpm: float) -> float:
 ## The force at the road in [param in_gear] at [param speed], full throttle.
 func force_at(speed: float, in_gear: int) -> float:
 	var engine := maxf(rpm_at(speed, in_gear), idle_rpm)
-	return torque_at(engine) * _ratio(in_gear) * final_drive / wheel_radius * EFFICIENCY
+	return torque_at(engine) * _ratio(in_gear) * final_drive / wheel_radius * efficiency
 
 
 ## The gear the box would pick at [param speed] with the throttle at [param throttle], without
@@ -126,7 +132,7 @@ func gear_for(speed: float, throttle: float = 1.0) -> int:
 ## on its tail on a climb, and the shift to second dropped it back down the hill.
 func _traction_cap() -> float:
 	var body := vehicle.node as RigidBody3D
-	return ((body.mass if body != null else 10000.0) + hitch_mass) * 9.8 * TRACTION_G
+	return ((body.mass if body != null else 10000.0) + hitch_mass) * 9.8 * traction_g
 
 
 func _ratio(in_gear: int) -> float:

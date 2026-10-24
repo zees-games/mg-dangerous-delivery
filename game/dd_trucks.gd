@@ -131,6 +131,9 @@ const UPGRADES := {
 const UPGRADE_COST := [0.25, 0.5, 0.9]
 const UPGRADE_COST_FLOOR := [300, 700, 1400]
 
+## The game's [DdConfig], when there is one: its `upgrade_*` numbers override [constant UPGRADES]'s steps and the price.
+var config: Object = null
+
 ## id -> definition (Dictionary).
 var trucks: Dictionary = {}
 
@@ -185,6 +188,13 @@ func load_overrides(path: String) -> DotResult:
 	return apply_overrides(parsed)
 
 
+## What one level of [param kind] adds, as a fraction.
+func upgrade_step(kind: String) -> float:
+	if config != null and ("upgrade_%s_step" % kind) in config:
+		return float(config.get("upgrade_%s_step" % kind))
+	return float(UPGRADES[kind]["step"])
+
+
 func get_truck(id: StringName) -> Dictionary:
 	return trucks.get(id, {})
 
@@ -205,14 +215,15 @@ func upgrade_cost(truck_id: StringName, kind: String, current_level: int) -> int
 		return -1
 
 	var price := int(get_truck(truck_id).get("price", 0))
-	return maxi(int(price * float(UPGRADE_COST[current_level])), int(UPGRADE_COST_FLOOR[current_level]))
+	var scale: float = float(config.get("upgrade_cost_scale")) if config != null and "upgrade_cost_scale" in config else 1.0
+	return maxi(int(maxi(int(price * float(UPGRADE_COST[current_level])), int(UPGRADE_COST_FLOOR[current_level])) * scale), 0)
 
 
 ## The truck as it drives with [param levels] of upgrades bought: its definition with the
 ## engine's power, torque and governor raised. What [DdDrivetrain] is configured from.
 func effective(truck_id: StringName, levels: Dictionary = {}) -> Dictionary:
 	var def := get_truck(truck_id).duplicate(true)
-	var engine := 1.0 + float(UPGRADES["engine"]["step"]) * int(levels.get("engine", 0))
+	var engine := 1.0 + upgrade_step("engine") * int(levels.get("engine", 0))
 	def["power_kw"] = float(def.get("power_kw", 180.0)) * engine
 	def["torque_nm"] = float(def.get("torque_nm", 900.0)) * engine
 	def["governor_kmh"] = float(def.get("governor_kmh", 90.0)) * (1.0 + (engine - 1.0) * 0.35)
@@ -225,8 +236,8 @@ func effective(truck_id: StringName, levels: Dictionary = {}) -> Dictionary:
 func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dictionary = {}) -> DotVehicleTunables:
 	var def := effective(truck_id, levels)
 	var t := DotVehicleTunables.new()
-	var brakes := 1.0 + float(UPGRADES["brakes"]["step"]) * int(levels.get("brakes", 0))
-	var tyres := 1.0 + float(UPGRADES["tyres"]["step"]) * int(levels.get("tyres", 0))
+	var brakes := 1.0 + upgrade_step("brakes") * int(levels.get("brakes", 0))
+	var tyres := 1.0 + upgrade_step("tyres") * int(levels.get("tyres", 0))
 	var on_truck := 0.0 if def.has("trailer") or cargo_def.is_empty() else load_mass(def, cargo_def)
 	var fill := 0.0 if cargo_def.is_empty() else clampf(float(cargo_def.get("fill", 0.5)), 0.0, 1.5)
 

@@ -42,6 +42,13 @@ extends DotConfig
 ## open edge on its belly) before it is put back. A fall: it costs what a fall costs.
 @export_range(1.0, 30.0, 0.5) var hung_respawn_seconds: float = 3.5
 
+## Seconds a truck passes through others after it is put back on the road, so a respawn is not
+## a collision with whoever drove past.
+@export_range(0.0, 30.0, 0.5) var ghost_seconds: float = 3.0
+
+## Metres a second under which a truck can be got out of (the lot's prompt reads it too).
+@export_range(0.5, 20.0, 0.5) var get_out_speed: float = 3.0
+
 ## Whether a route is locked until the one before it (by level) has been delivered.
 @export var levels_unlock_in_order: bool = true
 
@@ -113,6 +120,10 @@ extends DotConfig
 
 ## Chaos a trip that crossed black ice is paid for, once.
 @export_range(0.0, 3.0, 0.05) var ice_chaos: float = 0.2
+
+## Seconds one weather draw holds before the sky is drawn again, per zone. Every machine
+## computes the sky from this, so it travels in the HELLO.
+@export_range(10.0, 1800.0, 5.0) var weather_period_sec: float = 150.0
 
 ## Multiplies every zone's own chance of each weather. 0 is a server of clear skies.
 @export_range(0.0, 3.0, 0.05) var weather_frequency: float = 1.0
@@ -203,6 +214,26 @@ extends DotConfig
 ## mountain road has somebody to pass and to race to the depot. Zero made a server with no
 ## config an empty mountain.
 @export_range(0, 16, 1) var bots: int = 2
+
+## Seconds a stand-in may drive one trip before it is put back in a bay to start again.
+@export_range(30.0, 3600.0, 10.0) var stand_in_road_seconds: float = 240.0
+
+## A stand-in's target speed on a straight, m/s, before its skill moves it.
+@export_range(3.0, 40.0, 0.5) var stand_in_speed: float = 11.0
+
+@export_group("Trucks")
+
+## What each upgrade level adds to the engine's power and torque, as a fraction.
+@export_range(0.0, 1.0, 0.01) var upgrade_engine_step: float = 0.12
+
+## What each brake level adds to the braking force.
+@export_range(0.0, 1.0, 0.01) var upgrade_brakes_step: float = 0.15
+
+## What each tyre level adds to the grip.
+@export_range(0.0, 1.0, 0.01) var upgrade_tyres_step: float = 0.08
+
+## Multiplies the price of every upgrade (the garage's prices and the charge).
+@export_range(0.0, 10.0, 0.05) var upgrade_cost_scale: float = 1.0
 
 @export_group("Progress")
 

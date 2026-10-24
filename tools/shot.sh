@@ -3,6 +3,7 @@
 #
 #   tools/shot.sh                                         # on foot in the lot, behind the player
 #   tools/shot.sh --people=6                              # with six more people walking round the lot
+#   tools/shot.sh --view=workbench                         # the F9 tuning panel (offline client)
 #   tools/shot.sh --panel                                 # the lot's panel open (G)
 #   tools/shot.sh --view=far --people=4                   # the lot from high over its south fence
 #   tools/shot.sh --view=seller [--truck=semi]            # beside a salesperson: what E does

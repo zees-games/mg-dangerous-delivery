@@ -220,6 +220,15 @@ func _game_load() -> DotResult:
 		world.config.trucks_collide = v
 		world._refresh_exceptions())
 
+	# mp_solidplayers, REPLICATED: a client follows it with the block rules.
+	var _bodies := world.body_rules.bind_cvars(
+		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+
+	# After the hand cvars above: the binder skips a name that is taken.
+	var configured := _bind_config(world)
+	if not configured.ok:
+		return configured
+
 	if bridge != null:
 		bridge.connect("say_requested", _on_say_requested)
 
@@ -236,9 +245,114 @@ func _game_load() -> DotResult:
 	return DotResult.success(null)
 
 
+## dot-workbench over the config, the truck and cargo kinds and the block rules; the F9 panel off a dedicated server, the HTTP page only with `workbench.enabled`.
+var workbench: DotGameWorkbench = null
+
+## Config fields whose hand-written cvar is not `dd_<field>`; the binder makes no second cvar for them and a workbench edit is pushed through the hand one.
+const HAND_RENAMES := {
+	"allow_solo": "dd_solo", "allow_skip": "dd_skip", "boulders_enabled": "dd_rocks", "trucks_collide": "dd_collide",
+	"mountain_minutes": "dd_vote_minutes", "weather_frequency": "dd_weather_frequency", "storm_chance": "dd_weather_storms",
+	"fog_chance": "dd_weather_fog", "weather_disasters": "dd_weather_disasters", "map_rotation_file": "sv_map_rotation_file",
+}
+
+## The config groups a mountain's yml may tune (by the field's cvar), beside the hand-written keys of [method _map_config_keys].
+const MAP_GROUPS := ["Weather", "Hazards", "Pay", "Cargo", "Trips"]
+
+
+## The hand-written cvar of a config field, or "" when the binder makes its own.
+func _hand_cvar(key: String) -> String:
+	var name: String = HAND_RENAMES.get(key, "dd_%s" % key)
+	return name if console.has_name(name) else ""
+
+
+## Every config field as a `dd_<field>` cvar (the hand-written ones keep their handlers and follow workbench edits), the cfg/ diff commands, the workbench and dot-team's block rules.
+func _bind_config(world: DdGame) -> DotResult:
+	var binder := world.config_binder
+	if binder == null:
+		return DotResult.success(null)
+	workbench = DotGameWorkbench.new()
+	workbench.name = "Workbench"
+	workbench.dedicated = DisplayServer.get_name() == "headless"
+	workbench.listen_host_fn = func() -> bool: return DisplayServer.get_name() != "headless"
+	workbench.permit_fn = func(actor: Variant, flag: String) -> bool:
+		return server != null and server.admins != null and actor is String \
+			and bool(server.admins.uid_has_permission(actor, flag))
+	workbench.add_set(binder.profile_set(), "Game settings")
+	workbench.add_set(world.truck_profiles, "Trucks")
+	workbench.add_set(world.cargo_profiles, "Cargo")
+	add_child(workbench)
+	var started := workbench.start()
+	var runtime: DotProfileRuntime = workbench.api.runtime if started.ok and workbench.api != null else null
+	if not started.ok:
+		log_warn("the workbench did not start", {"why": started.error.message})
+
+	var renamed := {}
+	for key: String in HAND_RENAMES:
+		if console.has_name(HAND_RENAMES[key]):
+			renamed["dd_%s" % key] = true
+	binder.bind_cvars(add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY,
+		func(name: String) -> bool: return console.has_name(name) or renamed.has(name))
+	binder.bind_commands(add_command)
+	binder.field_changed.connect(_on_config_field)
+	if runtime != null:
+		binder.attach(runtime)
+		runtime.add_set(world.truck_profiles)
+		runtime.add_set(world.cargo_profiles)
+		runtime.profile_changed.connect(_on_catalogue_profile)
+	return DotResult.success(null)
+
+
+func _on_catalogue_profile(kind: String, _id: String, _rev: int) -> void:
+	var world := game as DdGame
+	if world != null and (kind == "truck" or kind == "cargo"):
+		DotLog.result(CHANNEL, "the catalogues after an edit", world.reload_catalogues())
+
+
+## Everybody is one side: the whole mountain is played together.
+func _noblock_side(id: Variant) -> Variant:
+	return game.call(&"team_of_side", id) if game != null else ""
+
+
+## The workbench's runtime, so its "noblock" kind is listed beside the config.
+func _noblock_runtime() -> Object:
+	return workbench.api.runtime if workbench != null and workbench.api != null else null
+
+
+## The block commands are keyed by the drivers' keys (`uid:<uid>`), not the session id.
+func _build_noblock() -> DotResult:
+	var built := super()
+	if built.ok and noblock != null and noblock.commands != null:
+		noblock.commands.set(&"key_fn", func(ctx: Object) -> Variant:
+			var session: Variant = ctx.get("session")
+			if session is Object and (session as Object).has_method("uid"):
+				return StringName("uid:%s" % (session as Object).call("uid"))
+			return null)
+	return built
+
+
+## A workbench or file edit of a field: pushed through its hand-written cvar so the handler runs, and the effects only a cvar had.
+func _on_config_field(key: String, _value: Variant, source: String) -> void:
+	var world := game as DdGame
+	if world == null:
+		return
+	if key == "gravity":
+		world._apply_gravity()
+	if bridge != null and DdGame.WEATHER_SETTINGS.has(key) and _hand_cvar(key) == "":
+		bridge.call("broadcast_weather")
+	if source == "cvar":
+		return
+	var hand := _hand_cvar(key)
+	if hand == "":
+		return
+	var text: Variant = world.config.get(key)
+	if text is bool:
+		text = "1" if text else "0"
+	console.set_cvar(hand, str(text))
+
+
 ## What a mountain's `cfg/game/mg-dangerous-delivery/dot_map/map/<id>.yml` may set: weather, the view rule and the stand-ins' skill, never a command.
 func _map_config_keys() -> Dictionary:
-	return {
+	var keys := {
 		"dd_weather_frequency": {"type": "float", "min": 0.0, "max": 3.0},
 		"dd_weather_storms": {"type": "float", "min": 0.0, "max": 1.0},
 		"dd_weather_fog": {"type": "float", "min": 0.0, "max": 1.0},
@@ -246,6 +360,17 @@ func _map_config_keys() -> Dictionary:
 		"mp_forceview": {"type": "int", "min": 0, "max": 2},
 		"bot_difficulty": {"type": "string"},
 	}
+	var world := game as DdGame
+	if world != null and world.config_binder != null:
+		for entry: Dictionary in world.config_binder.schema():
+			var name := "dd_%s" % entry["key"]
+			if MAP_GROUPS.has(entry["group"]) and not HAND_RENAMES.has(entry["key"]) and not keys.has(name) and ["float", "int", "bool"].has(entry["type"]):
+				var spec := {"type": entry["type"]}
+				for bound in ["min", "max"]:
+					if entry.has(bound):
+						spec[bound] = entry[bound]
+				keys[name] = spec
+	return keys
 
 
 func _map_config_game() -> String:
@@ -268,6 +393,15 @@ func _game_unload() -> void:
 	if vote != null:
 		vote.queue_free()
 		vote = null
+
+	if workbench != null:
+		workbench.queue_free()
+		workbench = null
+
+	if world != null and "block_rules" in world:
+		world.set(&"block_rules", null)
+
+	noblock = null
 
 
 ## The players' vote for the next mountain, over dot-vote: `!vote`, `!rtv`, `!nominate`.
