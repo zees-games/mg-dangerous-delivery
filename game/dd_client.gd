@@ -551,6 +551,8 @@ func _build_netcode() -> DotResult:
 		return attached
 
 	bridge.open_link(link)
+	# Before the seal and in the server's order (after the bridge), or the actions stay local.
+	DotLog.result(CHANNEL, "avatar action message", DotGameAvatarActionMessage.register(net))
 	net.messages.seal()
 	_follow_view_rule()
 
@@ -727,6 +729,8 @@ func _build_settings() -> void:
 	platform.maps_title = "Change mountain"
 	platform.maps_noun = "mountains"
 	DotLog.result(CHANNEL, "the platform", platform.setup())
+	# The starter set: the equipped list needs a credential the client does not hold (the server reads it).
+	DotLog.result(CHANNEL, "avatar actions", platform.add_avatar_actions(net, _avatar_figure))
 	_add_noblock_and_workbench()
 	settings = platform.settings as DdSettings
 	console = platform.console
@@ -1367,6 +1371,19 @@ func _follow_walker(delta: float) -> void:
 	camera.look_at(eyes + look_dir * 6.0)
 	# The truck's chase camera starts from here when they next drive.
 	_was_cab = true
+
+
+## The figure an avatar action plays on: that peer's walker, or the local one offline.
+func _avatar_figure(peer_id: int) -> Object:
+	var key: StringName = &""
+	if bridge != null and peer_id != 0:
+		key = bridge.key_of_peer(peer_id)
+	if key == &"" and (net == null or peer_id == net.local_peer_id):
+		key = local_key
+	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
+	if driver == null or driver.walker == null or not is_instance_valid(driver.walker):
+		return null
+	return driver.walker.get_node_or_null("Person")
 
 
 ## Everybody else on foot: a person under each walker node, shown while they are on foot and
