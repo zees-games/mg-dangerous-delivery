@@ -2,6 +2,7 @@
 # Render the game and look at it. The check no assertion in this repository makes.
 #
 #   tools/shot.sh                                         # on foot in the lot, behind the player
+#   tools/shot.sh --action emote dance                   # the local player on foot, third person, playing an avatar action (action_a/_b.png)
 #   tools/shot.sh --people=6                              # with six more people walking round the lot
 #   tools/shot.sh --view=workbench                         # the F9 tuning panel (offline client)
 #   tools/shot.sh --panel                                 # the lot's panel open (G)
@@ -37,8 +38,11 @@ cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
 view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"
+take=0; extra=()
 for arg in "$@"; do
+    if [ "$take" -gt 0 ]; then extra+=("$arg"); take=$((take - 1)); continue; fi
     case "$arg" in
+        --action)    extra+=("$arg"); take=2; view="action" ;;
         --view=*)    view="${arg#*=}" ;;
         --seconds=*) seconds="${arg#*=}" ;;
         --out=*)     out="${arg#*=}" ;;
@@ -64,4 +68,4 @@ done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "${extra[@]}"

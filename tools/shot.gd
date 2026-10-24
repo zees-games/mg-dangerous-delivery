@@ -24,9 +24,19 @@ func _ready() -> void:
 	if str(_args.get("view", "")) == "maps":
 		_subscribe_fixture()
 
+	# `--action <kind> <id>` (`--action emote dance`): the local player on foot, in third person,
+	# playing an avatar action through the client's own input path, from the front, early and later.
+	var user_args := OS.get_cmdline_user_args()
+	var action_at := user_args.find("--action")
+	var action: Array = []
+
+	if action_at >= 0 and action_at + 2 < user_args.size():
+		action = [StringName(user_args[action_at + 1]), String(user_args[action_at + 2])]
+		_args["view"] = "action"
+
 	var client := DdClient.new()
 	var view := str(_args.get("view", "garage"))
-	var on_foot := view in ["maps", "garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin", "workbench"]
+	var on_foot := view in ["maps", "garage", "far", "seller", "roam", "gate", "land", "sign", "walk_gate", "standin", "workbench", "action"]
 
 	if not on_foot:
 		client.auto_route = StringName(str(_args.get("route", "dd_foothills")))
@@ -39,6 +49,11 @@ func _ready() -> void:
 
 		await get_tree().physics_frame
 	client.game.config.levels_unlock_in_order = false
+
+	if not action.is_empty():
+		await _stage_action(client, action[0], action[1])
+		get_tree().quit()
+		return
 
 	var mountain := str(_args.get("mountain", ""))
 
@@ -282,6 +297,36 @@ func _ready() -> void:
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
 	get_tree().quit()
+
+
+## Writes <out>_a.png and <out>_b.png.
+func _stage_action(client: Node, kind: StringName, id: String) -> void:
+	for _i in range(20):
+		await get_tree().process_frame
+	var figure: Object = client.call("_avatar_figure", 0)
+	print("action %s/%s: figure=%s" % [kind, id, figure != null])
+	var entry := DotAvatarActions.defaults().find(kind, id)
+	var input: Object = (client.get("platform") as DotGameClient).avatar_actions.input
+	input.emit_signal(&"action_requested", entry)
+	var walker: Node3D = client.get("walker")
+	var yaw: float = walker.call("view_yaw")
+	var ahead := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	var feet := walker.global_position
+	var camera := Camera3D.new()
+	camera.fov = 60.0
+	add_child(camera)
+	camera.current = true
+	for part in ["a", "b"]:
+		for _i in range(12 if part == "a" else 30):
+			await get_tree().process_frame
+		camera.look_at_from_position(feet + ahead * 3.2 + Vector3.UP * 1.6, feet + Vector3.UP * 1.0)
+		for _i in range(3):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var out := str(_args.get("out", "res://screenshots/shot.png"))
+		var path := ProjectSettings.globalize_path(out.trim_suffix(".png") + "_%s.png" % part)
+		var _saved := get_viewport().get_texture().get_image().save_png(path)
+		print("wrote ", path, " action=", figure.get("action") if figure != null else "n/a")
 
 
 ## The fixture pack of --view=maps: a map document naming two of the game's routes under a
