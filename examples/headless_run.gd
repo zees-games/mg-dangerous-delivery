@@ -28,7 +28,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 31
-const CHECKS := 234
+const CHECKS := 236
 
 var _passed := 0
 var _failed := 0
@@ -1630,7 +1630,21 @@ func _test_walking_client() -> void:
 	driver_now.on_foot = false
 	client.call("_unhandled_input", tick)
 	var cmd: DotVehicleCommand = client.call("_sample", driver_now)
+	# At the wheel an avatar action goes to the cab's seated person, and the full-body ones (which take the legs) are refused.
+	var cab := Node3D.new()
+	var cab_person := DotHumanoidFigure.new()
+	cab_person.name = "Driver"
+	cab.add_child(cab_person)
+	var truck_before: Node = driver_now.truck
+	driver_now.truck = cab
+	var seated_fig: Object = client.call("_avatar_figure", 0)
+	_check(seated_fig is DdSeatedActions and (seated_fig as DdSeatedActions).person == cab_person
+		and seated_fig.play_action(&"dance") and seated_fig.play_action(&"sit") and not cab_person.action in [&"dance", &"sit"],
+		"in a truck an action plays on the person at the wheel, and sit and dance are refused", str(seated_fig))
+	driver_now.truck = truck_before
+	cab.free()
 	driver_now.on_foot = true
+	_check(client.call("_avatar_figure", 0) == walker.get("figure"), "on foot it plays on the walker again")
 	client.set("walk_override", null)
 	var after: DotPlayerIntent = client.call("_sample_walk")
 	client.set("walk_override", DotPlayerIntent.new())

@@ -1373,16 +1373,19 @@ func _follow_walker(delta: float) -> void:
 	_was_cab = true
 
 
-## The figure an avatar action plays on: that peer's walker, or the local one (its own walker, which the world's copy never draws).
+## The figure an avatar action plays on: the person at the wheel while they drive (the walker is not drawn then), else that peer's walker, or the local one (its own walker, which the world's copy never draws).
 func _avatar_figure(peer_id: int) -> Object:
 	var key: StringName = &""
 	if bridge != null and peer_id != 0:
 		key = bridge.key_of_peer(peer_id)
 	if key == &"" and (net == null or peer_id == net.local_peer_id):
 		key = local_key
+	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
+	if driver != null and not driver.on_foot and driver.truck != null and is_instance_valid(driver.truck):
+		var seated := driver.truck.get_node_or_null("Driver") as DotHumanoidFigure
+		return DdSeatedActions.new(seated) if seated != null else null
 	if key == local_key and walker != null and is_instance_valid(walker):
 		return walker.figure
-	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
 	if driver == null or driver.walker == null or not is_instance_valid(driver.walker):
 		return null
 	return driver.walker.get_node_or_null("Person")
@@ -1445,6 +1448,7 @@ func _seat_driver(k: StringName, other: DdGame.Driver, me: DdGame.Driver, truck_
 
 	if not wanted:
 		if person != null:
+			person.stop_action()
 			person.visible = false
 		return
 
