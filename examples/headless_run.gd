@@ -28,7 +28,7 @@ const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const SECTIONS := 31
-const CHECKS := 236
+const CHECKS := 237
 
 var _passed := 0
 var _failed := 0
@@ -1641,6 +1641,8 @@ func _test_walking_client() -> void:
 	_check(seated_fig is DdSeatedActions and (seated_fig as DdSeatedActions).person == cab_person
 		and seated_fig.play_action(&"dance") and seated_fig.play_action(&"sit") and not cab_person.action in [&"dance", &"sit"],
 		"in a truck an action plays on the person at the wheel, and sit and dance are refused", str(seated_fig))
+	_check(seated_fig.skeleton() == cab_person.skeleton() and client.call("_avatar_figure", 0) == seated_fig,
+		"the seated person wears wearables on its own skeleton, through one stable wrapper")
 	driver_now.truck = truck_before
 	cab.free()
 	driver_now.on_foot = true

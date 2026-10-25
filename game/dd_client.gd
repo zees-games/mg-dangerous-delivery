@@ -89,6 +89,7 @@ var force_view: int = 0
 var _chase_at := Vector3.ZERO
 var _probe: DotCameraProbe = null
 var _was_cab := true
+var _seated_actions: DdSeatedActions = null
 var _last_truck_at := Vector3.INF
 
 ## Exponential fog density per sky. Half of what it was: at 0.006 a snowy stage was white on
@@ -1383,7 +1384,12 @@ func _avatar_figure(peer_id: int) -> Object:
 	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
 	if driver != null and not driver.on_foot and driver.truck != null and is_instance_valid(driver.truck):
 		var seated := driver.truck.get_node_or_null("Driver") as DotHumanoidFigure
-		return DdSeatedActions.new(seated) if seated != null else null
+		if seated == null:
+			return null
+		# One wrapper per person: the wearables are hung once per figure instance.
+		if _seated_actions == null or _seated_actions.person != seated:
+			_seated_actions = DdSeatedActions.new(seated)
+		return _seated_actions
 	if key == local_key and walker != null and is_instance_valid(walker):
 		return walker.figure
 	if driver == null or driver.walker == null or not is_instance_valid(driver.walker):

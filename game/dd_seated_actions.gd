@@ -20,3 +20,8 @@ func play_action(id: StringName, loop: bool = false, elapsed: float = 0.0) -> bo
 
 func add_action_scene(id: StringName, scene: Node, clip: String, loop: bool = false) -> Variant:
 	return person.add_action_scene(id, scene, clip, loop)
+
+
+## The seated person's skeleton, so wearables hang on the figure the cab shows.
+func skeleton() -> Skeleton3D:
+	return person.skeleton()
