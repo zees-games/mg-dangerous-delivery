@@ -1,5 +1,6 @@
 extends Node
 
+const DdAmbience := preload("dd_ambience.gd")
 const DdPaths := preload("dd_paths.gd")
 
 ## What driving sounds like, on the client: an engine whose pitch follows the speed and whose
@@ -101,6 +102,9 @@ var manager: DotAudioManager = null
 
 ## The bed under the weather: dot-audio's stock (generated, CC0), per route and at the lot.
 var ambience: DotAudioAmbience = null
+
+## Quiet moods under the mountain (dot-audio's stock set); the old bed plays only when none loaded.
+var ambient: DotAmbienceDirector = null
 
 ## Footsteps for everybody on foot (dot-audio's stock steps, by distance walked): concrete on
 ## the lot's slab and the land's roads, grass on the plain. The ground says which (a `surface`
@@ -214,6 +218,15 @@ func setup() -> DotResult:
 	ambience.fallback_bed = LOT_BED
 	add_child(ambience)
 	ambience.set_map_bed(LOT_BED)
+	ambient = DotAmbienceDirector.new()
+	ambient.name = "Ambient"
+	ambient.manager = manager
+	ambient.default_mood = DdAmbience.DEFAULT_MOOD
+	ambient.prefix_moods = DdAmbience.PREFIX_MOODS
+	ambient.rules = DdAmbience.make_rules()
+	add_child(ambient)
+	var _moods := ambient.setup()
+	ambient.follow_settings(null)
 
 	steps = DotAudioFootsteps.new()
 	steps.name = "Footsteps"
@@ -246,12 +259,18 @@ func setup() -> DotResult:
 
 ## The bed for where the truck is: a route's, or the lot's when [param route] is empty.
 func on_route(route: StringName, doc: Dictionary = {}) -> void:
-	if ambience == null:
+	if ambience == null or (ambient != null and ambient.has_moods()):
 		return
 	if route == &"":
 		ambience.set_map_bed(LOT_BED)
 		return
 	ambience.set_map_bed(StringName(str(doc.get("ambience", ROUTE_BED.get(route, &"amb_wind")))))
+
+
+## The mountain was laid: its mood.
+func on_map(id: StringName, doc: Dictionary = {}) -> void:
+	if ambient != null and ambient.has_moods():
+		ambient.on_map(id, doc)
 
 
 ## Where the ears are, once a frame: the camera.

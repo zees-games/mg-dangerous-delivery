@@ -396,6 +396,13 @@ func _build_audio() -> void:
 		remove_child(audio)
 		audio.free()
 		audio = null
+		return
+
+	# The mood follows the mountain that is laid, now and on each change (a vote, a server's rebuild).
+	if game != null:
+		game.map_laid.connect(audio.on_map)
+		if not game.routes.is_empty():
+			audio.on_map(game.mountain_id, game.map_doc())
 
 
 ## Rock coming down: offline the world's own signal, connected the bridge's re-emission of the
@@ -694,6 +701,7 @@ func _frame_garage_camera() -> void:
 func _add_noblock_and_workbench() -> void:
 	if link != null and not _offline:
 		var _solid := game.body_rules.follow_cvars(link)
+		var _ambient := game.ambient_rules.follow_cvars(link)
 		DotLog.result(CHANNEL, "noblock", platform.add_noblock(game, Callable(game, "team_of_side")))
 		return
 	var wb := DotGameWorkbench.new()
@@ -743,6 +751,9 @@ func _build_settings() -> void:
 
 	if audio != null:
 		settings.bind_audio(audio.manager)
+		# The server's dd_ambient* drive the quiet layer; the player's sliders multiply on top.
+		if audio.ambient != null:
+			audio.ambient.follow_settings(settings.settings, game.ambient_rules)
 
 	if effects != null:
 		settings.bind_fx(effects)

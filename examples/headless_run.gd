@@ -1867,7 +1867,8 @@ func _test_sound_and_effects() -> void:
 
 	if sink != null:
 		for id in sink.played_ids():
-			if catalogue.find(StringName(id)) == null:
+			# The ambience director registers its moods' own files as it plays them.
+			if catalogue.find(StringName(id)) == null and not String(id).begins_with("ambience/"):
 				unknown.append(id)
 
 	_check(sink != null and sink.count_of(&"delivered") == 1 and unknown.is_empty(),

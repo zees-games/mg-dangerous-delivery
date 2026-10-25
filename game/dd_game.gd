@@ -34,6 +34,7 @@ const DdWeather := preload("dd_weather.gd")
 const DdDisasters := preload("dd_disasters.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdMountains := preload("dd_mountains.gd")
+const DdAmbience := preload("dd_ambience.gd")
 const DdMapDoc := preload("dd_map_doc.gd")
 const DdLot := preload("dd_lot.gd")
 const DdLand := preload("dd_land.gd")
@@ -124,6 +125,8 @@ signal driver_left(key: StringName)
 ## The world was rebuilt on another mountain (a vote, or an operator). Every trip was ended
 ## first; the bridge sends the new routes to every client.
 signal mountain_changed(id: StringName)
+## The routes of [member mountain_id] were built (server and client alike): what per-map sound follows.
+signal map_laid(id: StringName, doc: Dictionary)
 ## Somebody was put on foot somewhere they did not walk to (a spawn, out of a truck, back from
 ## a road, a refused step): their own machine moves its walker there.
 signal walker_placed(key: StringName)
@@ -315,6 +318,8 @@ var config_binder: DotGameConfigBinder = null
 
 ## `mp_solidplayers`. Off here: walkers share the lot and trucks collide by `trucks_collide`; on, a pair of trucks collides only when [member block_rules] says the two block.
 var body_rules: DotPlayerBodyRules = DotPlayerBodyRules.new()
+## The ambience cvars (`dd_ambient*`): bound by the module (REPLICATED), followed by a client through its link.
+var ambient_rules: DotAmbienceRules = DdAmbience.make_rules()
 
 ## dot-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `DotGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
 var block_rules: Object = null:
@@ -889,6 +894,7 @@ func build_routes() -> void:
 	_build_land()
 	_refresh_weather(true)
 	DdLoad.mark("weather")
+	map_laid.emit(mountain_id, map_doc())
 
 
 ## The documents as a client is sent them, in the garage's order.
