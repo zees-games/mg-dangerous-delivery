@@ -9,6 +9,7 @@ extends Node3D
 ## this client owns, and against a server will be a mirror the bridge keeps. Nothing here
 ## decides a price, a checkpoint or a fall.
 
+const DdSeatedActions := preload("dd_seated_actions.gd")
 const DdPaths := preload("dd_paths.gd")
 const DdBindings := preload("dd_bindings.gd")
 const DdGame := preload("dd_game.gd")

@@ -10,6 +10,7 @@ extends Node
 const DdGame := preload("res://game/dd_game.gd")
 const DdSettings := preload("res://game/dd_settings.gd")
 const DdRoute := preload("res://game/dd_route.gd")
+const DdSeatedActions := preload("res://game/dd_seated_actions.gd")
 const DdDisasters := preload("res://game/dd_disasters.gd")
 const DdBindings := preload("res://game/dd_bindings.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")

@@ -1,4 +1,3 @@
-class_name DdSeatedActions
 extends RefCounted
 
 ## What an avatar action plays on while its player is at the wheel: the cab's seated person, minus the
