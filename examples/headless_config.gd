@@ -11,8 +11,9 @@ const DdProfiles := preload("../game/dd_profiles.gd")
 const DdTrucks := preload("../game/dd_trucks.gd")
 const DdCargo := preload("../game/dd_cargo.gd")
 const DdWeatherRef := preload("../game/dd_weather.gd")
+const ROOT := "user://dd_cfgtest"
 const GAME := "mg-dangerous-delivery"
-const CHECKS := 31
+const CHECKS := 40
 
 var _passed := 0
 var _failed := 0
@@ -40,9 +41,12 @@ func _write(path: String, text: String) -> void:
 
 
 func _run() -> void:
+	if OS.get_cmdline_user_args().has("--probe"):
+		_probe()
+		return
 	print("mg-dangerous-delivery: config binder")
 	var config := DdConfig.new()
-	var binder := DotGameConfigBinder.create(config, GAME, "dd")
+	var binder := DdConfig.make_binder(config)
 	binder.strict = true
 	_check(binder.load_layers().ok, "defaults load")
 	_check(binder.diff().is_empty(), "no diff at the code defaults")
@@ -64,20 +68,24 @@ func _run() -> void:
 	DirAccess.remove_absolute(schema_path)
 
 	_write("user://dd_config_bad.json", '{"no_such_field": 1}')
-	var strict := DotGameConfigBinder.create(DdConfig.new(), GAME, "dd", "user://dd_config_bad.json")
+	var strict := DdConfig.make_binder(DdConfig.new(), "user://dd_config_bad.json")
 	strict.strict = true
 	_check(not strict.load_layers().ok, "strict: an unknown key is refused")
 	DirAccess.remove_absolute("user://dd_config_bad.json")
 
-	var shipped := "res://cfg/game/%s/config/game.yml" % GAME
-	_write(shipped, "ghost_seconds: 5.0\nweather_period_sec: 90.0\n")
+	var shipped := "res://cfg/game/%s/config_trips/game.yml" % GAME
+	var kept := FileAccess.get_file_as_string(shipped)
+	_write(shipped, "start_hold_seconds: 5.0\n")
 	var loaded := DdConfig.new()
-	var from_yml := DotGameConfigBinder.create(loaded, GAME, "dd")
+	var from_yml := DdConfig.make_binder(loaded)
 	from_yml.strict = true
 	var got := from_yml.load_layers()
-	_check(got.ok and is_equal_approx(loaded.ghost_seconds, 5.0) and is_equal_approx(loaded.weather_period_sec, 90.0) and from_yml.source_of("ghost_seconds") != "default",
-		"an exported cfg/game/<game>/config/game.yml loads back as defaults", "" if got.ok else got.error.message)
-	DirAccess.remove_absolute(shipped)
+	_check(got.ok and is_equal_approx(loaded.start_hold_seconds, 5.0) and from_yml.source_of("start_hold_seconds") != "default",
+		"an exported cfg/game/<game>/config_trips/game.yml loads back as defaults", "" if got.ok else got.error.message)
+	_write(shipped, kept)
+
+	_layers()
+	_templates(binder)
 
 	# The weather period reaches the sky: a longer period holds a draw longer.
 	var zone := {"snow": 0.5, "rain": 0.5}
@@ -109,7 +117,6 @@ func _run() -> void:
 	DirAccess.remove_absolute("res://cfg/game/%s/cargo/glass.yml" % GAME)
 	DirAccess.remove_absolute("res://cfg/game/%s/truck" % GAME)
 	DirAccess.remove_absolute("res://cfg/game/%s/cargo" % GAME)
-	DirAccess.remove_absolute("res://cfg/game/%s/config" % GAME)
 
 	# Upgrade prices follow the config.
 	trucks.reset()
@@ -122,16 +129,26 @@ func _run() -> void:
 	var wb := DotGameWorkbench.new()
 	wb.panel_mode = 1
 	wb.config = {"enabled": false}
-	wb.add_set(binder.profile_set(), "Game settings")
+	for set: DotProfileSet in binder.profile_sets():
+		wb.add_set(set, set.rel_path)
 	add_child(wb)
 	_check(wb.start().ok, "the workbench starts")
 	binder.attach(wb.api.runtime)
-	var set: DotProfileSet = binder.profile_set()
-	var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": set.rel_path, "id": binder.profile_id, "key": "boulder_radius", "value": 2.5})
-	_check(res.ok and is_equal_approx(config.boulder_radius, 2.5), "a workbench edit reaches the live config")
+	var listed := PackedStringArray()
+	for kind: String in wb.api.kinds():
+		var lg: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "get", "kind": kind, "id": binder.profile_id})
+		if lg.ok:
+			listed.append_array(PackedStringArray((lg.value as Dictionary).get("values", {}).keys()))
+	var missing := PackedStringArray()
+	for k in keys:
+		if not listed.has(k):
+			missing.append(k)
+	_check(missing.is_empty() and binder.profile_sets().size() == 3, "the workbench lists all %d keys over %d files" % [keys.size(), binder.profile_sets().size()], ",".join(missing))
+	var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "config_world", "id": binder.profile_id, "key": "gravity", "value": 12.5})
+	_check(res.ok and is_equal_approx(config.gravity, 12.5), "a workbench edit reaches the live config", "" if res.ok else res.error.message)
 	var files: Dictionary = wb.exporter.call("collect")
-	var text: String = files.get("cfg/game/%s/config/game.yml" % GAME, "")
-	_check(text.contains("boulder_radius: 2.5"), "the export holds the edit in the cfg layout")
+	var text: String = files.get("cfg/game/%s/config_world/game.yml" % GAME, "")
+	_check(text.contains("gravity: 12.5"), "the export holds the edit in the cfg layout")
 
 	wb.free()
 	console.free()
@@ -144,3 +161,61 @@ func _run() -> void:
 		get_tree().quit(1)
 		return
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+func _write_root(rel: String, text: String) -> void:
+	DirAccess.make_dir_recursive_absolute(ROOT.path_join(rel).get_base_dir())
+	var f := FileAccess.open(ROOT.path_join(rel), FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+
+## Child process: loads the layers strictly over the test root and prints what the live config holds.
+func _probe() -> void:
+	var config := DdConfig.new()
+	var binder := DdConfig.make_binder(config)
+	binder.strict = true
+	binder.roots = PackedStringArray([ProjectSettings.globalize_path(ROOT)])
+	var loaded := binder.load_layers()
+	var console := DotConsole.new()
+	add_child(console)
+	binder.bind_cvars(console.cvar, DotConVar.FLAG_ARCHIVE, console.has_name)
+	print("PROBE ok=%s hold=%s hold_src=%s fall=%s fall_src=%s cvar=%s grav=%s grav_src=%s ghost=%s ghost_src=%s" % [
+		loaded.ok, config.start_hold_seconds, binder.source_of("start_hold_seconds"), config.fall_depth, binder.source_of("fall_depth"),
+		console.find_cvar("dd_fall_depth").get_string(), config.gravity, binder.source_of("gravity"),
+		config.ghost_seconds, binder.source_of("ghost_seconds")])
+	get_tree().quit(0)
+
+
+func _child() -> String:
+	var out: Array = []
+	OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"),
+		"res://examples/headless_config.tscn", "--", "--probe", "--dd-gravity=15.0", "--dd-ghost-seconds=7.5"], out, true)
+	return "".join(PackedStringArray(out))
+
+
+## A value set in a cfg file, the environment and argv each reaches the live config, and later layers win.
+func _layers() -> void:
+	_write_root("game/%s/config_trips/game.yml" % GAME, "start_hold_seconds: 9.0\nfall_depth: 40.0\n")
+	OS.set_environment("DD_FALL_DEPTH", "33.0")
+	var text := _child()
+	_check(text.contains("PROBE ok=true"), "the layers load strictly in a fresh process", text.right(300))
+	_check(text.contains("hold=9") and text.contains("hold_src=yml"), "a cfg file reaches the live config")
+	_check(text.contains("fall=33") and text.contains("fall_src=env") and text.contains("cvar=33"), "the environment beats the file and reaches the cvar")
+	_check(text.contains("ghost=7.5") and text.contains("ghost_src=argv"), "argv alone reaches the config")
+	_check(text.contains("grav=15") and text.contains("grav_src=argv"), "a second argv flag reaches it too")
+	OS.unset_environment("DD_FALL_DEPTH")
+	_write_root("game/%s/config_trips/game.yml" % GAME, "gravity: 9.0\n")
+	_check(_child().contains("PROBE ok=false"), "strict: a key in the wrong file is refused")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(ROOT.path_join("game/%s/config_trips/game.yml" % GAME)))
+
+
+## The shipped cfg files hold every key, in step with DdConfig, and change nothing as they are.
+func _templates(binder: DotGameConfigBinder) -> void:
+	var files := binder.template_files()
+	_check(files.size() == 3, "three shipped cfg files", str(files.size()))
+	var stale := PackedStringArray()
+	for path: String in files:
+		if not FileAccess.file_exists("res://" + path) or FileAccess.get_file_as_string("res://" + path) != files[path]:
+			stale.append(path)
+	_check(stale.is_empty(), "the shipped files match the config (run tools/cfg_templates.gd)", ",".join(stale))

@@ -287,6 +287,22 @@ extends DotConfig
 @export var map_rotation_file: String = DotMapRotationFile.DEFAULT_STEM
 
 
+## `@export_group` -> the cfg file it lives in: `cfg/game/mg-dangerous-delivery/config_<file>/game.yml`.
+const CFG_FILES := {
+	"Trips": "trips", "Pay": "trips", "Cargo": "trips",
+	"Weather": "world", "Hazards": "world", "World": "world", "Mountain": "world",
+	"Players": "players", "Trucks": "players", "Progress": "players",
+}
+
+
+## The binder every entry point uses: [param config] layered, one cfg file per [constant CFG_FILES] entry.
+static func make_binder(config: DotConfig, json_path := "") -> DotGameConfigBinder:
+	var b := DotGameConfigBinder.create(config, "mg-dangerous-delivery", "dd", json_path)
+	b.grouped = true
+	b.group_files = CFG_FILES
+	return b
+
+
 func env_prefix() -> String:
 	return "DD_"
 

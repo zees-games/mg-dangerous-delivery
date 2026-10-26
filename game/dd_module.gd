@@ -15,6 +15,9 @@ const DdProgress := preload("dd_progress.gd")
 const DdMountains := preload("dd_mountains.gd")
 const DdVote := preload("dd_vote.gd")
 const DdTrip := preload("dd_trip.gd")
+const DdAmbience := preload("dd_ambience.gd")
+## The workbench kind of the ambience cvar set (saved to cfg/.../ambience/server.yml).
+const AMBIENT_KIND := "ambience"
 
 ## The drawn ballot's notice topic. The client shell draws one menu per topic.
 const MOUNTAIN_BALLOT_TOPIC := &"map_ballot"
@@ -282,7 +285,11 @@ func _bind_config(world: DdGame) -> DotResult:
 	workbench.permit_fn = func(actor: Variant, flag: String) -> bool:
 		return server != null and server.admins != null and actor is String \
 			and bool(server.admins.uid_has_permission(actor, flag))
-	workbench.add_set(binder.profile_set(), "Game settings")
+	for set: DotProfileSet in binder.profile_sets():
+		workbench.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
+	var ambient_set := DotGameWorkbench.cvar_set(console, DdAmbience.cvar_types(), AMBIENT_KIND)
+	if ambient_set != null:
+		workbench.add_set(ambient_set, "Ambience (dd_ambient*)")
 	workbench.add_set(world.truck_profiles, "Trucks")
 	workbench.add_set(world.cargo_profiles, "Cargo")
 	add_child(workbench)
@@ -301,6 +308,8 @@ func _bind_config(world: DdGame) -> DotResult:
 	binder.field_changed.connect(_on_config_field)
 	if runtime != null:
 		binder.attach(runtime)
+		if ambient_set != null:
+			var _applied := DotGameWorkbench.bind_cvar_set(ambient_set, runtime, console)
 		runtime.add_set(world.truck_profiles)
 		runtime.add_set(world.cargo_profiles)
 		runtime.profile_changed.connect(_on_catalogue_profile)

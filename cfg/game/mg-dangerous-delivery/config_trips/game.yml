@@ -1,0 +1,48 @@
+# mg-dangerous-delivery: every key of this file at its code default, commented out. Uncomment a line to change it;
+# an operator overrides in cfg/server/game/mg-dangerous-delivery/config_trips/game.yml. Layers: defaults < this < env < argv.
+
+# --- Trips
+# Seconds the truck is held at the start of a trip, so a player can see the road first. [0.0..30.0]
+# start_hold_seconds: 3.0
+# Metres below the road a truck has fallen before it counts as off the mountain. [5.0..200.0]
+# fall_depth: 18.0
+# Seconds after a fall before the truck is put back on the last checkpoint. [0.0..10.0]
+# respawn_seconds: 1.5
+# Fraction of the cargo lost on each fall. 0 makes a fall cost only time. [0.0..1.0]
+# fall_cargo_loss: 0.15
+# Whether a player may skip the stage they are on. The genre offers it; a server that thinks it cheapens the ...
+# allow_skip: true
+# What skipping a stage costs, as a fraction of the trip's pay. Paid at the end. [0.0..1.0]
+# skip_cost_fraction: 0.25
+# Whether a player may restart the whole trip from the lot.
+# allow_restart: true
+# Seconds a truck may sit still on its back or side before it is put back on the road. [1.0..30.0]
+# flipped_respawn_seconds: 4.0
+# Seconds a truck may sit hung up (two or more wheels off the road, hardly moving: over an open edge on its b... [1.0..30.0]
+# hung_respawn_seconds: 3.5
+# Seconds a truck passes through others after it is put back on the road, so a respawn is not a collision wit... [0.0..30.0]
+# ghost_seconds: 3.0
+# Metres a second under which a truck can be got out of (the lot's prompt reads it too). [0.5..20.0]
+# get_out_speed: 3.0
+# Whether a route is locked until the one before it (by level) has been delivered.
+# levels_unlock_in_order: true
+
+# --- Pay
+# Money a new player starts with. [0..1000000]
+# starting_money: 0
+# Pay multiplier per route level above 1: a level 4 route pays (1 + 3 * this) of its base. [0.0..5.0]
+# level_pay_step: 0.35
+# Extra pay per unit of chaos (see DdTrip.chaos): bad weather and falling rock. 1.0 doubles the pay of a trip... [0.0..5.0]
+# chaos_pay: 0.6
+# Whether damaged cargo pays less. Off pays the full amount for whatever arrives.
+# cargo_condition_pays: true
+# The least fraction of the pay a delivered trip earns however wrecked its cargo is. [0.0..1.0]
+# minimum_pay_fraction: 0.2
+# Bonus fraction for a trip with no falls. [0.0..5.0]
+# clean_run_bonus: 0.25
+
+# --- Cargo
+# Change of speed in one tick, in m/s, that counts as a knock to the cargo. [0.5..50.0]
+# knock_threshold: 4.0
+# Cargo lost per m/s of a knock above the threshold, as a fraction. [0.0..1.0]
+# knock_loss_per_speed: 0.02

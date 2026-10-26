@@ -1,0 +1,84 @@
+# mg-dangerous-delivery: every key of this file at its code default, commented out. Uncomment a line to change it;
+# an operator overrides in cfg/server/game/mg-dangerous-delivery/config_world/game.yml. Layers: defaults < this < env < argv.
+
+# --- Weather
+# Grip multiplier on snow. The road is drawn white wherever this applies. [0.05..1.0]
+# snow_grip: 0.4
+# Grip multiplier in rain. [0.05..1.0]
+# rain_grip: 0.7
+# Peak side force of wind, as metres per second squared on the truck. Gusts are a pure function of the tick, ... [0.0..20.0]
+# wind_strength: 2.6
+# Chaos a snowy zone adds to a trip (chaos_pay). [0.0..3.0]
+# snow_chaos: 0.5
+# Chaos a rainy zone adds. [0.0..3.0]
+# rain_chaos: 0.25
+# Chaos a windy zone adds. [0.0..3.0]
+# wind_chaos: 0.3
+# Grip on loose gravel, whatever the sky. [0.05..1.0]
+# gravel_grip: 0.62
+# The washboard's jolt on gravel, m/s up per m/s of speed, every 0.22 s. At 70 km/h it is a knock a crate shr... [0.0..0.5]
+# gravel_jolt: 0.09
+# Grip on black ice, whatever the sky. [0.05..1.0]
+# ice_grip: 0.3
+# Chaos a trip that crossed black ice is paid for, once. [0.0..3.0]
+# ice_chaos: 0.2
+# Seconds one weather draw holds before the sky is drawn again, per zone. Every machine computes the sky from... [10.0..1800.0]
+# weather_period_sec: 150.0
+# Multiplies every zone's own chance of each weather. 0 is a server of clear skies. [0.0..3.0]
+# weather_frequency: 1.0
+# Of the rain periods, the share that is a storm: harder rain, wind that is always up and gusts storm_gust ti... [0.0..1.0]
+# storm_chance: 0.3
+# Grip multiplier a storm takes off the rain's own. [0.3..1.0]
+# storm_grip: 0.8
+# Wind's side force in a storm, as a multiple of wind_strength. [1.0..4.0]
+# storm_gust: 1.8
+# Chaos a storm adds, on top of its rain and wind. [0.0..3.0]
+# storm_chaos: 0.4
+# The share of weather periods (snow-free) that are fog, times weather_frequency. Fog is sight, not grip: it ... [0.0..1.0]
+# fog_chance: 0.2
+# The exponential fog density in fog (clear air is 0.0006). [0.002..0.06]
+# fog_density: 0.018
+# Chaos a fogbound stretch adds. [0.0..3.0]
+# fog_chaos: 0.25
+# Whether storms also run natural-disasters' thunderstorm (lightning, thunder, gusts that push trucks) when t...
+# weather_disasters: true
+
+# --- Hazards
+# Whether natural-disasters' tornado, wind gusts and quake strike on the stages the cfg names (`cfg/game/mg-d...
+# stage_hazards: true
+# Whether falling rock is on at all.
+# boulders_enabled: true
+# Chance each boulder a route places actually comes down on a given trip. [0.0..1.0]
+# boulder_chance: 0.7
+# Metres ahead of a truck a boulder is set rolling. [10.0..200.0]
+# boulder_trigger_distance: 55.0
+# A boulder's radius in metres. [0.3..5.0]
+# boulder_radius: 1.4
+# A boulder's mass in kilograms. Heavy enough to shove a box truck, not to throw a hauler. [100.0..50000.0]
+# boulder_mass: 3500.0
+# Speed a boulder is thrown across the road at, m/s. [0.0..40.0]
+# boulder_speed: 11.0
+# Seconds before one stretch of cliff can drop again. Long, because a truck put back on the checkpoint before... [5.0..600.0]
+# boulder_cooldown_seconds: 60.0
+# Chaos each boulder that comes down adds, once per stretch of cliff per trip. [0.0..3.0]
+# boulder_chaos: 0.15
+
+# --- World
+# Gravity, written onto the world's own physics space. [1.0..30.0]
+# gravity: 9.8
+# The directory route documents are read from.
+# route_directory: "routes"
+# Which routes this server plays. Empty is every one it has.
+# route_ids: []
+# A seed for everything drawn per trip. 0 takes one from the clock.
+# seed_value: 0
+# Whether SET OFF on the lot's panel puts the player straight onto the route's start line, the way it was bef...
+# quick_start: false
+
+# --- Mountain
+# The mountain the server starts on (`DdMountains`: range, low_country, high_country). An id this game does n...
+# mountain: "range"
+# Minutes a mountain is played before the players' ballot picks the next one (the vote's time limit; the ball... [0.0..360.0]
+# mountain_minutes: 15.0
+# The file that says which mountains a server ROTATES: `maps.yml` in `cfg/game/mg-dangerous-delivery/dot_map/...
+# map_rotation_file: "cfg/maps.yml"

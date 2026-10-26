@@ -84,7 +84,7 @@ Console commands:
 
 The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. `dd_vote_minutes` is how long a mountain is played before the vote for the next one (0 leaves only `!rtv`), from the next mountain on. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
 
-Everything else is a setting, also a `dd_<name>` console variable and a key in `cfg/game/mg-dangerous-delivery/config/game.yml`. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
+Everything else is a setting, also a `dd_<name>` console variable and a key in `cfg/game/mg-dangerous-delivery/config_trips|config_world|config_players/game.yml`. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
 
 | Setting | Default | |
 | --- | --- | --- |

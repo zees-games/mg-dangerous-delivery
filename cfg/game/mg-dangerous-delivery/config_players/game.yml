@@ -1,0 +1,36 @@
+# mg-dangerous-delivery: every key of this file at its code default, commented out. Uncomment a line to change it;
+# an operator overrides in cfg/server/game/mg-dangerous-delivery/config_players/game.yml. Layers: defaults < this < env < argv.
+
+# --- Players
+# Whether a player may go solo (B): nobody sees them and nothing of theirs collides.
+# allow_solo: true
+# Whether a solo player is hidden from everybody else as well as everybody from them. On by default: a truck ...
+# solo_hidden_from_others: true
+# Whether trucks collide with each other at all, for players who are not solo.
+# trucks_collide: true
+# Whether trucks that come with a trailer (the Semi) pull one. Off turns every truck rigid.
+# trailers: true
+# Stand-in drivers, so a server is not an empty mountain. People replace them. This is the default for the se... [0..16]
+# bots: 2
+# Seconds a stand-in may drive one trip before it is put back in a bay to start again. [30.0..3600.0]
+# stand_in_road_seconds: 240.0
+# A stand-in's target speed on a straight, m/s, before its skill moves it. [3.0..40.0]
+# stand_in_speed: 11.0
+
+# --- Trucks
+# What each upgrade level adds to the engine's power and torque, as a fraction. [0.0..1.0]
+# upgrade_engine_step: 0.12
+# What each brake level adds to the braking force. [0.0..1.0]
+# upgrade_brakes_step: 0.15
+# What each tyre level adds to the grip. [0.0..1.0]
+# upgrade_tyres_step: 0.08
+# Multiplies the price of every upgrade (the garage's prices and the charge). [0.0..10.0]
+# upgrade_cost_scale: 1.0
+
+# --- Progress
+# Whether a server counts drivers' numbers and achievements at all.
+# keep_progress: true
+# Whether they are reported to TMC's backbone (when the server has one).
+# report_progress: true
+# Where achievement progress is kept between sessions. Empty keeps it in memory.
+# progress_directory: "user://delivery_achievements"

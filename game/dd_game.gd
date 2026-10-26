@@ -344,7 +344,7 @@ func _ready() -> void:
 	# Over whatever was set before: a file, the environment and the command line only change
 	# what they name.
 	if config_binder == null:
-		config_binder = DotGameConfigBinder.create(config, "mg-dangerous-delivery", "dd", "user://cfg/delivery.json")
+		config_binder = DdConfig.make_binder(config, "user://cfg/delivery.json")
 	var loaded := config_binder.load_layers()
 	if not loaded.ok:
 		DotGameConfigBinder.fail_boot(get_tree(), loaded)

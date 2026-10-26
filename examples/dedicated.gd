@@ -14,7 +14,7 @@ const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
 const SECTIONS := 12
-const CHECKS := 98
+const CHECKS := 99
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -182,6 +182,10 @@ func _noblock_and_config(module: DotModule) -> void:
 	solo.set_value("1")
 	_check(game.config.allow_solo, "and the hand cvar still writes the config back")
 	_check(game.truck_profiles != null and game.truck_profiles.rel_path == "truck" and game.cargo_profiles != null, "the truck and cargo kinds exist")
+	var wb: DotGameWorkbench = module.get("workbench")
+	var amb: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "ambience", "id": DotGameWorkbench.CVAR_SET_ID, "key": "dd_ambient_volume", "value": 0.2})
+	_check(amb.ok and is_equal_approx(server.console.get_float("dd_ambient_volume"), 0.2), "the dd_ambient* cvars are a workbench set and an edit moves the cvar", "" if amb.ok else amb.error.message)
+	var _restore := server.console.set_cvar("dd_ambient_volume", "0.4")
 
 
 ## A module reload must leave ONE link under the server, still named for the client's route.
