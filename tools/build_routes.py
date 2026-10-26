@@ -130,7 +130,7 @@ ROUTES = [
               seg(90, 0, -4, wall="none", rail="both"),
           ], cargo="fuel"),
     route("dd_wind_ridge", "Wind Ridge", 4, 560,
-          "Along the top of a ridge with a drop on both sides, in a wind that comes in gusts.", 6.8,
+          "Along the top of a ridge with a drop on both sides, in a wind that comes in gusts; then off its end by a switchback and back along the top at its narrowest.", 6.8,
           {"ridge": {"name": "The Ridge", "wind": 0.9, "rain": 0.3}, "saddle": {"name": "The Saddle", "wind": 0.6, "snow": 0.3}},
           [
               seg(80, wall="left"),
@@ -140,6 +140,12 @@ ROUTES = [
               seg(120, -35, -6, wall="none", zone="ridge", width=6.2, checkpoint=True, ice=1),
               seg(150, 25, 10, wall="right", zone="saddle", boulders=2, ice=1),
               seg(130, -20, 6, wall="none", zone="ridge", width=6.0, checkpoint=True, gravel=1),
+              # The far end (2026-10-26): off the ridge into the saddle, one switchback, and back
+              # along the top at its narrowest.
+              seg(130, 35, 6, wall="right", zone="saddle", checkpoint=True, boulders=1, debris=1),
+              hairpin(-1, 6, 6.8, zone="saddle"),
+              seg(140, 10, 10, wall="left", zone="saddle", width=6.4, ice=1, works=1),
+              seg(120, -30, 4, wall="none", zone="ridge", width=5.9, checkpoint=True, gravel=1),
               seg(90, 0, 0, wall="none", rail="both"),
           ], cargo="glass"),
     route("dd_devils_spine", "Devil's Spine", 5, 700,

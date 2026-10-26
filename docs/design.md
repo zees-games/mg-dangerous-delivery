@@ -44,7 +44,7 @@ The first play test found long corridors between a cliff and a drop with nothing
 
 ## Put down, a truck is held, and one hung up is put back
 
-A truck put on a checkpoint (a fall, R, a skip) is held on its brakes for `SETTLE_SECONDS` (0.4) before it is the driver's: driven at once on a steep snowy grade, a loaded Semi rolled back before its tyres had settled and went over. **A truck hung up** (two or more wheels off the road and slower than 1 m/s for `hung_respawn_seconds`, 3.5) is put back like a fall: the first play test sat at 0 to 1 km/h on the River Cut's open edge with two wheels over it until R. `handling` drives the Semi and the Bulk Carrier off every start line and checkpoint of every route, and a careful driver (a stand-in at 7 m/s) round all six hairpins on snow in three trucks.
+A truck put on a checkpoint (a fall, R, a skip) is held on its brakes for `SETTLE_SECONDS` (0.4) before it is the driver's: driven at once on a steep snowy grade, a loaded Semi rolled back before its tyres had settled and went over. **A truck hung up** (two or more wheels off the road and slower than 1 m/s for `hung_respawn_seconds`, 3.5) is put back like a fall: the first play test sat at 0 to 1 km/h on the River Cut's open edge with two wheels over it until R. `handling` drives the Semi and the Bulk Carrier off every start line and checkpoint of every route, and a careful driver (a stand-in at 7 m/s) round the seven hairpins of Snowline Pass, Wind Ridge and Devil's Spine on snow in three trucks (Slate Quarry's one is not in that section yet).
 
 ## A mountain is a set of routes, and the players vote for the next one
 
