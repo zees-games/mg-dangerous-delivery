@@ -28,8 +28,10 @@ const DdWalker := preload("res://game/dd_walker.gd")
 const DdGate := preload("res://game/dd_gate.gd")
 const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
+const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
+
 const SECTIONS := 31
-const CHECKS := 237
+const CHECKS := 238
 
 var _passed := 0
 var _failed := 0
@@ -1473,6 +1475,29 @@ func _test_the_client_settings() -> void:
 		and in_menu == Input.MOUSE_MODE_VISIBLE and client.call("pointer_mode") == Input.MOUSE_MODE_CAPTURED,
 		"the pointer is captured on foot and driving, and back for the lot's panel and the menu",
 		"%d %d %d %d" % [on_foot, at_lot, driving, in_menu])
+	# A ballot (dot_pointer_modal) that freed the mouse holds it: no per-frame capture, no
+	# click-to-capture, no orbit, until it closes.
+	var modal := PointerModalStub.new()
+	client.add_child(modal)
+	await get_tree().process_frame
+	modal.set_on(true)
+	var web_click := InputEventMouseButton.new()
+	web_click.pressed = true
+	web_click.button_index = MOUSE_BUTTON_LEFT
+	var under_ballot: int = client.call("pointer_mode")
+	var click_took: bool = client.call("_capture_on_click", web_click)
+	var orbit_ok: bool = client.call("_can_orbit")
+	modal.set_on(false)
+	var after_ballot: int = client.call("pointer_mode")
+	client.platform.hold_pointer(&"dd_test")
+	var held_mode: int = client.call("pointer_mode")
+	client.platform.release_pointer(&"dd_test")
+	modal.queue_free()
+	_check(under_ballot == Input.MOUSE_MODE_VISIBLE and not click_took and not orbit_ok
+		and after_ballot == Input.MOUSE_MODE_CAPTURED and held_mode == Input.MOUSE_MODE_VISIBLE
+		and client.call("pointer_mode") == Input.MOUSE_MODE_CAPTURED,
+		"a ballot or hold_pointer frees the pointer and nothing retakes it until closed",
+		"%d %s %s %d %d" % [under_ballot, click_took, orbit_ok, after_ballot, held_mode])
 	var hud_keys := client.get("hud").get("_keys") as Label
 	_check(hud_keys != null and hud_keys.text.contains("H  help") and hud_keys.text.contains("R  respawn"),
 		"the HUD's key list comes from the table, and says H", hud_keys.text if hud_keys != null else "")

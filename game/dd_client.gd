@@ -1150,8 +1150,11 @@ func pointer_mode() -> Input.MouseMode:
 	var me := _driver()
 	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
 	var typing := chat != null and chat.is_typing()
+	# The shell's holds: a ballot in the dot_pointer_modal group or a hold_pointer key. Without
+	# this the per-frame capture below took the mouse back under an open ballot.
+	var held := platform != null and platform.is_input_blocked()
 
-	if me == null or garage == null or garage.visible or menu_open or typing:
+	if me == null or garage == null or garage.visible or menu_open or typing or held:
 		return Input.MOUSE_MODE_VISIBLE
 
 	# On foot the mouse looks round, so it is captured, in a browser too (after a click).
