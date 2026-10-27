@@ -14,8 +14,8 @@ const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
-const SECTIONS := 18
-const CHECKS := 72
+const SECTIONS := 19
+const CHECKS := 77
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -63,6 +63,7 @@ func _ready() -> void:
 		await _test_the_lot_toys()
 	await _test_a_trailer()
 	await _test_another_mountain()
+	await _test_bridge_decks()
 
 	OS.remove_logger(errors)
 	# Engine errors go to stderr and change no exit code: a toy pulled out of the tree after a
@@ -690,6 +691,39 @@ func _test_another_mountain() -> void:
 	_exchange()
 	await _steps(2)
 	_check(_client_game.routes.size() == 6 and _client_game.mountain_id == &"range", "and back to the whole range")
+	_finished_section()
+
+
+## A deck that sags, falls and is rebuilt on the server does the same on the client, and a client
+## that joins late is told of a deck already down.
+func _test_bridge_decks() -> void:
+	_section("bridge decks over the wire")
+	var road_id: StringName = &""
+	for id: StringName in _server_game.routes:
+		if not _server_game.routes[id].bridges.is_empty():
+			road_id = id
+			break
+	_check(road_id != &"" and not _client_game.routes[road_id].bridges.is_empty(), "the range has a bridge on both ends", String(road_id))
+	var server_deck: Node3D = _server_game.routes[road_id].bridges[0]["node"]
+	var client_deck: Node3D = _client_game.routes[road_id].bridges[0]["node"]
+	var load_strain: float = server_deck.rating * 0.6
+	for i in 90:
+		server_deck.report(load_strain)
+		await _step()
+	await _steps(30)
+	_check(server_deck.is_standing() and server_deck.sag > 0.05 and absf(client_deck.sag - server_deck.sag) < 0.06,
+		"a sagging deck sags on the client by the same amount", "%.2f server, %.2f client" % [server_deck.sag, client_deck.sag])
+	for i in 60:
+		server_deck.report(server_deck.rating * 3.0)
+		await _step()
+	await _steps(10)
+	_check(not server_deck.is_standing() and not client_deck.is_standing(), "a collapse reaches the client")
+	_check(client_deck.global_position.y < server_deck._rest.origin.y - 1.0, "and the client's deck is falling, not standing", "%.1f m down" % (server_deck._rest.origin.y - client_deck.global_position.y))
+	var joiner: Array = _server_game.routes[road_id].bridge_changes(true)
+	_check(not joiner.is_empty() and bool(joiner[0][1]), "a joiner is told the deck is down", str(joiner))
+	server_deck.restore_after = 0.05
+	await _steps(30)
+	_check(server_deck.is_standing() and client_deck.is_standing(), "and the rebuild reaches it too")
 	_finished_section()
 
 

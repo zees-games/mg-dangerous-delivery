@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 32
-const CHECKS := 250
+const CHECKS := 253
 
 var _passed := 0
 var _failed := 0
@@ -939,6 +939,7 @@ func _test_a_fall() -> void:
 			why[0] = reason
 			var gone := me.truck as DdTruck
 			crash["exploded"] = gone.has_exploded()
+			crash["y"] = gone.global_position.y
 			crash["lost"] = gone.damage.lost_parts().size())
 	# Thirty metres off the drop side (the right: River Cut's cliff is on the left).
 	var at := road.transform_at(200.0, 0.0)
@@ -951,6 +952,9 @@ func _test_a_fall() -> void:
 	_check(why[0] == "fell", "a truck off the road falls", why[0])
 	_check(crash["began"] and crash["exploded"], "but first it crashes and explodes", str(crash))
 	_check(int(crash["lost"]) >= (me.truck as DdTruck).damage.parts.size() - 4, "torn apart by then", str(crash))
+	var shelf := game.get_node_or_null("CrashFloor") as Node3D
+	_check(shelf != null and float(crash.get("y", -1e9)) > shelf.global_position.y - 2.0,
+		"a world with no mountain lays a shelf under the road for the wreck to land on, not fall past", "%s, wreck at y %.1f" % [shelf.global_position if shelf != null else "none", float(crash.get("y", 0.0))])
 	_check(trip.falls == 1 and is_equal_approx(trip.cargo, 1.0 - game.config.fall_cargo_loss), "a fall costs the configured share of the load", "%.2f" % trip.cargo)
 	await _seconds(0.8)
 	_check(trip.state == DdTrip.State.DRIVING and absf(road.distance_at((me.truck as Node3D).global_position - road.position) - road.checkpoint_distance(trip.stage)) < 3.0,
@@ -1015,6 +1019,18 @@ func _test_road_hazards() -> void:
 		deck.report(fast)
 		deck.step(1.0 / 60.0)
 	_check(not deck.is_standing(), "a fast one brings it down")
+	var road_with: DdRoute = null
+	for id: StringName in world.routes:
+		if not (world.routes[id] as DdRoute).bridges.is_empty():
+			road_with = world.routes[id]
+			break
+	var heavy_load := 12000.0
+	var d_deck := float(road_with.bridges[0]["d"])
+	var cap := road_with.bridge_safe_speed(d_deck - 30.0, heavy_load, 70.0)
+	_check(cap < 10.0 and cap > 1.0 and road_with.bridge_safe_speed(d_deck - 200.0, heavy_load, 70.0) == INF and road_with.bridge_safe_speed(d_deck + 60.0, heavy_load, 70.0) == INF,
+		"a stand-in is told the speed a deck bears from 70 m before it until it is across", "%.1f m/s" % cap)
+	_check(road_with.bridges[0]["node"].strain(heavy_load, cap) < road_with.bridges[0]["node"].rating,
+		"and that speed does not bring the deck down", "%.2f" % road_with.bridges[0]["node"].strain(heavy_load, cap))
 	var wash: Dictionary = {}
 	var heap: Dictionary = {}
 	for id: StringName in world.routes:
