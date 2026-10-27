@@ -39,14 +39,7 @@ func _run() -> void:
 	_test_bad()
 	await _test_vote()
 
-	print("")
-	_check(_completed == _entered and _entered == SECTIONS,
-		"every section ran to its last line (%d of %d, %d expected)" % [_completed, _entered, SECTIONS])
-	print("")
-	print("%d passed, %d failed" % [_passed, _failed])
-	for line in _failures:
-		print("  FAIL  %s" % line)
-	get_tree().quit(1 if _failed > 0 or _completed != SECTIONS else 0)
+	_report_sections(_entered, _completed, SECTIONS)
 
 
 ## The pack's map: one of the game's routes under a layout none of the shipped maps has, so

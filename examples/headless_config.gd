@@ -140,15 +140,7 @@ func _run() -> void:
 
 	wb.free()
 	console.free()
-	print("")
-	print("%d passed, %d failed" % [_passed, _failed])
-	for line in _failures:
-		print("  FAIL  %s" % line)
-	if _passed + _failed != CHECKS:
-		print("ERROR: %d checks ran, %d expected." % [_passed + _failed, CHECKS])
-		get_tree().quit(1)
-		return
-	get_tree().quit(1 if _failed > 0 else 0)
+	_report(CHECKS)
 
 
 func _write_root(rel: String, text: String) -> void:
