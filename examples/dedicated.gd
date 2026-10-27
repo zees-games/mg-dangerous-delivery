@@ -1,4 +1,4 @@
-extends Node
+extends DotGameCheckSuite
 
 ## The game as a deployed server runs it: a real [DotServer], the world from the server scene,
 ## the module loaded BY PATH the way an operator names it.
@@ -21,11 +21,8 @@ const PORT := 28941
 const QUERY_PORT := 28942
 const TICK_RATE := 60
 
-var _passed := 0
-var _failed := 0
 var _entered := 0
 var _finished := 0
-var _failures := PackedStringArray()
 
 var server: DotServer = null
 var scene: Node = null
@@ -58,26 +55,9 @@ func _run() -> void:
 
 	_test_no_message_preloads_itself()
 
-	print("")
-	print("%d sections entered, %d finished" % [_entered, _finished])
-	print("%d passed, %d failed" % [_passed, _failed])
-
-	for line in _failures:
-		print("  FAIL  %s" % line)
-
-	var code := 1 if _failed > 0 else 0
-
-	if _entered != SECTIONS or _finished != SECTIONS:
-		print("ERROR: %d of %d sections finished, %d declared." % [_finished, _entered, SECTIONS])
-		code = 1
-
-	if _passed + _failed != CHECKS:
-		print("ERROR: %d checks ran, %d declared. A section aborted part-way." % [_passed + _failed, CHECKS])
-		code = 1
-
 	await _shut_down()
 	DotPaths.remove_tree(SERVER_DIR)
-	get_tree().quit(code)
+	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
 ## A booted server's listener holds the main loop: take it down before quitting, or the run
@@ -893,16 +873,6 @@ func _section(name: String) -> void:
 func _finished_section() -> void:
 	_finished += 1
 
-
-func _check(ok: bool, what: String, detail: String = "") -> void:
-	if ok:
-		_passed += 1
-		print("  ok    %s%s" % [what, "" if detail == "" else "  (%s)" % detail])
-	else:
-		_failed += 1
-		var line := what if detail == "" else "%s  (%s)" % [what, detail]
-		_failures.append(line)
-		print("  FAIL  %s" % line)
 
 
 ## This fixture has one voter; each mountain's rules come back with it, so set this after every change.

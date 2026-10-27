@@ -1,4 +1,4 @@
-extends Node
+extends DotGameCheckSuite
 
 ## How the trucks drive, measured: every truck and every load on a flat road and an 8% climb,
 ## stopping distances, a tanker's slosh, glass on gravel, every start line and checkpoint
@@ -34,9 +34,6 @@ const GRAVEL := {"format": 1, "kind": "route", "id": "t_gravel", "name": "Gravel
 const TRUCKS: Array[StringName] = [&"box_truck", &"flatbed", &"hauler", &"semi", &"bulk"]
 const LOADS: Array[StringName] = [&"crates", &"gravel", &"timber", &"fuel", &"glass", &"explosives"]
 
-var _passed := 0
-var _failed := 0
-var _failures: PackedStringArray = PackedStringArray()
 var _entered := 0
 var _finished := 0
 var game: DdGame = null
@@ -118,24 +115,7 @@ func _ready() -> void:
 	if _runs(only, "damage"):
 		await _test_damage()
 
-	print("")
-	print("%d sections entered, %d finished" % [_entered, _finished])
-	print("%d passed, %d failed" % [_passed, _failed])
-
-	for line in _failures:
-		print("  FAIL  %s" % line)
-
-	var code := 1 if _failed > 0 else 0
-
-	if _entered != SECTIONS or _finished != SECTIONS:
-		push_error("%d of %d sections finished, %d declared." % [_finished, _entered, SECTIONS])
-		code = 1
-
-	if _passed + _failed != CHECKS:
-		push_error("%d checks ran, %d declared." % [_passed + _failed, CHECKS])
-		code = 1
-
-	get_tree().quit(code)
+	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
 func _runs(only: String, word: String) -> bool:
@@ -800,13 +780,3 @@ func _section(name: String) -> void:
 func _finished_section() -> void:
 	_finished += 1
 
-
-func _check(ok: bool, what: String, detail: String = "") -> void:
-	if ok:
-		_passed += 1
-		print("  ok    %s" % what)
-	else:
-		_failed += 1
-		var line := what if detail == "" else "%s  (%s)" % [what, detail]
-		_failures.append(line)
-		print("  FAIL  %s" % line)

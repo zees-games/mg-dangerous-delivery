@@ -1,4 +1,4 @@
-extends Node
+extends DotGameCheckSuite
 
 ## The game, headless: documents, the road, the weather, the money, and trucks really driven.
 ##
@@ -33,9 +33,6 @@ const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 const SECTIONS := 32
 const CHECKS := 260
 
-var _passed := 0
-var _failed := 0
-var _failures: PackedStringArray = PackedStringArray()
 var _entered := 0
 var _finished := 0
 var game: DdGame = null
@@ -91,30 +88,13 @@ func _ready() -> void:
 	await _test_road_hazards()
 	await _test_collision_audit()
 
-	print("")
-	print("%d sections entered, %d finished" % [_entered, _finished])
-	print("%d passed, %d failed" % [_passed, _failed])
-
-	for line in _failures:
-		print("  FAIL  %s" % line)
-
-	var code := 1 if _failed > 0 else 0
-
-	if _entered != SECTIONS or _finished != SECTIONS:
-		push_error("%d of %d sections finished, %d declared." % [_finished, _entered, SECTIONS])
-		code = 1
-
-	if _passed + _failed != CHECKS:
-		push_error("%d checks ran, %d declared." % [_passed + _failed, CHECKS])
-		code = 1
-
 	for path in ["res://game/dd_truck.gd", "res://game/dd_terrain.gd", "res://game/dd_route.gd"]:
 		(load(path) as GDScript).call(&"clear_cache")
 	DotHumanoidFigure.clear_cache()
 	DotHudPiece.clear_cache()
 	DotMenuKit.clear_cache()
 	DotRegistry.clear()
-	get_tree().quit(code)
+	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
 func _doc(segments: Array, extra: Dictionary = {}) -> Dictionary:
@@ -2043,13 +2023,3 @@ func _section(name: String) -> void:
 func _finished_section() -> void:
 	_finished += 1
 
-
-func _check(ok: bool, what: String, detail: String = "") -> void:
-	if ok:
-		_passed += 1
-		print("  ok    %s" % what)
-	else:
-		_failed += 1
-		var line := what if detail == "" else "%s  (%s)" % [what, detail]
-		_failures.append(line)
-		print("  FAIL  %s" % line)

@@ -1,4 +1,4 @@
-extends Node
+extends DotGameCheckSuite
 
 ## A server and a client in one process, over the link's loopback, each in its own physics
 ## world as two processes would be.
@@ -22,9 +22,6 @@ const CHECKS := 99
 const CLIENT_PEER := 7
 const SESSION := 42
 
-var _passed := 0
-var _failed := 0
-var _failures := PackedStringArray()
 var _entered := 0
 var _finished := 0
 
@@ -76,23 +73,6 @@ func _ready() -> void:
 	_check(seen.is_empty(), "the engine reported no error over the whole run",
 		"%d: %s" % [seen.size(), ", ".join(seen.slice(0, 3))])
 
-	print("")
-	print("%d sections entered, %d finished" % [_entered, _finished])
-	print("%d passed, %d failed" % [_passed, _failed])
-
-	for line in _failures:
-		print("  FAIL  %s" % line)
-
-	var code := 1 if _failed > 0 else 0
-
-	if _entered != SECTIONS or _finished != SECTIONS:
-		push_error("%d of %d sections finished, %d declared." % [_finished, _entered, SECTIONS])
-		code = 1
-
-	if _passed + _failed != CHECKS:
-		push_error("%d checks ran, %d declared." % [_passed + _failed, CHECKS])
-		code = 1
-
 	# Torn down here so the callables and bridges that point at each other are gone before the leak report.
 	_server_bridge.link.loopback = Callable()
 	_client_bridge.link.loopback = Callable()
@@ -106,7 +86,7 @@ func _ready() -> void:
 	DotHudPiece.clear_cache()
 	DotMenuKit.clear_cache()
 	DotRegistry.clear()
-	get_tree().quit(code)
+	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
 func _make_game(authoritative: bool, parent: Node) -> DdGame:
@@ -932,16 +912,6 @@ func _section(name: String) -> void:
 func _finished_section() -> void:
 	_finished += 1
 
-
-func _check(ok: bool, what: String, detail: String = "") -> void:
-	if ok:
-		_passed += 1
-		print("  ok    %s%s" % [what, "" if detail == "" else "  (%s)" % detail])
-	else:
-		_failed += 1
-		var line := what if detail == "" else "%s  (%s)" % [what, detail]
-		_failures.append(line)
-		print("  FAIL  %s" % line)
 
 
 ## Counts the engine's own errors while installed (mg-smash-copter's dedicated suite has the
