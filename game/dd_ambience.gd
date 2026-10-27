@@ -4,8 +4,8 @@ extends RefCounted
 
 const PREFIX := "dd"
 ## The engine and the weather are the sound of the game: the layer sits under them, with rare one-shots.
-const LEVEL := 0.4
-const RATE := 0.5
+const LEVEL := 0.15
+const RATE := 0.4
 const DEFAULT_MOOD := &"outdoor_night"
 
 ## By mountain id prefix; any mountain not listed takes the default.
