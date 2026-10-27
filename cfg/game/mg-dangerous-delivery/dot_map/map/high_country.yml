@@ -1,6 +1,10 @@
-# Starter file for the mountain "high_country". Every value is commented out: uncomment a line to change that cvar on this mountain only (the next mountain gets the old value back).
+# Per-mountain overrides for "high_country" (the next mountain gets the old values back); uncomment a commented line to add more.
 # An operator overrides it in cfg/server/game/mg-dangerous-delivery/dot_map/map/.
-# dd_weather_frequency: 1.0
-# dd_weather_storms: 0.3
-# dd_weather_fog: 0.2
+# The cold end: weather nearly always on, a third of rain periods storms, fog, little grip.
+dd_weather_frequency: 1.8
+dd_weather_storms: 0.5
+dd_weather_fog: 0.35
+dd_rain_grip: 0.55
+dd_snow_grip: 0.3
+dd_storm_grip: 0.7
 # mp_forceview: 0

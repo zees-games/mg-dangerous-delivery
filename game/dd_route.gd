@@ -1267,27 +1267,18 @@ func _build_ice() -> void:
 		sheet.transform = Transform3D(at.basis, at.origin + at.basis.x * float(patch["lateral"]))
 
 
-## Fallen rock: solid boxes, rock-coloured, in one lane.
+## Fallen rock: a low heap across one lane (dot-props' [code]DotPropRubble[/code]), a bump to
+## take slowly or swing round, not a pillar.
 func _build_debris() -> void:
-	for pile: Dictionary in debris:
+	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
+	for k in debris.size():
+		var pile: Dictionary = debris[k]
 		var at := transform_at(float(pile["d"]), 0.0)
 		var size: Vector3 = pile["size"]
-		var body := StaticBody3D.new()
-		body.name = "Debris"
-		body.collision_layer = 1 | CAMERA_LAYER
-		var shape := BoxShape3D.new()
-		shape.size = size
-		var collider := CollisionShape3D.new()
-		collider.shape = shape
-		body.add_child(collider)
-		var mesh := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = size
-		mesh.mesh = box
-		mesh.material_override = _rock_material()
-		body.add_child(mesh)
-		add_child(body)
-		body.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]) + Vector3(0.0, size.y * 0.5, 0.0))
+		var heap: StaticBody3D = Rubble.make(size.x, size.z * 1.4, 0.45 + (size.y - 1.1) * 0.5, k + 1, _rock_material(), 1 | CAMERA_LAYER)
+		heap.name = "Debris"
+		add_child(heap)
+		heap.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]))
 
 
 ## Roadworks: a row of barriers down the closed lane, a cone at each end and two more angled in

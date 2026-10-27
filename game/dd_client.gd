@@ -70,8 +70,10 @@ var camera: Camera3D = null
 var camera_mode: CameraMode = CameraMode.CHASE
 var command := DotVehicleCommand.new()
 
-var _rain: CPUParticles3D = null
-var _snow: CPUParticles3D = null
+## dot-fx's shader weather, one node per kind, round the camera (a mountain's worth of
+## particles is a browser's whole frame); see [method _build_weather].
+var _rain: DotFxWeather = null
+var _snow: DotFxWeather = null
 var _sun: DirectionalLight3D = null
 ## The sun's strength under a clear sky on this machine's profile; weather dims from it.
 var _clear_sun := 1.0
@@ -97,7 +99,7 @@ var _last_truck_at := Vector3.INF
 ## white past 60 m (the first play test), so the next bend and the rock coming down were not
 ## there to see. At these a bend 150 m off still reads in snow, and the far mountain fades.
 const FOG_CLEAR := 0.0006
-const FOG_RAIN := 0.0015
+const FOG_RAIN := 0.0030
 const FOG_SNOW := 0.0028
 
 ## Metres a truck may move between two frames before it counts as a teleport (a respawn, a
@@ -110,6 +112,9 @@ var audio: DdAudio = null
 ## Rock coming down near you, felt as well as heard: a dot-fx shake, so the settings' shake
 ## slider reaches it. See [method _build_effects].
 var effects: DotFxManager = null
+
+## Where a thrown-out driver lies, built the first time a truck is wrecked.
+var _ragdolls: DotPlayerRagdolls = null
 ## The shake added to the camera last frame, taken off again before the chase camera eases,
 ## so the jolt never feeds into where the camera is heading.
 var _shaken := Vector3.ZERO
@@ -496,6 +501,35 @@ func _on_truck_damaged(_key: StringName, event: Dictionary) -> void:
 			var _k := effects.spawn(&"sparks", at)
 		"part":
 			var _c := effects.spawn(&"debris_puff", at)
+		"wrecked":
+			var _boom := DotVehicleExplosion.spawn(game, event["at"] as Vector3, 1.5)
+			effects.shake_at(&"rock", event["at"] as Vector3, ROCK_SHAKE_FALLOFF * 2.0)
+			_throw_out_driver(_key, event["at"] as Vector3, event.get("velocity", Vector3.ZERO) as Vector3)
+
+
+## The driver of a truck that exploded, thrown clear and left to tumble down the mountain.
+func _throw_out_driver(key: StringName, at: Vector3, velocity: Vector3) -> void:
+	if _ragdolls == null:
+		_ragdolls = DotPlayerRagdolls.new()
+		_ragdolls.name = "Ragdolls"
+		_ragdolls.rules.collision_mask = 1 | DdRoute.CAMERA_LAYER
+		_ragdolls.rules.max_sim_time = 20.0
+		_ragdolls.rules.lifetime = 14.0
+		game.add_child(_ragdolls)
+
+	var person := DotHumanoidFigure.new()
+	person.name = "Thrown"
+	game.add_child(person)
+	person.build(DotHumanoidLook.stock(absi(String(key).hash())), DdWalker.HEIGHT)
+	person.global_position = at + Vector3(0.0, 1.0, 0.0)
+	var death := DotPlayerDeath.new()
+	death.reaction = DotPlayerDeathReactions.LIMP
+	death.direction = velocity.normalized() if velocity.length() > 0.1 else Vector3.FORWARD
+	death.damage = 100.0
+	var out := velocity * 0.8 + Vector3(0.0, 7.0, 0.0) + death.direction.cross(Vector3.UP) * 3.0
+	var _made := _ragdolls.spawn(person, death, out)
+	person.visible = false
+	person.queue_free()
 
 
 ## Sparks from a hub on the road, a few a second per truck rather than one a physics step.
@@ -1014,6 +1048,10 @@ func _process(delta: float) -> void:
 		net.interpolate_frame(-1.0)
 
 	_apply_pointer()
+
+	if _rain != null and camera != null:
+		_rain.advance(delta, camera.global_position)
+		_snow.advance(delta, camera.global_position)
 
 	var me := _driver()
 
@@ -1679,33 +1717,20 @@ static func light_profile() -> DotLightProfile:
 ## Rain and snow are particles round the camera, not over the mountain: what falls a kilometre
 ## away cannot be seen, and a mountain's worth of particles is a browser's whole frame.
 func _build_weather() -> void:
-	_rain = _particles(Color(0.7, 0.75, 0.85, 0.6), Vector3(0.0, -28.0, 0.0), Vector3(0.03, 0.6, 0.03), 1600)
-	_snow = _particles(Color(1, 1, 1, 0.95), Vector3(0.0, -3.0, 0.0), Vector3(0.12, 0.12, 0.12), 1400)
+	_rain = _precipitation(DotFxWeatherDef.RAIN, Color(0.78, 0.84, 0.95, 0.6), 1.0)
+	_snow = _precipitation(DotFxWeatherDef.SNOW, Color(1, 1, 1, 0.95), 1.0)
 
 
-func _particles(color: Color, gravity: Vector3, size: Vector3, amount: int) -> CPUParticles3D:
-	var p := CPUParticles3D.new()
-	p.amount = amount
-	p.lifetime = 2.5 if gravity.y < -10.0 else 6.0
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(30.0, 2.0, 30.0)
-	p.gravity = gravity
-	p.direction = Vector3.DOWN
-	p.initial_velocity_min = 2.0
-	p.initial_velocity_max = 4.0
-	p.local_coords = false
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mesh.material = material
-	p.mesh = mesh
-	p.emitting = false
-	camera.add_child(p) if camera != null else add_child(p)
-	p.position = Vector3(0.0, 14.0, -10.0)
-	return p
+## No volumes, so it falls everywhere the camera is; hidden (and free) while [param density] is 0.
+func _precipitation(kind: StringName, colour: Color, density: float) -> DotFxWeather:
+	var w := DotFxWeather.new()
+	w.name = "Rain" if kind == DotFxWeatherDef.RAIN else "Snow"
+	add_child(w)
+	var res := w.apply({"kind": str(kind), "density": density, "colour": colour.to_html(true)})
+	if not res.ok:
+		DotLog.warn(CHANNEL, "weather refused", {"why": res.error.message})
+	w.quality = DotFxWeather.Quality.OFF
+	return w
 
 
 func _set_weather(weather: Dictionary) -> void:
@@ -1713,8 +1738,6 @@ func _set_weather(weather: Dictionary) -> void:
 		return
 
 	var sky := int(weather.get("sky", DdWeather.CLEAR))
-	_rain.emitting = sky == DdWeather.RAIN
-	_snow.emitting = sky == DdWeather.SNOW
 	var stormy := bool(weather.get("storm", false))
 	var foggy := bool(weather.get("fog", false))
 	# A storm is a darker sky and rain that comes down hard; fog is sight, so it only whitens.
@@ -1723,7 +1746,9 @@ func _set_weather(weather: Dictionary) -> void:
 	var density := FOG_SNOW if sky == DdWeather.SNOW else (FOG_RAIN if sky == DdWeather.RAIN else FOG_CLEAR)
 	density = maxf(density, game.config.fog_density * (1.0 if foggy else 0.0))
 	density = maxf(density, FOG_SNOW * 1.2 if stormy else 0.0)
-	_rain.amount = 3200 if stormy else 1600
+	_rain.quality = DotFxWeather.Quality.HIGH if sky == DdWeather.RAIN else DotFxWeather.Quality.OFF
+	_rain.density_scale = 2.0 if stormy else 1.0
+	_snow.quality = DotFxWeather.Quality.HIGH if sky == DdWeather.SNOW else DotFxWeather.Quality.OFF
 	_env.fog_density = lerpf(_env.fog_density, density, 0.02)
 
 
