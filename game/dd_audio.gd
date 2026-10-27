@@ -299,7 +299,7 @@ func _process(delta: float) -> void:
 	_foot = move_toward(_foot, 0.0 if driving else 1.0, delta)
 
 	if ambience != null:
-		ambience.level = db_to_linear(FOOT_BED_DB * _foot)
+		ambience.drive = db_to_linear(FOOT_BED_DB * _foot) / DotAudioAmbience.DEFAULT_LEVEL
 
 	# A truck that was not fed this frame has gone (left, or its node was freed).
 	for key: StringName in _loops.keys():
