@@ -103,6 +103,13 @@ func _ready() -> void:
 			at_m = float(bridged.bridges[0]["d"]) - 16.0
 			deck = bridged.bridges[0]["node"]
 
+	# `--ledge=1`: 14 m short of the route's first narrow ledge.
+	if str(_args.get("ledge", "")) != "" and not on_foot:
+		var ledged = client.game.routes[StringName(str(_args.get("route", "dd_foothills")))]
+
+		if not ledged.ledges.is_empty():
+			at_m = float(ledged.ledges[0]["d"]) - 14.0
+
 	if at_m > 0.0 and not on_foot:
 		await get_tree().physics_frame
 		var me = client.game.drivers[client.local_key]

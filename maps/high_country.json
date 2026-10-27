@@ -13,6 +13,7 @@
 	"hazards": {
 		"bridge": 2,
 		"washout": 2,
+		"ledge": 2,
 		"broken": 2,
 		"traffic": 1,
 		"ice": 1

@@ -22,6 +22,11 @@ const DdWeather := preload("dd_weather.gd")
 const BRIDGE_LENGTH := 14.0
 const WASHOUT_LENGTH := 16.0
 const WASHOUT_KEEP := 0.58
+
+## A ledge ([code]DotPropLedge[/code]) leaves this share of the road, for this many metres, as high as this.
+const LEDGE_KEEP := 0.56
+const LEDGE_LENGTH := 24.0
+const LEDGE_HEIGHT := 4.0
 const DdPaths := preload("dd_paths.gd")
 const DdTerrain := preload("dd_terrain.gd")
 const DdLoad := preload("dd_load.gd")
@@ -130,6 +135,10 @@ var works: Array = []
 ## that knocks the load harder the faster it is crossed.
 var gravel: Array = []
 
+## Narrow ledges: rock pinching the road to a shelf, on the cliff's side:
+## [code]{"d", "length", "side", "intrusion"}[/code]. Solid.
+var ledges: Array = []
+
 ## Plank bridges over a gap in the road: [code]{"d", "length", "a": sample index, "b", "rating", "node"}[/code].
 ## The road has no floor between `a` and `b`; the deck is dot-props' [code]DotPropBridge[/code].
 var bridges: Array = []
@@ -216,6 +225,7 @@ func clear() -> void:
 	traffic = []
 	bridges = []
 	washouts = []
+	ledges = []
 	broken = []
 	_cars = []
 	_car_at = PackedVector3Array()
@@ -371,6 +381,16 @@ func _place_hazards(index: int, seg: Dictionary, start: float, length_m: float) 
 		var wall_side := -1.0 if str(seg["wall"]) == "left" else (1.0 if str(seg["wall"]) == "right" else (-1.0 if roll < 0.5 else 1.0))
 		washouts.append({"d": centre, "length": WASHOUT_LENGTH, "a": hole[0], "b": hole[1], "side": -wall_side})
 
+	# A ledge grows out of the cliff's side, so the narrow shelf has the drop beside it.
+	for k in int(seg["ledge"]):
+		var n := float(int(seg["ledge"]))
+		var roll := DdWeather.unit("%s|ledge|%d|%d" % [id_text, index, k])
+		var wall_side := -1.0 if str(seg["wall"]) == "left" else (1.0 if str(seg["wall"]) == "right" else (-1.0 if roll < 0.5 else 1.0))
+		ledges.append({
+			"d": start + length_m * (float(k) + 0.5) / n, "length": minf(LEDGE_LENGTH, length_m * 0.4),
+			"side": wall_side, "intrusion": width * (1.0 - LEDGE_KEEP),
+		})
+
 	# Broken road: three heaps down alternating sides, close enough that a truck cannot weave
 	# between them at speed and must hold a side and take the bumps.
 	for k in int(seg["broken"]):
@@ -448,6 +468,8 @@ func challenges() -> Array:
 		out.append({"d": float(entry["d"]), "kind": "bridge"})
 	for entry: Dictionary in washouts:
 		out.append({"d": float(entry["d"]), "kind": "washout"})
+	for entry: Dictionary in ledges:
+		out.append({"d": float(entry["d"]), "kind": "ledge"})
 	for k in range(0, broken.size(), 3):
 		out.append({"d": float(broken[k]["d"]) + 6.0, "kind": "broken"})
 	for car: Dictionary in traffic:
@@ -711,6 +733,12 @@ func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Arr
 				p -= right_of(yaws[i]) * signf(float(job["lateral"])) * width_at(d) * 0.26
 				dodging = true
 
+		# Keep to the open side of a ledge.
+		for ledge: Dictionary in ledges:
+			if absf(float(ledge["d"]) - d) < float(ledge["length"]) * 0.5 + 10.0:
+				p -= right_of(yaws[i]) * float(ledge["side"]) * width_at(d) * 0.2
+				dodging = true
+
 		# Hold the side a washout leaves.
 		for wash: Dictionary in washouts:
 			if absf(float(wash["d"]) - d) < float(wash["length"]) * 0.5 + 8.0:
@@ -793,6 +821,7 @@ func _build_geometry() -> void:
 	_build_ice()
 	_build_debris()
 	_build_works()
+	_build_ledges()
 	_build_broken()
 	_build_bridges()
 	_build_gravel()
@@ -1368,6 +1397,26 @@ func _build_debris() -> void:
 		heap.name = "Debris"
 		add_child(heap)
 		heap.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]))
+
+
+## Narrow ledges: dot-props' [code]DotPropLedge[/code], a rock outcrop growing out of the cliff.
+func _build_ledges() -> void:
+	var Ledge: GDScript = load("res://addons/dot_props/runtime/dot_prop_ledge.gd")
+	for k in ledges.size():
+		var entry: Dictionary = ledges[k]
+		var d := float(entry["d"])
+		var half := float(entry["length"]) * 0.5
+		var behind := pose_at(d - half).origin
+		var ahead := pose_at(d + half).origin
+		var at := pose_at(d)
+		# Pitched with the road, so the tapers meet it at both ends on a climb.
+		var run := Vector2(ahead.x - behind.x, ahead.z - behind.z).length()
+		at.basis = at.basis * Basis(Vector3.RIGHT, atan2(ahead.y - behind.y, maxf(run, 0.01)))
+		var ledge: StaticBody3D = Ledge.make(width_at(d), float(entry["intrusion"]), float(entry["length"]),
+			LEDGE_HEIGHT, float(entry["side"]), 200 + k, _rock_material(), 1 | CAMERA_LAYER)
+		ledge.name = "Ledge"
+		add_child(ledge)
+		ledge.transform = at
 
 
 ## Broken road: low heaps of rock ([code]DotPropRubble[/code]) that must be crossed or held to one side of.

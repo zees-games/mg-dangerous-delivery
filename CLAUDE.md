@@ -21,7 +21,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 | Path | What |
 | --- | --- |
 | `game/dd_game.gd` | the world: every route side by side, drivers, trips, falls, rock, solo, stand-ins, `garage_view()` |
-| `game/dd_route_doc.gd`, `dd_route.gd`, `dd_terrain.gd` | what a route is (segments: length, turn, climb, wall, rail, zone, checkpoint, boulders, ice, debris, works, gravel, traffic), validated; the route built (meshes, one trimesh, signs, oncoming cars, every query); the mountain under it, drawn only |
+| `game/dd_route_doc.gd`, `dd_route.gd`, `dd_terrain.gd` | what a route is (segments: length, turn, climb, wall, rail, zone, checkpoint, boulders, ice, debris, works, gravel, ledge, traffic), validated; the route built (meshes, one trimesh, signs, oncoming cars, every query); the mountain under it, drawn only |
 | `game/dd_weather.gd`, `dd_trip.gd`, `dd_bank.gd` | the sky as a pure function of (seed, zone, tick) and `unit()`; one haul and its pay; accounts with JSON and SQL stores |
 | `game/dd_trucks.gd`, `dd_truck.gd`, `dd_drivetrain.gd`, `dd_cargo.gd`, `dd_trailer.gd` | catalogue (engine, gears, capacity) and upgrades as data; a `VehicleBody3D` from a Kenney model, with a tank's slosh; engine, gearbox, air and brakes (the chassis); the loads; the Semi's trailer on a joint |
 | `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |

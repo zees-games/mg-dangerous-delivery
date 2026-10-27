@@ -37,7 +37,7 @@ const FORMAT := 1
 const BRIDGE_MIN_SEGMENT := 70.0
 
 ## Hazards a mountain may add to every route it holds ([method overlay]).
-const OVERLAY_KINDS := ["traffic", "bridge", "washout", "broken", "ice", "debris", "gravel", "works"]
+const OVERLAY_KINDS := ["traffic", "bridge", "washout", "broken", "ice", "debris", "gravel", "works", "ledge"]
 
 const WALLS := ["none", "left", "right", "both"]
 
@@ -51,6 +51,8 @@ const MAX_GRADE := 0.18
 
 ## The least road roadworks may leave open, metres: a truck and a little.
 const MIN_OPEN_LANE := 3.3
+## A ledge pinches the road to [member DdRoute.LEDGE_KEEP] of its width, which has to stay a lane.
+const LEDGE_MIN_WIDTH := 7.0
 
 ## Where oncoming traffic may run: this wide at least, and turning no more than this per metre.
 const MIN_TRAFFIC_WIDTH := 6.4
@@ -174,6 +176,11 @@ static func normalise(doc: Variant) -> DotResult:
 		if washout > 0 and (seg_width < 7.0 or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
 			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
 
+		var ledge := clampi(int(seg.get("ledge", 0)), 0, 2)
+
+		if ledge > 0 and (seg_width < LEDGE_MIN_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
+			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a ledge needs 60 m of nearly straight road at least %.1f m wide." % [i, LEDGE_MIN_WIDTH])
+
 		if bridge > 0 and washout > 0:
 			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
 
@@ -193,6 +200,7 @@ static func normalise(doc: Variant) -> DotResult:
 			"traffic": traffic,
 			"bridge": bridge,
 			"washout": washout,
+			"ledge": ledge,
 			"broken": clampi(int(seg.get("broken", 0)), 0, 4),
 			"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
 		})
@@ -250,6 +258,8 @@ static func overlay(doc: Dictionary, extras: Dictionary) -> Dictionary:
 					ok = ok and absf(float(seg["turn"])) <= 4.0 and length >= BRIDGE_MIN_SEGMENT and int(seg.get("washout", 0)) == 0 and not bool(seg["checkpoint"])
 				"washout":
 					ok = ok and float(seg["width"]) >= 7.0 and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
+				"ledge":
+					ok = ok and float(seg["width"]) >= LEDGE_MIN_WIDTH and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
 				"traffic":
 					ok = ok and float(seg["width"]) >= MIN_TRAFFIC_WIDTH and straight <= MAX_TRAFFIC_TURN and length >= 80.0
 				_:

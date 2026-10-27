@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 32
-const CHECKS := 253
+const CHECKS := 257
 
 var _passed := 0
 var _failed := 0
@@ -1043,6 +1043,28 @@ func _test_road_hazards() -> void:
 		"a washout takes a span of one side and keeps the rest of the road", str(wash))
 	_check(not heap.is_empty() and (heap["size"] as Vector3).x > 0.0 and (heap["size"] as Vector3).y > 0.0 and absf(float(heap["lateral"])) > 0.0,
 		"and broken road is rubble heaps to one side", str(heap))
+	var ledge: Dictionary = {}
+	var ledge_road: DdRoute = null
+	for id: StringName in world.routes:
+		var r: DdRoute = world.routes[id]
+		if ledge.is_empty() and not r.ledges.is_empty():
+			ledge = r.ledges[0]
+			ledge_road = r
+	_check(not ledge.is_empty() and absf(float(ledge["side"])) == 1.0, "High Country lays a narrow ledge", str(ledge))
+	var open := 0.0
+	var solid := false
+	if not ledge.is_empty():
+		open = ledge_road.width_at(float(ledge["d"])) - float(ledge["intrusion"])
+		for child in ledge_road.get_children():
+			solid = solid or (child is DotPropLedge and child.collision_layer != 0)
+	_check(open >= DdRouteDoc.MIN_OPEN_LANE and open < 6.0, "it leaves a lane a truck fits and not much more", "%.1f m" % open)
+	_check(solid and ledge_road.challenges().any(func(c: Dictionary) -> bool: return c["kind"] == "ledge"),
+		"the ledge is solid rock in the road and counts as a challenge")
+	world.set_mountain(&"low_country")
+	var none := 0
+	for id: StringName in world.routes:
+		none += (world.routes[id] as DdRoute).ledges.size()
+	_check(none == 0, "Low Country has no ledge", str(none))
 	world.queue_free()
 	_finished_section()
 
