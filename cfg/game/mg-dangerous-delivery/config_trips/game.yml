@@ -6,6 +6,10 @@
 # start_hold_seconds: 3.0
 # Metres below the road a truck has fallen before it counts as off the mountain. [5.0..200.0]
 # fall_depth: 18.0
+# Metres below the road at which a truck going over the edge crashes: it tumbles down the mountain, breaks up... [0.0..50.0]
+# crash_depth: 5.0
+# Seconds the wreck is left burning, to be seen, before the truck is put back. [0.5..20.0]
+# wreck_seconds: 3.5
 # Seconds after a fall before the truck is put back on the last checkpoint. [0.0..10.0]
 # respawn_seconds: 1.5
 # Fraction of the cargo lost on each fall. 0 makes a fall cost only time. [0.0..1.0]

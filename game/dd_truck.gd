@@ -67,6 +67,9 @@ var _wheels: Array[VehicleWheel3D] = []
 ## every machine, so a part's id means the same piece on the server and on every client.
 var damage: DotVehicleDamage = null
 var breakage: DotVehicleBreakage = null
+var wreck: DotVehicleWreck = null
+
+var _mask_before: int = 1
 
 ## The body's box in its own frame (x right, y up, z back): what part regions are fractions of.
 var body_box: AABB = AABB()
@@ -208,6 +211,12 @@ func _build_damage(draws: bool) -> void:
 	DotLog.result(CHANNEL, "the truck's breakage", made)
 	breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
 
+	wreck = DotVehicleWreck.new()
+	wreck.name = "Wreck"
+	wreck.draws = draws
+	add_child(wreck)
+	DotLog.result(CHANNEL, "the truck's wreck", wreck.setup(self, breakage))
+
 
 ## A part's region in the body's frame, from its fractions of [member body_box].
 func part_region(p: Dictionary) -> AABB:
@@ -244,9 +253,32 @@ func _part_node(p: Dictionary, id: StringName, region: AABB) -> Node3D:
 
 ## Everything back on (a put-back). The load already lost stays lost in the trip's pay.
 func repair() -> void:
-	if breakage != null and (not damage.lost_parts().is_empty() or _any_wheel_down()):
+	if wreck != null and wreck.is_wrecked():
+		wreck.reset()
+		collision_mask = _mask_before
 		breakage.repair()
 		damaged.emit({})
+		return
+
+	if breakage != null and (not damage.lost_parts().is_empty() or _any_wheel_down() or damage.distress() > 0.0):
+		breakage.repair()
+		damaged.emit({})
+
+
+## Over the edge: a tumble that tears it apart and ends in an explosion. [param ground] is the
+## physics layer of the mountain, which this body meets only from now until it is put back.
+func begin_crash(ground: int) -> void:
+	if wreck == null or wreck.is_wrecked():
+		return
+
+	_mask_before = collision_mask
+	collision_mask |= ground
+	wreck.crash()
+
+
+## Whether it has exploded (a crash that has run its course).
+func has_exploded() -> bool:
+	return wreck != null and wreck.phase == DotVehicleWreck.Phase.BURNING
 
 
 func _any_wheel_down() -> bool:

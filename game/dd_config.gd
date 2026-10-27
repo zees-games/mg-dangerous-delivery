@@ -19,6 +19,13 @@ extends DotConfig
 ## Metres below the road a truck has fallen before it counts as off the mountain.
 @export_range(5.0, 200.0, 1.0) var fall_depth: float = 18.0
 
+## Metres below the road at which a truck going over the edge crashes: it tumbles down the
+## mountain, breaks up and explodes before the fall is counted. 0 skips it, a fall is then only [member fall_depth].
+@export_range(0.0, 50.0, 0.5) var crash_depth: float = 5.0
+
+## Seconds the wreck is left burning, to be seen, before the truck is put back.
+@export_range(0.5, 20.0, 0.5) var wreck_seconds: float = 3.5
+
 ## Seconds after a fall before the truck is put back on the last checkpoint.
 @export_range(0.0, 10.0, 0.25) var respawn_seconds: float = 1.5
 

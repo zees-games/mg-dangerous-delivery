@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 31
-const CHECKS := 238
+const CHECKS := 242
 
 var _passed := 0
 var _failed := 0
@@ -930,22 +930,32 @@ func _test_a_fall() -> void:
 	var why := [""]
 	game.fell.connect(func(key: StringName, reason: String) -> void:
 		if key == &"p1":
-			why[0] = reason)
+	var crash := {"began": false, "exploded": false, "lost": 0}
+	game.truck_crashed.connect(func(key: StringName) -> void:
+		if key == &"p1":
+			crash["began"] = true)
+			why[0] = reason
+			var gone := me.truck as DdTruck
+			crash["exploded"] = gone.has_exploded()
+			crash["lost"] = gone.damage.lost_parts().size())
 	# Thirty metres off the drop side (the right: River Cut's cliff is on the left).
 	var at := road.transform_at(200.0, 0.0)
 	at.origin += road.position + at.basis.x * 30.0
 	(me.truck as DdTruck).place(at)
-	var until := Time.get_ticks_msec() + 8000
+	var until := Time.get_ticks_msec() + 20000
 	while why[0] == "" and Time.get_ticks_msec() < until:
 		await get_tree().physics_frame
 	var trip: DdTrip = me.trip
 	_check(why[0] == "fell", "a truck off the road falls", why[0])
 	_check(trip.falls == 1 and is_equal_approx(trip.cargo, 1.0 - game.config.fall_cargo_loss), "a fall costs the configured share of the load", "%.2f" % trip.cargo)
 	await _seconds(0.8)
+	_check(crash["began"] and crash["exploded"], "but first it crashes and explodes", str(crash))
+	_check(int(crash["lost"]) >= (me.truck as DdTruck).damage.parts.size() - 4, "torn apart by then", str(crash))
 	_check(trip.state == DdTrip.State.DRIVING and absf(road.distance_at((me.truck as Node3D).global_position - road.position) - road.checkpoint_distance(trip.stage)) < 3.0,
 		"and it is put back on its checkpoint")
 	_check(trip.pay_now(game.config) < _clean_offer(trip), "a fall loses the clean-run bonus")
 	_check(progress.session_values(&"p1").get_value(DdProgress.FALLS) == 1.0, "and is counted")
+	_check(not (me.truck as DdTruck).has_exploded() and (me.truck as DdTruck).damage.lost_parts().is_empty(), "and the wreck is whole again")
 	_finished_section()
 
 

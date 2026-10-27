@@ -50,6 +50,9 @@ var boulders: int = 0
 ## Seconds on its side or back.
 var flipped_for: float = 0.0
 
+## Seconds a wreck has burned since it exploded (0 until then).
+var wreck_for: float = 0.0
+
 ## Seconds hung up with wheels off the road and not moving.
 var hung_for: float = 0.0
 
@@ -84,6 +87,7 @@ func reset_to_start(hold_seconds: float) -> void:
 	skips = 0
 	boulders = 0
 	flipped_for = 0.0
+	wreck_for = 0.0
 	hung_for = 0.0
 	seconds = 0.0
 	met = {}

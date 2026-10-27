@@ -545,7 +545,10 @@ func _on_truck_damaged(key: StringName, event: Dictionary) -> void:
 	var v: Variant = event.get("velocity")
 	var at: Variant = event.get("at")
 
-	if v is Vector3:
+	if str(event.get("kind", "")) == "wrecked" and at is Vector3 and v is Vector3:
+		data["at"] = [at.x, at.y, at.z]
+		data["velocity"] = [v.x, v.y, v.z]
+	elif v is Vector3:
 		var piece := str(event.get("id", "")) if event.has("id") else "wheel%d" % int(event.get("wheel", -1))
 		data["velocities"] = {piece: [v.x, v.y, v.z]}
 
@@ -1072,10 +1075,24 @@ func _apply_damage(data: Dictionary) -> void:
 			if v is Array and (v as Array).size() == 3:
 				velocities[str(k)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
 
-	if (state.get("lost", []) as Array).is_empty() and not (state.get("wheels", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0):
+	if (state.get("lost", []) as Array).is_empty() and not (state.get("wheels", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0) and not (state.get("wear", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0):
 		truck.breakage.repair()
 	else:
 		var _shown := truck.breakage.apply_state(state, velocities)
+
+	if str(data.get("event", "")) == "wrecked":
+		var wreck_at: Variant = data.get("at", [])
+		var wreck_v: Variant = data.get("velocity", [])
+		var centre := truck.global_position
+		var moving := Vector3.ZERO
+
+		if wreck_at is Array and (wreck_at as Array).size() == 3:
+			centre = Vector3(float(wreck_at[0]), float(wreck_at[1]), float(wreck_at[2]))
+
+		if wreck_v is Array and (wreck_v as Array).size() == 3:
+			moving = Vector3(float(wreck_v[0]), float(wreck_v[1]), float(wreck_v[2]))
+
+		truck.breakage.broke.emit({"kind": "wrecked", "at": centre, "velocity": moving})
 
 	for c: Variant in data.get("crates", []):
 		if c is Array and (c as Array).size() == 6:

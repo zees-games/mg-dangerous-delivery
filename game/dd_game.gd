@@ -138,6 +138,8 @@ signal truck_made(key: StringName)
 signal truck_damaged(key: StringName, event: Dictionary)
 ## A wheel's hub is on the road at [param at], moving at [param speed]: sparks, every step.
 signal truck_scraping(key: StringName, at: Vector3, speed: float)
+## Somebody's truck went over the edge and began to break up.
+signal truck_crashed(key: StringName)
 ## Somebody got into or out of their truck off a road: everybody is told (a DRIVER).
 signal seated(key: StringName)
 
@@ -1122,7 +1124,8 @@ func _on_truck_damaged(event: Dictionary, key: StringName) -> void:
 		# same 0..1), and a crate in the road where it fell.
 		if part != null and part.kind == &"cargo":
 			var trip: DdTrip = driver.trip
-			if trip != null:
+			# A wreck's load is the fall's to cost (fall_cargo_loss), not each crate's.
+			if trip != null and not (driver.truck as DdTruck).wreck.is_wrecked():
 				trip.cargo = maxf(trip.cargo - 1.0 / float(maxi(_cargo_units(driver.truck), 1)), 0.0)
 			drop_crate(driver.truck, event)
 
@@ -2146,7 +2149,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 			return
 
 	trip.seconds += delta
-	truck.drive(driver.command, delta)
+	truck.drive(DotVehicleCommand.new() if truck.wreck != null and truck.wreck.is_wrecked() else driver.command, delta)
 
 	if driver.trailer != null:
 		(driver.trailer as DdTrailer).set_braking(driver.command.brake, delta)
@@ -2204,7 +2207,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	# A fragile load feels a smaller knock and loses more to it.
 	var threshold := config.knock_threshold / trip.fragile
 
-	if dv > threshold and can_be_harmed(driver.key):
+	if dv > threshold and can_be_harmed(driver.key) and not (truck.wreck != null and truck.wreck.is_wrecked()):
 		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
 
 	# Checkpoints.
@@ -2214,8 +2217,24 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		trip.stage = reached
 		stage_reached.emit(driver.key, reached)
 
-	# Off the mountain.
-	if truck.global_position.y < road.position.y + road.road_height_at(local, trip.hint) - config.fall_depth:
+	# Over the edge: a crash first (it tumbles down the mountain, breaks up and explodes), then
+	# the fall is counted and the truck put back.
+	var below := road.position.y + road.road_height_at(local, trip.hint) - truck.global_position.y
+
+	if truck.wreck != null and (truck.wreck.is_wrecked() or (config.crash_depth > 0.0 and below > config.crash_depth)):
+		if not truck.wreck.is_wrecked():
+			truck.begin_crash(DdRoute.CAMERA_LAYER)
+			truck_crashed.emit(driver.key)
+
+		if truck.has_exploded():
+			trip.wreck_for += delta
+
+		if trip.wreck_for >= config.wreck_seconds:
+			_fall(driver, "fell")
+
+		return
+
+	if below > config.fall_depth:
 		_fall(driver, "fell")
 		return
 
