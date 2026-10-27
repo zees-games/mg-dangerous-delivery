@@ -13,9 +13,10 @@ const DdWeather := preload("res://game/dd_weather.gd")
 const DdEvent := preload("res://game/net/dd_event.gd")
 const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
+const DdServices := preload("res://game/dd_services.gd")
 
-const SECTIONS := 19
-const CHECKS := 78
+const SECTIONS := 20
+const CHECKS := 83
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -61,6 +62,7 @@ func _ready() -> void:
 		await _test_rock()
 		await _test_rock_heard()
 		await _test_the_lot_toys()
+	await _test_voice()
 	await _test_a_trailer()
 	await _test_another_mountain()
 	await _test_bridge_decks()
@@ -760,6 +762,50 @@ func _step(command: DotVehicleCommand = null) -> void:
 func _steps(count: int, command: DotVehicleCommand = null) -> void:
 	for _i in count:
 		await _step(command)
+
+
+func _test_voice() -> void:
+	_section("voice crosses the wire")
+
+	var router := DotVoiceRouter.new()
+	router.name = "Voice"
+	router.config = DdServices.voice_format()
+	router.default_channel = DotVoiceRouter.Channel.ALL
+	router.send_fn = func(peer_id: int, payload: PackedByteArray) -> void:
+		_server_bridge.link.send_voice(peer_id, payload)
+	add_child(router)
+	# Two peers: a server never sends a voice back to its speaker.
+	router.add_peer(CLIENT_PEER)
+	router.add_peer(CLIENT_PEER + 1)
+
+	var arrived: Array[PackedByteArray] = []
+	_client_bridge.voice_arrived.connect(func(payload: PackedByteArray) -> void: arrived.append(payload))
+
+	var packet := DotVoicePacket.new()
+	packet.speaker = CLIENT_PEER + 1
+	packet.sequence = 1
+	packet.codec_id = DdServices.voice_format().codec_id
+	packet.sample_count = 320
+	packet.payload = PackedByteArray([1, 2, 3, 4, 5, 6, 7, 8])
+
+	var relayed := router.relay(CLIENT_PEER + 1, packet.to_bytes())
+	_check(relayed.ok, "the router relays a frame", str(relayed.error) if not relayed.ok else "")
+	_flush()
+	await _steps(2)
+	_check(arrived.size() > 0, "and it arrives on the client", "%d frames" % arrived.size())
+	_check(int(_client_bridge.link.get("voice_received")) > 0, "on the link's own voice channel rather than as an event")
+
+	var up: Array[int] = []
+	_server_bridge.voice_requested.connect(func(peer_id: int, _payload: PackedByteArray) -> void: up.append(peer_id))
+	_client_bridge.send_voice_up(packet.to_bytes())
+	_flush()
+	await _steps(2)
+	_check(up == [CLIENT_PEER], "a client's microphone frame reaches the server under the transport's peer id", str(up))
+	_check(DdServices.voice_format().codec_id == &"adpcm" and DdServices.voice_format().sample_rate == 16000,
+		"both ends read one voice format from the services")
+
+	router.queue_free()
+	_finished_section()
 
 
 func _section(name: String) -> void:
