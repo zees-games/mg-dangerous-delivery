@@ -63,6 +63,7 @@ func _ready() -> void:
 	game.draws = false
 	game.config.start_hold_seconds = 0.2
 	game.config.respawn_seconds = 0.3
+	game.config.wreck_seconds = 0.5
 	game.config.seed_value = 5
 	game.config.boulders_enabled = false
 	game.config.weather_frequency = 0.0
@@ -600,6 +601,11 @@ func _test_piles() -> void:
 	_finished_section()
 
 
+## A fall over the edge now crashes first: up to the wreck's fuse, then the burn.
+func _crash_allowance() -> float:
+	return 5.0 + game.config.wreck_seconds
+
+
 func _test_hung() -> void:
 	_section("hung over an open edge")
 	var road: DdRoute = game.routes[&"dd_river_cut"]
@@ -621,7 +627,7 @@ func _test_hung() -> void:
 	c.throttle = 0.15
 	me.command = c
 	var t := 0.0
-	while why[0] == "" and t < game.config.hung_respawn_seconds + 6.0:
+	while why[0] == "" and t < game.config.hung_respawn_seconds + 6.0 + _crash_allowance():
 		await get_tree().physics_frame
 		t += TICK
 	_check(why[0] == "fell" or why[0] == "hung", "a truck half over the edge goes over or is put back, never sits there", "%s after %.1f s" % [why[0], t])

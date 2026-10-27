@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 32
-const CHECKS := 248
+const CHECKS := 250
 
 var _passed := 0
 var _failed := 0
@@ -1015,6 +1015,18 @@ func _test_road_hazards() -> void:
 		deck.report(fast)
 		deck.step(1.0 / 60.0)
 	_check(not deck.is_standing(), "a fast one brings it down")
+	var wash: Dictionary = {}
+	var heap: Dictionary = {}
+	for id: StringName in world.routes:
+		var r: DdRoute = world.routes[id]
+		if wash.is_empty() and not r.washouts.is_empty():
+			wash = r.washouts[0]
+		if heap.is_empty() and not r.broken.is_empty():
+			heap = r.broken[0]
+	_check(not wash.is_empty() and int(wash["b"]) > int(wash["a"]) and absf(float(wash["side"])) == 1.0 and DdRoute.WASHOUT_KEEP > 0.4 and DdRoute.WASHOUT_KEEP < 0.8,
+		"a washout takes a span of one side and keeps the rest of the road", str(wash))
+	_check(not heap.is_empty() and (heap["size"] as Vector3).x > 0.0 and (heap["size"] as Vector3).y > 0.0 and absf(float(heap["lateral"])) > 0.0,
+		"and broken road is rubble heaps to one side", str(heap))
 	world.queue_free()
 	_finished_section()
 
