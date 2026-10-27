@@ -16,5 +16,10 @@
 	},
 	"hazards": {
 		"traffic": 1
+	},
+	"shape": {
+		"stretch": 0.85,
+		"twist": 0.7,
+		"climb": 0.8
 	}
 }

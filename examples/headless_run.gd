@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 32
-const CHECKS := 258
+const CHECKS := 260
 
 var _passed := 0
 var _failed := 0
@@ -1006,6 +1006,18 @@ func _test_road_hazards() -> void:
 	for id: StringName in world.routes:
 		low += (world.routes[id] as DdRoute).bridges.size() + (world.routes[id] as DdRoute).washouts.size()
 	_check(low == 0, "Low Country keeps its roads whole", str(low))
+	var lengths := {}
+	for mountain: StringName in [&"range", &"low_country", &"high_country", &"long_haul"]:
+		world.set_mountain(mountain)
+		lengths[mountain] = (world.routes[&"dd_snowline"] as DdRoute).length()
+	var distinct := {}
+	for mountain: StringName in lengths:
+		distinct[snappedf(float(lengths[mountain]), 1.0)] = true
+	_check(distinct.size() == lengths.size(), "each mountain shapes the same route differently", str(lengths))
+	var mirrored := DdRouteDoc.reshape(base, {"mirror": true})
+	_check(float(mirrored["segments"][2]["turn"]) == -float(base["segments"][2]["turn"]) and mirrored["segments"][1]["wall"] != base["segments"][1]["wall"]
+		and DdRouteDoc.reshape(base, {"stretch": 1.5})["stages"] == base["stages"] and var_to_str(DdRouteDoc.reshape(base, {})) == var_to_str(base),
+		"a mirrored route turns the other way, keeps its stages and the shipped document is untouched")
 	var _back := world.set_mountain(&"high_country")
 	var deck: Node3D = null
 	for id: StringName in world.routes:

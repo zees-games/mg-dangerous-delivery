@@ -232,6 +232,48 @@ static func length_of(doc: Dictionary) -> float:
 	return total
 
 
+## The keys of a map's `shape`, each with its allowed range (see [method reshape]).
+const SHAPE_RANGES := {"stretch": [0.6, 2.0], "twist": [0.5, 1.4], "climb": [0.5, 1.5], "narrow": [0.0, 1.2]}
+
+
+## [param doc] (a validated route) laid out as one mountain's version of it: `mirror` flips every
+## bend and its cliff and rail to the other side, `stretch` lengthens the straights (climb with
+## them, so the grade stays), `twist` scales the bends, `climb` the grade, `narrow` takes metres off
+## the width. Hairpins keep their shape (a 30 m radius is what a long truck can take) and the
+## checkpoints stay, so a stage count never changes. Pure on the document: every machine agrees.
+static func reshape(doc: Dictionary, shape: Dictionary) -> Dictionary:
+	if shape.is_empty():
+		return doc
+	var out: Dictionary = doc.duplicate(true)
+	var mirror := bool(shape.get("mirror", false))
+	var stretch := float(shape.get("stretch", 1.0))
+	var twist := float(shape.get("twist", 1.0))
+	var climb_scale := float(shape.get("climb", 1.0))
+	var narrow := float(shape.get("narrow", 0.0))
+	var base_width := float(doc.get("width", 7.0))
+	for seg: Dictionary in out["segments"]:
+		var hairpin := absf(float(seg["turn"])) >= 150.0
+		var length := float(seg["length"])
+		var turn := float(seg["turn"])
+		var climb := float(seg["climb"])
+		if not hairpin:
+			length *= stretch
+			climb *= stretch
+			turn = clampf(turn * twist, -length * MAX_TURN_PER_METRE * 0.5, length * MAX_TURN_PER_METRE * 0.5)
+		climb = clampf(climb * climb_scale, -length * MAX_GRADE * 0.8, length * MAX_GRADE * 0.8)
+		if mirror:
+			turn = -turn
+			for key: String in ["wall", "rail"]:
+				var side := str(seg[key])
+				seg[key] = "right" if side == "left" else ("left" if side == "right" else side)
+		seg["length"] = length
+		seg["turn"] = turn
+		seg["climb"] = climb
+		var seg_width := float(seg["width"])
+		seg["width"] = maxf(seg_width - narrow, minf(seg_width, 5.6))
+	return out
+
+
 ## [param doc] (a validated route) with [param extras] ({kind: how many}) added to the segments
 ## that can take them, chosen by hash of route, kind and segment, so every machine agrees and one
 ## mountain's road is another's with other hazards. Segments that already carry a hazard of that

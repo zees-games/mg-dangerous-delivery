@@ -35,5 +35,10 @@
 		"broken": 2,
 		"traffic": 2,
 		"gravel": 1
+	},
+	"shape": {
+		"stretch": 1.6,
+		"twist": 0.9,
+		"climb": 1.1
 	}
 }

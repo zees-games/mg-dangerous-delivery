@@ -17,5 +17,11 @@
 		"broken": 2,
 		"traffic": 1,
 		"ice": 1
+	},
+	"shape": {
+		"mirror": true,
+		"stretch": 1.2,
+		"twist": 1.25,
+		"climb": 1.2
 	}
 }

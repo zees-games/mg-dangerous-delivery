@@ -160,8 +160,30 @@ static func normalise(doc: Variant) -> DotResult:
 			return DotResult.fail(DotError.CODE_INVALID, "hazards.%s is not one of %s." % [str(key), DdRouteDoc.OVERLAY_KINDS])
 		hazards[str(key)] = clampi(int((raw_hazards as Dictionary)[key]), 0, 8)
 
+	# This mountain's version of every route it holds, see DdRouteDoc.reshape.
+	var raw_shape: Variant = d.get("shape", {})
+
+	if not (raw_shape is Dictionary):
+		return DotResult.fail(DotError.CODE_INVALID, "shape is an object.")
+
+	var shape := {}
+
+	for key: Variant in (raw_shape as Dictionary):
+		if str(key) == "mirror":
+			shape["mirror"] = bool((raw_shape as Dictionary)[key])
+		elif DdRouteDoc.SHAPE_RANGES.has(str(key)):
+			var range: Array = DdRouteDoc.SHAPE_RANGES[str(key)]
+			var value := float((raw_shape as Dictionary)[key])
+
+			if value < float(range[0]) or value > float(range[1]):
+				return DotResult.fail(DotError.CODE_INVALID, "shape.%s %.2f is outside %.1f to %.1f." % [str(key), value, float(range[0]), float(range[1])])
+
+			shape[str(key)] = value
+		else:
+			return DotResult.fail(DotError.CODE_INVALID, "shape.%s is not mirror or one of %s." % [str(key), DdRouteDoc.SHAPE_RANGES.keys()])
+
 	return DotResult.success({
-		"hazards": hazards,
+		"hazards": hazards, "shape": shape,
 		"format": FORMAT, "kind": "map", "id": id, "name": str(d.get("name", id)), "blurb": str(d.get("blurb", "")),
 		"author": str(d.get("author", "")), "order": int(d.get("order", 100)), "routes": routes, "layout": layout, "land": land,
 	})

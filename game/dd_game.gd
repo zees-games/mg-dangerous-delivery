@@ -478,10 +478,12 @@ func _select_mountain() -> void:
 
 	documents.clear()
 
-	var extras: Dictionary = DdMountains.by_id(mountain_id, maps).get("hazards", {}) if mountain_hazards else {}
+	var held: Dictionary = DdMountains.by_id(mountain_id, maps)
+	var extras: Dictionary = held.get("hazards", {}) if mountain_hazards else {}
+	var shape: Dictionary = held.get("shape", {}) if mountain_hazards else {}
 
 	for id in ids:
-		documents[id] = DdRouteDoc.overlay(library[id], extras)
+		documents[id] = DdRouteDoc.overlay(DdRouteDoc.reshape(library[id], shape), extras)
 
 
 ## Every mountain this server can play, as the map menu (M) lists them: `{id, name, detail,
