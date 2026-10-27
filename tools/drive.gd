@@ -16,6 +16,7 @@ var route_id := StringName(OS.get_environment("ROUTE") if OS.get_environment("RO
 
 func _ready() -> void:
 	game = DdGame.new()
+	game.mountain_hazards = false
 	game.draws = false
 	add_child(game)
 	game.config.boulders_enabled = OS.get_environment("ROCKS") != "0"

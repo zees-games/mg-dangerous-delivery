@@ -1,4 +1,5 @@
 extends RefCounted
+const DdWeather := preload("dd_weather.gd")
 
 ## What a route IS: a document a server reads, checks, and sends whole to every client.
 ##
@@ -31,6 +32,12 @@ extends RefCounted
 ## default is none, because a mountain road with rails is not this game.
 
 const FORMAT := 1
+
+## The shortest straight segment a bridge is laid in, metres.
+const BRIDGE_MIN_SEGMENT := 70.0
+
+## Hazards a mountain may add to every route it holds ([method overlay]).
+const OVERLAY_KINDS := ["traffic", "bridge", "washout", "broken", "ice", "debris", "gravel", "works"]
 
 const WALLS := ["none", "left", "right", "both"]
 
@@ -156,6 +163,20 @@ static func normalise(doc: Variant) -> DotResult:
 			return DotResult.fail(DotError.CODE_INVALID,
 				"segment %d: oncoming traffic needs 80 m of road %.1f m wide turning at most %.1f degrees a metre." % [i, MIN_TRAFFIC_WIDTH, MAX_TRAFFIC_TURN])
 
+		# A bridge spans a straight stretch, a washout takes a side of a road wide enough to keep
+		# the other, and a broken road is bumps on one side.
+		var bridge := clampi(int(seg.get("bridge", 0)), 0, 2)
+		var washout := clampi(int(seg.get("washout", 0)), 0, 2)
+
+		if bridge > 0 and (absf(turn) > 4.0 or length < BRIDGE_MIN_SEGMENT):
+			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge needs %.0f m of straight road." % [i, BRIDGE_MIN_SEGMENT])
+
+		if washout > 0 and (seg_width < 7.0 or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
+			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
+
+		if bridge > 0 and washout > 0:
+			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
+
 		var checkpoint := bool(seg.get("checkpoint", false))
 
 		if checkpoint:
@@ -170,6 +191,9 @@ static func normalise(doc: Variant) -> DotResult:
 			"works": works,
 			"gravel": clampi(int(seg.get("gravel", 0)), 0, 32),
 			"traffic": traffic,
+			"bridge": bridge,
+			"washout": washout,
+			"broken": clampi(int(seg.get("broken", 0)), 0, 4),
 			"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
 		})
 
@@ -198,3 +222,42 @@ static func length_of(doc: Dictionary) -> float:
 		total += float(seg["length"])
 
 	return total
+
+
+## [param doc] (a validated route) with [param extras] ({kind: how many}) added to the segments
+## that can take them, chosen by hash of route, kind and segment, so every machine agrees and one
+## mountain's road is another's with other hazards. Segments that already carry a hazard of that
+## kind or are too short, curved or narrow for it are skipped; the checkpoint segments keep clear
+## of the bridge and washout so a truck put down after a fall is not put in the gap.
+static func overlay(doc: Dictionary, extras: Dictionary) -> Dictionary:
+	if extras.is_empty():
+		return doc
+	var out: Dictionary = doc.duplicate(true)
+	var segs: Array = out["segments"]
+	var id_text := str(doc.get("id", ""))
+	for kind: String in OVERLAY_KINDS:
+		var want := int(extras.get(kind, 0))
+		if want <= 0:
+			continue
+		var order: Array = []
+		for i in segs.size():
+			var seg: Dictionary = segs[i]
+			var length := float(seg["length"])
+			var straight := absf(float(seg["turn"])) / maxf(length, 1.0)
+			var ok := int(seg.get(kind, 0)) == 0 and i > 0 and i < segs.size() - 1
+			match kind:
+				"bridge":
+					ok = ok and absf(float(seg["turn"])) <= 4.0 and length >= BRIDGE_MIN_SEGMENT and int(seg.get("washout", 0)) == 0 and not bool(seg["checkpoint"])
+				"washout":
+					ok = ok and float(seg["width"]) >= 7.0 and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
+				"traffic":
+					ok = ok and float(seg["width"]) >= MIN_TRAFFIC_WIDTH and straight <= MAX_TRAFFIC_TURN and length >= 80.0
+				_:
+					ok = ok and length >= 50.0 and absf(float(seg["turn"])) < 60.0
+			if ok:
+				order.append([DdWeather.unit("%s|overlay|%s|%d" % [id_text, kind, i]), i])
+		order.sort()
+		for n in mini(want, order.size()):
+			var seg: Dictionary = segs[int(order[n][1])]
+			seg[kind] = int(seg.get(kind, 0)) + 1
+	return out

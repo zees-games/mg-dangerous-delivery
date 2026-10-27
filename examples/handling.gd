@@ -59,6 +59,7 @@ func _ready() -> void:
 	Engine.time_scale = float(SPEED_UP)
 	Engine.max_physics_steps_per_frame = 8 * SPEED_UP
 	game = DdGame.new()
+	game.mountain_hazards = false
 	game.draws = false
 	game.config.start_hold_seconds = 0.2
 	game.config.respawn_seconds = 0.3

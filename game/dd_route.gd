@@ -16,6 +16,12 @@ extends Node3D
 
 const DdRouteDoc := preload("dd_route_doc.gd")
 const DdWeather := preload("dd_weather.gd")
+
+## Metres of road a bridge replaces and a washout takes a side of, and the share of the width a
+## washout leaves.
+const BRIDGE_LENGTH := 14.0
+const WASHOUT_LENGTH := 16.0
+const WASHOUT_KEEP := 0.58
 const DdPaths := preload("dd_paths.gd")
 const DdTerrain := preload("dd_terrain.gd")
 const DdLoad := preload("dd_load.gd")
@@ -124,6 +130,17 @@ var works: Array = []
 ## that knocks the load harder the faster it is crossed.
 var gravel: Array = []
 
+## Plank bridges over a gap in the road: [code]{"d", "length", "a": sample index, "b", "rating", "node"}[/code].
+## The road has no floor between `a` and `b`; the deck is dot-props' [code]DotPropBridge[/code].
+var bridges: Array = []
+
+## A side of the road washed away: [code]{"d", "length", "a", "b", "side": -1 left / +1 right}[/code].
+## Only [constant WASHOUT_KEEP] of the width is left, on the side away from the washed one.
+var washouts: Array = []
+
+## Broken road: heaps of fallen rock on alternating sides, [code]{"d", "lateral", "size": Vector3}[/code].
+var broken: Array = []
+
 ## Oncoming traffic: a car coming down the other lane of one segment, over and over, at a
 ## pace that is a pure function of the tick (so every machine draws it in the same place):
 ## [code]{"from", "to", "lateral", "speed", "phase", "model"}[/code]. Solid and kinematic: it
@@ -197,6 +214,9 @@ func clear() -> void:
 	works = []
 	gravel = []
 	traffic = []
+	bridges = []
+	washouts = []
+	broken = []
 	_cars = []
 	_car_at = PackedVector3Array()
 	_car_state = []
@@ -289,6 +309,18 @@ func _ease_widths() -> void:
 ## Ice and debris along one segment, spaced evenly and moved by a hash so they are not in a
 ## line. Debris takes one lane and leaves the other, always: a pile across the whole road is a
 ## road nobody can drive, and the validator has no way to know it.
+## The first and last sample index inside [param from_d, to_d], so a gap starts and ends on a
+## sample and the deck spans exactly the missing road.
+func _hole_samples(from_d: float, to_d: float) -> Array:
+	var a := 0
+	while a < distances.size() - 1 and distances[a] < from_d:
+		a += 1
+	var b := a
+	while b < distances.size() - 1 and distances[b + 1] <= to_d:
+		b += 1
+	return [a, maxi(b, a + 1)]
+
+
 func _place_hazards(index: int, seg: Dictionary, start: float, length_m: float) -> void:
 	var width: float = seg["width"]
 	var id_text := str(doc.get("id", ""))
@@ -322,6 +354,35 @@ func _place_hazards(index: int, seg: Dictionary, start: float, length_m: float) 
 	for k in int(seg["gravel"]):
 		var n := float(int(seg["gravel"]))
 		gravel.append({"d": start + length_m * (float(k) + 0.5) / n, "length": minf(GRAVEL_LENGTH, length_m / n * 0.8)})
+
+	for k in int(seg["bridge"]):
+		var n := float(int(seg["bridge"]))
+		var centre := start + length_m * (float(k) + 0.5) / n
+		var hole := _hole_samples(centre - BRIDGE_LENGTH * 0.5, centre + BRIDGE_LENGTH * 0.5)
+		var roll := DdWeather.unit("%s|bridge|%d|%d" % [id_text, index, k])
+		bridges.append({"d": centre, "length": BRIDGE_LENGTH, "a": hole[0], "b": hole[1], "rating": 1.5 + roll * 0.7})
+
+	for k in int(seg["washout"]):
+		var n := float(int(seg["washout"]))
+		var centre := start + length_m * (float(k) + 0.5) / n
+		var hole := _hole_samples(centre - WASHOUT_LENGTH * 0.5, centre + WASHOUT_LENGTH * 0.5)
+		var roll := DdWeather.unit("%s|washout|%d|%d" % [id_text, index, k])
+		# The drop side goes, so the truck must hold the cliff's.
+		var wall_side := -1.0 if str(seg["wall"]) == "left" else (1.0 if str(seg["wall"]) == "right" else (-1.0 if roll < 0.5 else 1.0))
+		washouts.append({"d": centre, "length": WASHOUT_LENGTH, "a": hole[0], "b": hole[1], "side": -wall_side})
+
+	# Broken road: three heaps down alternating sides, close enough that a truck cannot weave
+	# between them at speed and must hold a side and take the bumps.
+	for k in int(seg["broken"]):
+		var n := float(int(seg["broken"]))
+		var centre := start + length_m * (float(k) + 0.5) / n
+		var roll := DdWeather.unit("%s|broken|%d|%d" % [id_text, index, k])
+		for j in 3:
+			var side := 1.0 if (j + int(roll * 2.0)) % 2 == 0 else -1.0
+			broken.append({
+				"d": centre + (float(j) - 1.0) * 6.0, "lateral": side * width * 0.2,
+				"size": Vector3(width * 0.55, 0.6 + roll * 0.3, 3.5),
+			})
 
 	# Oncoming cars keep to the left lane (the drop or the cliff, whichever is there) and run the
 	# segment downhill, against the trucks, clear of both ends: a checkpoint's truck is put down
@@ -383,6 +444,12 @@ func challenges() -> Array:
 		out.append({"d": float(job["d"]), "kind": "works"})
 	for patch: Dictionary in gravel:
 		out.append({"d": float(patch["d"]), "kind": "gravel"})
+	for entry: Dictionary in bridges:
+		out.append({"d": float(entry["d"]), "kind": "bridge"})
+	for entry: Dictionary in washouts:
+		out.append({"d": float(entry["d"]), "kind": "washout"})
+	for k in range(0, broken.size(), 3):
+		out.append({"d": float(broken[k]["d"]) + 6.0, "kind": "broken"})
 	for car: Dictionary in traffic:
 		out.append({"d": (float(car["from"]) + float(car["to"])) * 0.5, "kind": "traffic"})
 
@@ -644,6 +711,12 @@ func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Arr
 				p -= right_of(yaws[i]) * signf(float(job["lateral"])) * width_at(d) * 0.26
 				dodging = true
 
+		# Hold the side a washout leaves.
+		for wash: Dictionary in washouts:
+			if absf(float(wash["d"]) - d) < float(wash["length"]) * 0.5 + 8.0:
+				p -= right_of(yaws[i]) * float(wash["side"]) * width_at(d) * 0.22
+				dodging = true
+
 		# Swing wide round a hairpin, as a long truck must: on the centreline a stand-in's rear
 		# wheels and a trailer cut in and ground along the cliff on the inside.
 		var seg_here := segment_at(d)
@@ -720,6 +793,8 @@ func _build_geometry() -> void:
 	_build_ice()
 	_build_debris()
 	_build_works()
+	_build_broken()
+	_build_bridges()
 	_build_gravel()
 	_build_traffic()
 
@@ -755,13 +830,27 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 		var l1 := _edge(i + 1, -1.0, width, bank)
 		var r1 := _edge(i + 1, 1.0, width, bank)
 		var down := Vector3(0.0, -SLAB, 0.0)
+		var gap := false
+
+		for bridge: Dictionary in bridges:
+			gap = gap or (i >= int(bridge["a"]) and i < int(bridge["b"]))
+
+		for wash: Dictionary in washouts:
+			if i >= int(wash["a"]) and i < int(wash["b"]):
+				if float(wash["side"]) > 0.0:
+					r0 = l0.lerp(r0, WASHOUT_KEEP)
+					r1 = l1.lerp(r1, WASHOUT_KEEP)
+				else:
+					l0 = r0.lerp(l0, WASHOUT_KEEP)
+					l1 = r1.lerp(l1, WASHOUT_KEEP)
 
 		# The surface, and the slab's two sides and underside, all solid: a wheel that slips
 		# over the edge should catch the edge on the way down, not fall through it.
-		_quad(road, true, l0, r0, r1, l1, true)
-		_quad(rock, true, l1 + down, r1 + down, r0 + down, l0 + down, true)
-		_quad(rock, true, l0 + down, l0, l1, l1 + down, true)
-		_quad(rock, true, r1 + down, r1, r0, r0 + down, true)
+		if not gap:
+			_quad(road, true, l0, r0, r1, l1, true)
+			_quad(rock, true, l1 + down, r1 + down, r0 + down, l0 + down, true)
+			_quad(rock, true, l0 + down, l0, l1, l1 + down, true)
+			_quad(rock, true, r1 + down, r1, r0, r0 + down, true)
 
 		# The cliff. Solid, because driving into it is how a truck stays on the road.
 		var up := Vector3(0.0, WALL_HEIGHT, 0.0)
@@ -1279,6 +1368,62 @@ func _build_debris() -> void:
 		heap.name = "Debris"
 		add_child(heap)
 		heap.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]))
+
+
+## Broken road: low heaps of rock ([code]DotPropRubble[/code]) that must be crossed or held to one side of.
+func _build_broken() -> void:
+	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
+	for k in broken.size():
+		var heap_at: Dictionary = broken[k]
+		var at := transform_at(float(heap_at["d"]), 0.0)
+		var size: Vector3 = heap_at["size"]
+		var heap: StaticBody3D = Rubble.make(size.x, size.z, size.y, 100 + k, _rock_material(), 1 | CAMERA_LAYER)
+		heap.name = "Broken"
+		add_child(heap)
+		heap.transform = Transform3D(at.basis, at.origin + at.basis.x * float(heap_at["lateral"]))
+
+
+## Plank bridges (dot-props' [code]DotPropBridge[/code]) in the road's gaps.
+func _build_bridges() -> void:
+	var Bridge: GDScript = load("res://addons/dot_props/runtime/dot_prop_bridge.gd")
+	var planks := StandardMaterial3D.new()
+	planks.albedo_color = Color(0.42, 0.3, 0.18)
+	planks.roughness = 0.95
+	for entry: Dictionary in bridges:
+		var deck: Node3D = Bridge.new()
+		deck.name = "Bridge"
+		deck.rating = float(entry["rating"])
+		add_child(deck)
+		var a: Vector3 = points[int(entry["a"])]
+		var b: Vector3 = points[int(entry["b"])]
+		deck.build(a, b, _width_at_sample(int(entry["a"])), planks, 1 | CAMERA_LAYER)
+		entry["node"] = deck
+
+
+func _width_at_sample(i: int) -> float:
+	return float(doc["segments"][segment_of[i]]["width"])
+
+
+## What each truck puts on the bridges, from the world's tick: [param position] in this route's
+## frame, [param mass] and [param speed] of the truck (and its trailer).
+func bridge_report(position: Vector3, mass: float, speed: float) -> void:
+	for entry: Dictionary in bridges:
+		var node: Node3D = entry.get("node")
+		if node == null or not node.is_standing():
+			continue
+		var a: Vector3 = points[int(entry["a"])]
+		var b: Vector3 = points[int(entry["b"])]
+		var along := (b - a)
+		var t := (position - a).dot(along) / maxf(along.length_squared(), 0.001)
+		if t > -0.05 and t < 1.05 and absf(position.y - a.y) < 6.0:
+			node.report(node.strain(mass, absf(speed)))
+
+
+func _physics_process(delta: float) -> void:
+	for entry: Dictionary in bridges:
+		var node: Node3D = entry.get("node")
+		if node != null:
+			node.step(delta)
 
 
 ## Roadworks: a row of barriers down the closed lane, a cone at each end and two more angled in

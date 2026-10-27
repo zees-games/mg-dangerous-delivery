@@ -48,6 +48,7 @@ func _run() -> void:
 	cfg.bots = int(_arg("bots", str(cfg.bots)))
 
 	_game = DdGame.new()
+	_game.mountain_hazards = false
 	_game.draws = false
 	_game.config.quick_start = true
 	_game.config.start_hold_seconds = 0.3

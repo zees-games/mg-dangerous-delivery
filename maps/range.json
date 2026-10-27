@@ -8,5 +8,10 @@
 	"routes": [],
 	"layout": {
 		"clearance": 400
+	},
+	"hazards": {
+		"bridge": 1,
+		"broken": 1,
+		"washout": 1
 	}
 }

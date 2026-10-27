@@ -10,11 +10,30 @@
 		"gap": 360,
 		"clearance": 800,
 		"roads": {
-			"dd_devils_spine": [[1950, 600], [2550, 470], [2880, 250]]
+			"dd_devils_spine": [
+				[
+					1950,
+					600
+				],
+				[
+					2550,
+					470
+				],
+				[
+					2880,
+					250
+				]
+			]
 		}
 	},
 	"land": {
 		"hills": 34,
 		"coast": 420
+	},
+	"hazards": {
+		"bridge": 1,
+		"broken": 2,
+		"traffic": 2,
+		"gravel": 1
 	}
 }

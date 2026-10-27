@@ -205,6 +205,10 @@ var bank: DdBank = null
 ## route id -> normalised document for the routes the world holds now (the mountain's), and
 ## the ones refused with why.
 var documents: Dictionary = {}
+
+## Whether a mountain's `hazards` (bridges, washouts, broken road, extra traffic) are added to its
+## routes. A suite or a tool that scripts a truck down a road off by one line.
+var mountain_hazards: bool = true
 var refused: Dictionary = {}
 
 ## route id -> every document accepted, whichever mountain is up. Server side: a client is
@@ -471,8 +475,10 @@ func _select_mountain() -> void:
 
 	documents.clear()
 
+	var extras: Dictionary = DdMountains.by_id(mountain_id, maps).get("hazards", {}) if mountain_hazards else {}
+
 	for id in ids:
-		documents[id] = library[id]
+		documents[id] = DdRouteDoc.overlay(library[id], extras)
 
 
 ## Every mountain this server can play, as the map menu (M) lists them: `{id, name, detail,
@@ -2181,6 +2187,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 			var jolt := config.gravel_jolt * absf(truck.forward_speed())
 			truck.apply_central_impulse(Vector3.UP * jolt * truck.mass)
 
+	road.bridge_report(local, truck.mass + (float(driver.trailer.mass) if driver.trailer != null else 0.0), truck.forward_speed())
 	truck.set_grip(grip)
 
 	if driver.trailer != null:

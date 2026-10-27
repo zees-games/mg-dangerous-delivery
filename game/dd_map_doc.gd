@@ -1,4 +1,5 @@
 extends RefCounted
+const DdRouteDoc := preload("dd_route_doc.gd")
 
 ## What a map IS: which routes a world holds and how it is laid out, as a document a server
 ## reads, checks, and sends whole to every client (in HELLO and MOUNTAIN, beside the routes).
@@ -146,7 +147,21 @@ static func normalise(doc: Variant) -> DotResult:
 	if float(land["coast"]) < 120.0 or float(land["coast"]) > 1500.0:
 		return DotResult.fail(DotError.CODE_INVALID, "land.coast %.0f is outside 120 to 1500 metres." % float(land["coast"]))
 
+	# Hazards this mountain adds to every route it holds: {kind: count per route}, see DdRouteDoc.overlay.
+	var raw_hazards: Variant = d.get("hazards", {})
+
+	if not (raw_hazards is Dictionary):
+		return DotResult.fail(DotError.CODE_INVALID, "hazards is an object of {hazard: count}.")
+
+	var hazards := {}
+
+	for key: Variant in (raw_hazards as Dictionary):
+		if not DdRouteDoc.OVERLAY_KINDS.has(str(key)):
+			return DotResult.fail(DotError.CODE_INVALID, "hazards.%s is not one of %s." % [str(key), DdRouteDoc.OVERLAY_KINDS])
+		hazards[str(key)] = clampi(int((raw_hazards as Dictionary)[key]), 0, 8)
+
 	return DotResult.success({
+		"hazards": hazards,
 		"format": FORMAT, "kind": "map", "id": id, "name": str(d.get("name", id)), "blurb": str(d.get("blurb", "")),
 		"author": str(d.get("author", "")), "order": int(d.get("order", 100)), "routes": routes, "layout": layout, "land": land,
 	})

@@ -5,5 +5,16 @@
 	"name": "High Country",
 	"blurb": "The three hardest routes, from Snowline Pass up to the Devil's Spine.",
 	"order": 30,
-	"routes": ["dd_snowline", "dd_wind_ridge", "dd_devils_spine"]
+	"routes": [
+		"dd_snowline",
+		"dd_wind_ridge",
+		"dd_devils_spine"
+	],
+	"hazards": {
+		"bridge": 2,
+		"washout": 2,
+		"broken": 2,
+		"traffic": 1,
+		"ice": 1
+	}
 }

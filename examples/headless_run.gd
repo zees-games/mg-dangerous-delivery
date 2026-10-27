@@ -30,8 +30,8 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
-const SECTIONS := 31
-const CHECKS := 242
+const SECTIONS := 32
+const CHECKS := 248
 
 var _passed := 0
 var _failed := 0
@@ -54,6 +54,7 @@ func _ready() -> void:
 	_test_sql()
 
 	game = DdGame.new()
+	game.mountain_hazards = false
 	game.draws = false
 	game.config.start_hold_seconds = 0.3
 	game.config.respawn_seconds = 0.3
@@ -87,6 +88,7 @@ func _ready() -> void:
 	await _test_walking_client()
 	await _test_the_lot_makes_room()
 	await _test_sound_and_effects()
+	await _test_road_hazards()
 	await _test_collision_audit()
 
 	print("")
@@ -966,6 +968,55 @@ func _clean_offer(trip: DdTrip) -> int:
 	copy.truck_pay = trip.truck_pay
 	copy.chaos_units = trip.chaos_units
 	return copy.pay_now(game.config)
+
+
+## Bridges, washouts and broken road: a mountain's `hazards` reach its routes, deterministically,
+## and a bridge gives way under speed but not at a walk.
+func _test_road_hazards() -> void:
+	_section("road hazards")
+	var world := DdGame.new()
+	world.draws = false
+	add_child(world)
+	var _moved := world.set_mountain(&"high_country")
+	var bridges := 0
+	var washouts := 0
+	var broken := 0
+	for id: StringName in world.routes:
+		var road: DdRoute = world.routes[id]
+		bridges += road.bridges.size()
+		washouts += road.washouts.size()
+		broken += road.broken.size()
+	_check(bridges > 0 and washouts > 0 and broken > 0, "High Country lays bridges, washouts and broken road", "%d, %d, %d" % [bridges, washouts, broken])
+	var base: Dictionary = world.library[&"dd_snowline"]
+	var once := DdRouteDoc.overlay(base, {"bridge": 1, "washout": 1})
+	var twice := DdRouteDoc.overlay(base, {"bridge": 1, "washout": 1})
+	_check(var_to_str(once) == var_to_str(twice) and var_to_str(once) != var_to_str(base), "the overlay is the same on every machine and changes the road")
+	_check(base["segments"][0].get("bridge", 0) == 0 and var_to_str(DdRouteDoc.overlay(base, {})) == var_to_str(base), "and never touches the shipped document")
+	var low := 0
+	world.set_mountain(&"low_country")
+	for id: StringName in world.routes:
+		low += (world.routes[id] as DdRoute).bridges.size() + (world.routes[id] as DdRoute).washouts.size()
+	_check(low == 0, "Low Country keeps its roads whole", str(low))
+	var _back := world.set_mountain(&"high_country")
+	var deck: Node3D = null
+	for id: StringName in world.routes:
+		if not (world.routes[id] as DdRoute).bridges.is_empty():
+			deck = (world.routes[id] as DdRoute).bridges[0]["node"]
+			break
+	var rating: float = deck.rating
+	var slow: float = deck.strain(4000.0, 3.0)
+	var fast: float = deck.strain(4000.0, 16.0)
+	_check(slow < rating and fast > rating, "a light truck at a walk is under the rating and at 16 m/s over it", "%.2f, %.2f, rating %.2f" % [slow, fast, rating])
+	for i in 60:
+		deck.report(slow)
+		deck.step(1.0 / 60.0)
+	_check(deck.is_standing() and deck.sag > 0.0, "a slow crossing sags the deck and it holds", "%.2f m" % deck.sag)
+	for i in 60:
+		deck.report(fast)
+		deck.step(1.0 / 60.0)
+	_check(not deck.is_standing(), "a fast one brings it down")
+	world.queue_free()
+	_finished_section()
 
 
 func _test_solo() -> void:

@@ -1134,6 +1134,7 @@ func _process(delta: float) -> void:
 	hud.show_trip(facts)
 	hud.show_prompt("")
 	_set_weather(facts["weather"])
+	_spray(me, facts["weather"])
 
 	if me != null and me.truck != null:
 		camera.global_position -= _shaken
@@ -1731,6 +1732,21 @@ func _precipitation(kind: StringName, colour: Color, density: float) -> DotFxWea
 		DotLog.warn(CHANNEL, "weather refused", {"why": res.error.message})
 	w.quality = DotFxWeather.Quality.OFF
 	return w
+
+
+## Mist behind the driver's own tyres on a wet road (dot-vehicle's [code]DotVehicleSpray[/code]).
+func _spray(me: DdGame.Driver, weather: Dictionary) -> void:
+	if me == null or me.truck == null or not is_instance_valid(me.truck):
+		return
+	var truck := me.truck as DdTruck
+	var mist := truck.get_node_or_null("Spray") as CPUParticles3D
+	if mist == null:
+		mist = (load("res://addons/dot_vehicle/runtime/dot_vehicle_spray.gd") as GDScript).new()
+		mist.name = "Spray"
+		truck.add_child(mist)
+		mist.position = Vector3(0.0, 0.25, 2.4)
+	mist.set("wet", int(weather.get("sky", DdWeather.CLEAR)) == DdWeather.RAIN)
+	mist.call("drive", truck.forward_speed())
 
 
 func _set_weather(weather: Dictionary) -> void:
