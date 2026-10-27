@@ -72,8 +72,8 @@ var command := DotVehicleCommand.new()
 
 ## dot-fx's shader weather, one node per kind, round the camera (a mountain's worth of
 ## particles is a browser's whole frame); see [method _build_weather].
-var _rain: DotFxWeather = null
-var _snow: DotFxWeather = null
+var _weather: DotWeather = null
+var _weather_key := ""
 var _sun: DirectionalLight3D = null
 ## The sun's strength under a clear sky on this machine's profile; weather dims from it.
 var _clear_sun := 1.0
@@ -1049,9 +1049,8 @@ func _process(delta: float) -> void:
 
 	_apply_pointer()
 
-	if _rain != null and camera != null:
-		_rain.advance(delta, camera.global_position)
-		_snow.advance(delta, camera.global_position)
+	if _weather != null and camera != null:
+		_weather.advance(delta, camera.global_position)
 
 	var me := _driver()
 
@@ -1718,20 +1717,9 @@ static func light_profile() -> DotLightProfile:
 ## Rain and snow are particles round the camera, not over the mountain: what falls a kilometre
 ## away cannot be seen, and a mountain's worth of particles is a browser's whole frame.
 func _build_weather() -> void:
-	_rain = _precipitation(DotFxWeatherDef.RAIN, Color(0.78, 0.84, 0.95, 0.6), 1.0)
-	_snow = _precipitation(DotFxWeatherDef.SNOW, Color(1, 1, 1, 0.95), 1.0)
-
-
-## No volumes, so it falls everywhere the camera is; hidden (and free) while [param density] is 0.
-func _precipitation(kind: StringName, colour: Color, density: float) -> DotFxWeather:
-	var w := DotFxWeather.new()
-	w.name = "Rain" if kind == DotFxWeatherDef.RAIN else "Snow"
-	add_child(w)
-	var res := w.apply({"kind": str(kind), "density": density, "colour": colour.to_html(true)})
-	if not res.ok:
-		DotLog.warn(CHANNEL, "weather refused", {"why": res.error.message})
-	w.quality = DotFxWeather.Quality.OFF
-	return w
+	_weather = DotWeather.new()
+	_weather.name = "Weather"
+	add_child(_weather)
 
 
 ## Mist behind the driver's own tyres on a wet road (dot-vehicle's [code]DotVehicleSpray[/code]).
@@ -1750,7 +1738,7 @@ func _spray(me: DdGame.Driver, weather: Dictionary) -> void:
 
 
 func _set_weather(weather: Dictionary) -> void:
-	if _rain == null:
+	if _weather == null:
 		return
 
 	var sky := int(weather.get("sky", DdWeather.CLEAR))
@@ -1762,9 +1750,14 @@ func _set_weather(weather: Dictionary) -> void:
 	var density := FOG_SNOW if sky == DdWeather.SNOW else (FOG_RAIN if sky == DdWeather.RAIN else FOG_CLEAR)
 	density = maxf(density, game.config.fog_density * (1.0 if foggy else 0.0))
 	density = maxf(density, FOG_SNOW * 1.2 if stormy else 0.0)
-	_rain.quality = DotFxWeather.Quality.HIGH if sky == DdWeather.RAIN else DotFxWeather.Quality.OFF
-	_rain.density_scale = 2.0 if stormy else 1.0
-	_snow.quality = DotFxWeather.Quality.HIGH if sky == DdWeather.SNOW else DotFxWeather.Quality.OFF
+	var drawn := DdWeather.doc_for(weather)
+	var key := JSON.stringify(drawn)
+	if key != _weather_key:
+		_weather_key = key
+		if drawn.is_empty():
+			_weather.clear()
+		else:
+			var _applied := _weather.apply(drawn)
 	_env.fog_density = lerpf(_env.fog_density, density, 0.02)
 
 

@@ -104,3 +104,18 @@ static func forced_from(name: String, wind: bool = false) -> Dictionary:
 
 static func sky_name(sky: int) -> String:
 	return ["clear", "rain", "snow"][clampi(sky, 0, 2)]
+
+
+## The [DotWeatherDoc] dictionary that draws [param weather]: precipitation round the camera, harder in a storm, leaning in a wind (gusts reach it through DotWeather). Empty for a clear sky. Fog stays the client's (it eases with the light).
+static func doc_for(weather: Dictionary) -> Dictionary:
+	var sky := int(weather.get("sky", CLEAR))
+	if sky == CLEAR:
+		return {}
+	var doc := {"precipitation": {
+		"kind": "snow" if sky == SNOW else "rain",
+		"density": 2.0 if bool(weather.get("storm", false)) else 1.0,
+		"colour": "#ffffffff" if sky == SNOW else Color(0.78, 0.84, 0.95, 0.6).to_html(true),
+	}}
+	if bool(weather.get("wind", false)):
+		doc["wind"] = {"vector": [3.0, 0.0, 0.0], "gust": 0.8, "gust_period": 7.0}
+	return doc

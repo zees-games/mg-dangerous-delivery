@@ -31,7 +31,7 @@ const DdMapDoc := preload("res://game/dd_map_doc.gd")
 const PointerModalStub := preload("res://examples/pointer_modal_stub.gd")
 
 const SECTIONS := 32
-const CHECKS := 257
+const CHECKS := 258
 
 var _passed := 0
 var _failed := 0
@@ -282,6 +282,11 @@ func _test_weather() -> void:
 	for t in 600:
 		gusts.append(DdWeather.gust(9, "r|z", t * 10, 60))
 	_check(is_equal_approx(gusts[0], DdWeather.gust(9, "r|z", 0, 60)) and absf(gusts[0]) <= 1.0, "a gust is a pure function of the tick, within 1")
+
+	var drawn_ok := DdWeather.doc_for({"sky": DdWeather.CLEAR}).is_empty()
+	for w: Dictionary in [{"sky": DdWeather.RAIN}, {"sky": DdWeather.SNOW, "wind": true}, {"sky": DdWeather.RAIN, "storm": true, "wind": true}]:
+		drawn_ok = drawn_ok and DotWeatherDoc.parse(DdWeather.doc_for(w)).ok
+	_check(drawn_ok, "every sky is drawn from a DotWeatherDoc that parses, and a clear one from none")
 
 	# Extreme weather: a storm is rain that came up again, so it is always wet and windy.
 	var wet := {"snow": 0.0, "rain": 1.0, "wind": 0.0}
