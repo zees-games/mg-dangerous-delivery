@@ -930,12 +930,12 @@ func _test_a_fall() -> void:
 	await _seconds(0.6)
 	var road: DdRoute = game.routes[&"dd_river_cut"]
 	var why := [""]
-	game.fell.connect(func(key: StringName, reason: String) -> void:
-		if key == &"p1":
 	var crash := {"began": false, "exploded": false, "lost": 0}
 	game.truck_crashed.connect(func(key: StringName) -> void:
 		if key == &"p1":
 			crash["began"] = true)
+	game.fell.connect(func(key: StringName, reason: String) -> void:
+		if key == &"p1":
 			why[0] = reason
 			var gone := me.truck as DdTruck
 			crash["exploded"] = gone.has_exploded()
@@ -949,15 +949,15 @@ func _test_a_fall() -> void:
 		await get_tree().physics_frame
 	var trip: DdTrip = me.trip
 	_check(why[0] == "fell", "a truck off the road falls", why[0])
-	_check(trip.falls == 1 and is_equal_approx(trip.cargo, 1.0 - game.config.fall_cargo_loss), "a fall costs the configured share of the load", "%.2f" % trip.cargo)
-	await _seconds(0.8)
 	_check(crash["began"] and crash["exploded"], "but first it crashes and explodes", str(crash))
 	_check(int(crash["lost"]) >= (me.truck as DdTruck).damage.parts.size() - 4, "torn apart by then", str(crash))
+	_check(trip.falls == 1 and is_equal_approx(trip.cargo, 1.0 - game.config.fall_cargo_loss), "a fall costs the configured share of the load", "%.2f" % trip.cargo)
+	await _seconds(0.8)
 	_check(trip.state == DdTrip.State.DRIVING and absf(road.distance_at((me.truck as Node3D).global_position - road.position) - road.checkpoint_distance(trip.stage)) < 3.0,
 		"and it is put back on its checkpoint")
+	_check(not (me.truck as DdTruck).has_exploded() and (me.truck as DdTruck).damage.lost_parts().is_empty(), "and the wreck is whole again")
 	_check(trip.pay_now(game.config) < _clean_offer(trip), "a fall loses the clean-run bonus")
 	_check(progress.session_values(&"p1").get_value(DdProgress.FALLS) == 1.0, "and is counted")
-	_check(not (me.truck as DdTruck).has_exploded() and (me.truck as DdTruck).damage.lost_parts().is_empty(), "and the wreck is whole again")
 	_finished_section()
 
 
