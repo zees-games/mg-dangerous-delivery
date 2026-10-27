@@ -1007,18 +1007,6 @@ func _test_road_hazards() -> void:
 		if not (world.routes[id] as DdRoute).bridges.is_empty():
 			deck = (world.routes[id] as DdRoute).bridges[0]["node"]
 			break
-	var rating: float = deck.rating
-	var slow: float = deck.strain(4000.0, 3.0)
-	var fast: float = deck.strain(4000.0, 16.0)
-	_check(slow < rating and fast > rating, "a light truck at a walk is under the rating and at 16 m/s over it", "%.2f, %.2f, rating %.2f" % [slow, fast, rating])
-	for i in 60:
-		deck.report(slow)
-		deck.step(1.0 / 60.0)
-	_check(deck.is_standing() and deck.sag > 0.0, "a slow crossing sags the deck and it holds", "%.2f m" % deck.sag)
-	for i in 60:
-		deck.report(fast)
-		deck.step(1.0 / 60.0)
-	_check(not deck.is_standing(), "a fast one brings it down")
 	var road_with: DdRoute = null
 	for id: StringName in world.routes:
 		if not (world.routes[id] as DdRoute).bridges.is_empty():
@@ -1031,6 +1019,18 @@ func _test_road_hazards() -> void:
 		"a stand-in is told the speed a deck bears from 70 m before it until it is across", "%.1f m/s" % cap)
 	_check(road_with.bridges[0]["node"].strain(heavy_load, cap) < road_with.bridges[0]["node"].rating,
 		"and that speed does not bring the deck down", "%.2f" % road_with.bridges[0]["node"].strain(heavy_load, cap))
+	var rating: float = deck.rating
+	var slow: float = deck.strain(4000.0, 3.0)
+	var fast: float = deck.strain(4000.0, 16.0)
+	_check(slow < rating and fast > rating, "a light truck at a walk is under the rating and at 16 m/s over it", "%.2f, %.2f, rating %.2f" % [slow, fast, rating])
+	for i in 60:
+		deck.report(slow)
+		deck.step(1.0 / 60.0)
+	_check(deck.is_standing() and deck.sag > 0.0, "a slow crossing sags the deck and it holds", "%.2f m" % deck.sag)
+	for i in 60:
+		deck.report(fast)
+		deck.step(1.0 / 60.0)
+	_check(not deck.is_standing(), "a fast one brings it down")
 	var wash: Dictionary = {}
 	var heap: Dictionary = {}
 	for id: StringName in world.routes:

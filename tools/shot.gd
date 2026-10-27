@@ -92,6 +92,16 @@ func _ready() -> void:
 	# Put the truck this many metres along its route first: a hazard half a kilometre up a
 	# road is otherwise minutes of simulated driving under a renderer.
 	var at_m := float(_args.get("at", "0"))
+	var deck: Node = null
+
+	# `--bridge=collapse --mountain=high_country --route=dd_snowline`: the first deck of the route
+	# comes down as the truck, 30 m short of it, comes on.
+	if str(_args.get("bridge", "")) != "" and not on_foot:
+		var bridged = client.game.routes[StringName(str(_args.get("route", "dd_foothills")))]
+
+		if not bridged.bridges.is_empty():
+			at_m = float(bridged.bridges[0]["d"]) - 30.0
+			deck = bridged.bridges[0]["node"]
 
 	if at_m > 0.0 and not on_foot:
 		await get_tree().physics_frame
@@ -109,6 +119,9 @@ func _ready() -> void:
 		me.trip.distance = at_m
 		me.trip.hint = road.index_at_distance(at_m)
 		me.autopilot.set_route(client.game._global_points(me.trip.route_id, at_m))
+
+	if deck != null:
+		deck.call("_collapse")
 
 	# A stage hazard (`--hazard=tornado|wind|quake`) a short way up the road, at its mid-life.
 	var hazard := str(_args.get("hazard", ""))

@@ -48,6 +48,9 @@ enum Kind {
 	## id or "wheel<i>": [x, y, z]}, crates: [[x, y, z, vx, vy, vz]], event}[/code]. On every loss
 	## and on a repair (state with nothing lost). The client throws its own pieces from it.
 	DAMAGE,
+	## Bridge decks that moved: {route, decks: [[index, down, sag steps]]}. On a change (a sag step,
+	## a collapse, a rebuild) and the whole set that is not at rest to a joiner.
+	BRIDGE,
 }
 
 enum Ask {

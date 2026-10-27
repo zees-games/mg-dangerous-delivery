@@ -21,6 +21,7 @@
 #   tools/shot.sh --view=standin --near=3.5 --seconds=3   # a walker close up, mid-stride (--near is the metres behind)
 #   tools/shot.sh --view=above --route=dd_devils_spine     # the whole route from above
 #   tools/shot.sh --view=drive --sky=snow                  # force the weather everywhere
+#   tools/shot.sh --view=drive --mountain=high_country --route=dd_snowline --bridge=collapse --seconds=2   # a bridge deck coming down ahead of the truck
 #   tools/shot.sh --view=drive --route=dd_wind_ridge --hazard=tornado   # a stage hazard (tornado, wind, quake) ahead, mid-life
 #   tools/shot.sh --view=drive --route=dd_snowline --at=880 --seconds=4   # put the truck 880 m along first
 #   tools/shot.sh --mountain=low_country                   # the lot on another mountain (DdMountains)
@@ -37,7 +38,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"; bridge=""
 take=0; extra=()
 for arg in "$@"; do
     if [ "$take" -gt 0 ]; then extra+=("$arg"); take=$((take - 1)); continue; fi
@@ -61,6 +62,7 @@ for arg in "$@"; do
         --dx=*)      dx="${arg#*=}" ;;
         --dy=*)      dy="${arg#*=}" ;;
         --dz=*)      dz="${arg#*=}" ;;
+        --bridge=*)  bridge="${arg#*=}" ;;
         --panel)     panel="1" ;;
         *)           echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
@@ -68,4 +70,4 @@ done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
 exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "${extra[@]}"
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "--bridge=$bridge" "${extra[@]}"

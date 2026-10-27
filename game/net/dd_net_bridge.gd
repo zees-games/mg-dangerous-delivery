@@ -188,6 +188,8 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.walker_placed.connect(_on_walker_placed)
 		game.truck_made.connect(_on_truck_made)
 		game.truck_damaged.connect(_on_truck_damaged)
+		game.bridge_moved.connect(func(route_id: StringName, decks: Array) -> void:
+			_broadcast(DdEvents.Kind.BRIDGE, {"route": String(route_id), "decks": decks}))
 		game.seated.connect(func(key: StringName) -> void: _broadcast_driver(key))
 
 	return DotResult.success(true)
@@ -485,6 +487,13 @@ func _admit(peer_id: int) -> void:
 	# A joiner in the middle of a storm hears and sees it at once (natural-disasters, if linked).
 	if game.disasters != null:
 		var _caught_up := game.disasters.send_snapshot(func(msg: Dictionary) -> void: _tell(peer_id, DdEvents.Kind.DISASTER, msg))
+
+	# Decks already sagging or down, which the joiner's mirror would show standing.
+	for route_id: StringName in game.routes:
+		var decks: Array = game.routes[route_id].bridge_changes(true)
+
+		if not decks.is_empty():
+			_tell(peer_id, DdEvents.Kind.BRIDGE, {"route": String(route_id), "decks": decks})
 
 	# The lot's toys by net id, which the joiner's own are paired with.
 	if not _toys_body.is_empty():
@@ -983,6 +992,14 @@ func _on_event(message: DotNetMessage) -> void:
 			mountain_received.emit(id, str(data.get("name", "")))
 		DdEvents.Kind.DAMAGE:
 			_apply_damage(data)
+		DdEvents.Kind.BRIDGE:
+			var road: Variant = game.routes.get(StringName(str(data.get("route", ""))), null)
+			var decks: Variant = data.get("decks", [])
+
+			if road != null and decks is Array:
+				for deck: Variant in decks:
+					if deck is Array and (deck as Array).size() == 3:
+						road.apply_bridge(int(deck[0]), bool(deck[1]), int(deck[2]))
 		DdEvents.Kind.ROCK:
 			# On the mirror world, where the client listens for it offline too.
 			var at: Variant = data.get("at", [])

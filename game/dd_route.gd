@@ -1419,6 +1419,61 @@ func bridge_report(position: Vector3, mass: float, speed: float) -> void:
 			node.report(node.strain(mass, absf(speed)))
 
 
+## Sag steps on the wire (a step is this many metres): a deck that is still sends nothing.
+const SAG_STEP := 0.05
+
+
+## Decks whose state moved since last asked, for the server to send: [code][[index, down, sag steps]][/code].
+## [param everything] returns every deck that is not at rest (a joiner), without marking them sent.
+func bridge_changes(everything: bool = false) -> Array:
+	var out: Array = []
+
+	for i in bridges.size():
+		var node: Node3D = bridges[i].get("node")
+
+		if node == null:
+			continue
+
+		var now := [not node.is_standing(), int(round(node.sag / SAG_STEP))]
+
+		if everything:
+			if now[0] or now[1] > 0:
+				out.append([i, now[0], now[1]])
+		elif now != bridges[i].get("sent", [false, 0]):
+			bridges[i]["sent"] = now
+			out.append([i, now[0], now[1]])
+
+	return out
+
+
+## A mirror's deck as the server reports it ([method bridge_changes]).
+func apply_bridge(index: int, down: bool, sag_steps: int) -> void:
+	if index < 0 or index >= bridges.size() or bridges[index].get("node") == null:
+		return
+
+	(bridges[index]["node"] as Node3D).apply_remote(down, float(sag_steps) * SAG_STEP)
+
+
+## The speed a truck of [param mass] may hold on the bridge [param lookahead] metres ahead of
+## route distance [param d] (or on it) and not bring it down; INF when none is near or in the way.
+## Strain is [code]mass / (mass + 8000) * (1 + (v / 7)^2)[/code] (dot-props), held to 70% of the rating.
+func bridge_safe_speed(d: float, mass: float, lookahead: float) -> float:
+	var best := INF
+
+	for entry: Dictionary in bridges:
+		var node: Node3D = entry.get("node")
+		var at := float(entry["d"])
+
+		if node == null or not node.is_standing() or d < at - float(entry["length"]) * 0.5 - lookahead or d > at + float(entry["length"]) * 0.5 + 4.0:
+			continue
+
+		var share := mass / (mass + 8000.0)
+		var s2 := float(node.rating) * 0.7 / maxf(share, 0.01) - 1.0
+		best = minf(best, 7.0 * sqrt(maxf(s2, 0.1)))
+
+	return best
+
+
 func _physics_process(delta: float) -> void:
 	for entry: Dictionary in bridges:
 		var node: Node3D = entry.get("node")

@@ -140,6 +140,9 @@ signal truck_damaged(key: StringName, event: Dictionary)
 signal truck_scraping(key: StringName, at: Vector3, speed: float)
 ## Somebody's truck went over the edge and began to break up.
 signal truck_crashed(key: StringName)
+## Bridge decks of a route that moved this tick (server): [code][[index, down, sag steps]][/code],
+## for the bridge to send.
+signal bridge_moved(route_id: StringName, decks: Array)
 ## Somebody got into or out of their truck off a road: everybody is told (a DRIVER).
 signal seated(key: StringName)
 
@@ -2064,6 +2067,12 @@ func step(delta: float) -> void:
 
 	_step_boulders(delta)
 
+	for id: StringName in routes:
+		var moved: Array = (routes[id] as DdRoute).bridge_changes()
+
+		if not moved.is_empty():
+			bridge_moved.emit(id, moved)
+
 	if disasters != null:
 		disasters.step_hazards(delta)
 
@@ -2231,6 +2240,10 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	if truck.wreck != null and (truck.wreck.is_wrecked() or (config.crash_depth > 0.0 and below > config.crash_depth)):
 		if not truck.wreck.is_wrecked():
 			truck.begin_crash(DdRoute.CAMERA_LAYER)
+
+			if road.terrain == null:
+				_lay_crash_floor(road, truck.global_position)
+
 			truck_crashed.emit(driver.key)
 
 		if truck.has_exploded():
@@ -2270,6 +2283,30 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	# The depot.
 	if trip.distance >= road.length() - 2.0:
 		_deliver(driver)
+
+
+## A server draws no mountain, so a wreck would fall until its fuse. The mountain's own ground
+## is a heightfield only a client builds; this is the cheap stand-in the server knows from the
+## road: a shelf [constant CRASH_FLOOR_DROP] below it, under the truck, for the wreck alone (the
+## mask [method DdTruck.begin_crash] adds), gone after a while.
+const CRASH_FLOOR_DROP := 10.0
+const CRASH_FLOOR_SIZE := 90.0
+
+
+func _lay_crash_floor(road: DdRoute, at: Vector3) -> void:
+	var floor_body := StaticBody3D.new()
+	floor_body.name = "CrashFloor"
+	floor_body.collision_layer = DdRoute.CAMERA_LAYER
+	floor_body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(CRASH_FLOOR_SIZE, 2.0, CRASH_FLOOR_SIZE)
+	shape.shape = box
+	floor_body.add_child(shape)
+	add_child(floor_body)
+	var local := at - road.position
+	floor_body.global_position = Vector3(at.x, road.position.y + road.road_height_at(local) - CRASH_FLOOR_DROP - 1.0, at.z)
+	get_tree().create_timer(config.wreck_seconds + 8.0).timeout.connect(floor_body.queue_free)
 
 
 func _held() -> DotVehicleCommand:
@@ -2463,6 +2500,9 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 ## A stand-in's corner braking gain at `bot_difficulty medium` (its speed is `stand_in_speed`).
 const STAND_IN_BRAKE := 1.5
 
+## Metres before a bridge deck a stand-in starts slowing to the speed the deck bears.
+const BRIDGE_LOOKAHEAD := 70.0
+
 ## A stand-in on foot: a person's walk and run (DdWalker's tunables), m/s, and how near what it
 ## walks to (a door, a salesperson) counts as there. Within a seller's and a door's reach.
 const STAND_IN_WALK := 4.2
@@ -2502,6 +2542,7 @@ func tune_stand_in(autopilot: DotVehicleDriver) -> void:
 	var p := DotBotSettings.of(self).profile
 	var medium := DotBotProfile.new()
 	autopilot.target_speed = config.stand_in_speed * (1.0 + 0.4 * (p.aggression - medium.aggression))
+	autopilot.set_meta("cruise", autopilot.target_speed)
 	autopilot.brake_gain = clampf(STAND_IN_BRAKE * medium.reaction / maxf(p.reaction, 0.05), 0.5, 4.0)
 
 func _drive_bot(driver: Driver, delta: float) -> void:
@@ -2546,6 +2587,9 @@ func _drive_bot(driver: Driver, delta: float) -> void:
 		return
 
 	var instance := (driver.truck as DdTruck).instance
+	var cruise: float = driver.autopilot.get_meta("cruise", driver.autopilot.target_speed)
+	var load_mass := (driver.truck as DdTruck).mass + (float(driver.trailer.mass) if driver.trailer != null else 0.0)
+	driver.autopilot.target_speed = minf(cruise, maxf((routes[trip.route_id] as DdRoute).bridge_safe_speed(trip.distance, load_mass, BRIDGE_LOOKAHEAD), 2.0))
 	driver.command = driver.autopilot.drive(instance, delta)
 
 

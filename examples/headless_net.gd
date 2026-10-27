@@ -15,7 +15,7 @@ const DdEvents := preload("res://game/net/dd_events.gd")
 const DdRequest := preload("res://game/net/dd_request.gd")
 
 const SECTIONS := 19
-const CHECKS := 77
+const CHECKS := 78
 
 const CLIENT_PEER := 7
 const SESSION := 42
@@ -710,7 +710,7 @@ func _test_bridge_decks() -> void:
 	for i in 90:
 		server_deck.report(load_strain)
 		await _step()
-	await _steps(30)
+	await _steps(3)
 	_check(server_deck.is_standing() and server_deck.sag > 0.05 and absf(client_deck.sag - server_deck.sag) < 0.06,
 		"a sagging deck sags on the client by the same amount", "%.2f server, %.2f client" % [server_deck.sag, client_deck.sag])
 	for i in 60:
