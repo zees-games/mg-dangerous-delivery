@@ -67,6 +67,8 @@ const SUPERSEDED_REASON := "You joined from another tab or window"
 var game: DdGame = null
 var net: DotNetManager = null
 var link: DdNetLink = null
+## Carries the game's profile runtime over this manager; null when the types would not register.
+var profile_link: DotNetProfileLink = null
 
 ## The local player's key, from HELLO. Client side.
 var local_key: StringName = &""
@@ -113,6 +115,13 @@ var _tick: int = 0
 
 # --- Both ends ----------------------------------------------------------------
 
+func _exit_tree() -> void:
+	# The link and the runtime hold each other through broadcast; left, both outlive the process's exit.
+	if profile_link != null:
+		profile_link.release()
+		profile_link = null
+
+
 func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 	var world := p_game as DdGame
 
@@ -141,6 +150,9 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 
 	net.messages.on(DdEvent.NAME, _on_event)
 	net.messages.on(DdRequest.NAME, _on_request)
+
+	# Edited profiles reach every client, so a remote admin's panel shows what the server holds; edits go through the remote workbench.
+	profile_link = DotNetProfileLink.attach(net, world.ensure_runtime())
 
 	# The bridge ticks the world on both ends; a world also ticking itself would step twice.
 	game.self_tick = false
@@ -469,6 +481,9 @@ func _admit(peer_id: int) -> void:
 		return
 
 	_ready_peers[peer_id] = true
+
+	if profile_link != null:
+		profile_link.peer_joined(peer_id)
 
 	if not net.peers().has(peer_id):
 		net.add_peer(peer_id)

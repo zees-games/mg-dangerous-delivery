@@ -564,6 +564,10 @@ func _driver() -> DdGame.Driver:
 
 ## The netcode, built inside `_ready`, which runs inside the shell's scene load: up before the
 ## server has been told anybody is here, so nothing it sends is missed (mg-buses-from-hell).
+## Asks a server whether this player may edit it (sv_workbench_remote); null offline.
+var workbench_remote: DotGameWorkbenchRemoteClient = null
+
+
 func _build_netcode() -> DotResult:
 	net = DotNetManager.new()
 	net.name = "Net"
@@ -596,6 +600,8 @@ func _build_netcode() -> DotResult:
 	bridge.open_link(link)
 	# Before the seal and in the server's order (after the bridge), or the actions stay local.
 	DotLog.result(CHANNEL, "avatar action message", DotGameAvatarActionMessage.register(net))
+	# The server's order again (after the avatar frame): the remote workbench's frame.
+	workbench_remote = DotGameWorkbenchRemoteClient.attach(net)
 	net.messages.seal()
 	_follow_view_rule()
 
@@ -643,11 +649,18 @@ func _build_netcode() -> DotResult:
 	# READY once the scene exists, never before: what the server sent in between would land on
 	# a node that does not exist yet.
 	if link.has_method("is_playing") and bool(link.call("is_playing")):
-		bridge.ask_ready()
+		_say_ready()
 	elif link.has_signal("spawned"):
-		link.connect("spawned", func() -> void: bridge.ask_ready(), CONNECT_ONE_SHOT)
+		link.connect("spawned", _say_ready, CONNECT_ONE_SHOT)
 
 	return net.start()
+
+
+func _say_ready() -> void:
+	if workbench_remote != null:
+		workbench_remote.ask()
+	if bridge != null:
+		bridge.ask_ready()
 
 
 # --- The garage --------------------------------------------------------------
@@ -732,12 +745,34 @@ func _frame_garage_camera() -> void:
 	camera.look_at(at.origin + at.basis * Vector3(0.0, 1.0, -30.0))
 
 
+## Online: no local trust and no panel until the server names this player an admin (sv_workbench_remote). The rows are the server's, through the bridge's profile link.
+func _start_remote_workbench() -> void:
+	if workbench_remote == null:
+		return
+	var wb := DotGameWorkbench.new()
+	wb.name = "Workbench"
+	wb.remote_client = workbench_remote
+	wb.remote_fn = func() -> bool: return true
+	wb.config = {"enabled": false}
+	if game.config_binder != null:
+		for set: DotProfileSet in game.config_binder.profile_sets():
+			wb.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
+	add_child(wb)
+	var started := wb.start(game.ensure_runtime())
+	DotLog.result(CHANNEL, "the remote workbench", started)
+	if not started.ok:
+		wb.queue_free()
+		return
+	platform.add_workbench(wb)
+
+
 ## dot-team's block rules followed from the server, and the F9 tuning panel where this process hosts the world.
 func _add_noblock_and_workbench() -> void:
 	if link != null and not _offline:
 		var _solid := game.body_rules.follow_cvars(link)
 		var _ambient := game.ambient_rules.follow_cvars(link)
 		DotLog.result(CHANNEL, "noblock", platform.add_noblock(game, Callable(game, "team_of_side")))
+		_start_remote_workbench()
 		return
 	var wb := DotGameWorkbench.new()
 	wb.name = "Workbench"

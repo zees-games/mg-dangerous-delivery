@@ -325,6 +325,17 @@ var _terrain_gen: int = 0
 ## Binds [member config] to cvars, the cfg/ yml layers and the workbench; made in [method _ready] unless a caller set one.
 var config_binder: DotGameConfigBinder = null
 
+## The workbench's profile rows, made on first ask: the bridge's profile link must exist before the netcode seals, the workbench after.
+var profile_runtime: DotProfileRuntime = null
+
+
+func ensure_runtime() -> DotProfileRuntime:
+	if profile_runtime == null:
+		profile_runtime = DotProfileRuntime.new()
+		profile_runtime.permit = func(actor: Variant, _flag: String) -> bool:
+			return typeof(actor) == TYPE_STRING_NAME and actor == &"local"
+	return profile_runtime
+
 ## `mp_solidplayers`. Off here: walkers share the lot and trucks collide by `trucks_collide`; on, a pair of trucks collides only when [member block_rules] says the two block.
 var body_rules: DotPlayerBodyRules = DotPlayerBodyRules.new()
 ## The ambience cvars (`dd_ambient*`): bound by the module (REPLICATED), followed by a client through its link.
