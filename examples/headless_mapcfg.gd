@@ -1,4 +1,4 @@
-extends Node
+extends DotGameCheckSuite
 
 ## A mountain's file sets its cvars and the next mountain gets the old values back. Runs through the real module's whitelist.
 ##
@@ -8,10 +8,6 @@ extends Node
 
 const DdModule := preload("res://game/dd_module.gd")
 const CHECKS := 8
-
-var _passed := 0
-var _failed := 0
-var _failures := PackedStringArray()
 
 
 func _ready() -> void:
@@ -55,22 +51,4 @@ func _run() -> void:
 	_check(console.find_cvar("mp_forceview").get_int() == 0, "the view rule is back too")
 	DirAccess.remove_absolute(map_dir.path_join("blizzard_pass.yml"))
 
-	print("")
-	print("%d passed, %d failed" % [_passed, _failed])
-	for line in _failures:
-		print("  FAIL  %s" % line)
-	if _passed + _failed != CHECKS:
-		print("ERROR: %d checks ran, %d expected." % [_passed + _failed, CHECKS])
-		get_tree().quit(1)
-		return
-	get_tree().quit(1 if _failed > 0 else 0)
-
-
-func _check(ok: bool, what: String) -> void:
-	if ok:
-		_passed += 1
-		print("  ok    %s" % what)
-	else:
-		_failed += 1
-		_failures.append(what)
-		print("  FAIL  %s" % what)
+	_report(CHECKS)
