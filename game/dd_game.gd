@@ -2285,10 +2285,9 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		_deliver(driver)
 
 
-## A server draws no mountain, so a wreck would fall until its fuse. The mountain's own ground
-## is a heightfield only a client builds; this is the cheap stand-in the server knows from the
-## road: a shelf [constant CRASH_FLOOR_DROP] below it, under the truck, for the wreck alone (the
-## mask [method DdTruck.begin_crash] adds), gone after a while.
+## A server draws no mountain, so a wreck would fall until its fuse: this is a shelf
+## [constant CRASH_FLOOR_DROP] under the road, for the wreck alone (the mask
+## [method DdTruck.begin_crash] adds), gone after a while.
 const CRASH_FLOOR_DROP := 10.0
 const CRASH_FLOOR_SIZE := 90.0
 

@@ -95,12 +95,12 @@ func _ready() -> void:
 	var deck: Node = null
 
 	# `--bridge=collapse --mountain=high_country --route=dd_snowline`: the first deck of the route
-	# comes down as the truck, 30 m short of it, comes on.
+	# comes down as the truck, 16 m short of it, comes on.
 	if str(_args.get("bridge", "")) != "" and not on_foot:
 		var bridged = client.game.routes[StringName(str(_args.get("route", "dd_foothills")))]
 
 		if not bridged.bridges.is_empty():
-			at_m = float(bridged.bridges[0]["d"]) - 30.0
+			at_m = float(bridged.bridges[0]["d"]) - 16.0
 			deck = bridged.bridges[0]["node"]
 
 	if at_m > 0.0 and not on_foot:
