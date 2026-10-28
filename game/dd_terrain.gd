@@ -3,25 +3,18 @@ extends RefCounted
 ## The ground a route is cut into: one heightfield under the whole route, rising into a
 ## mountain behind every cliff and falling away under every drop to the water. Drawn only.
 ##
-## [b]A heightfield, not ribbons.[/b] A hillside built per segment, the first way this was
-## tried, overlapped the road wherever the road turned toward it, because a ribbon has no idea
-## where the rest of the road is. A grid whose every vertex asks "how far am I from the road,
-## and on which side" can be told, as a rule, never to rise through it.
+## [b]A heightfield, not ribbons.[/b] Per-segment hillsides overlapped the road wherever it turned
+## toward them; a grid whose every vertex knows its distance from the road can be told never to
+## rise through it.
 ##
-## [b]The rule that keeps it off the road is a band, not a test.[/b] Every vertex within
-## [constant BAND] metres of a road edge (any sample's, not only its nearest one, because a
-## switchback puts the road beside itself at another height) is held below that sample's slab.
-## [constant BAND] is wider than a cell's diagonal, so a triangle with any vertex outside the
-## band has all of its points outside the road: the slope from the trench up to the mountain
-## can only ever happen behind the wall, never over the tarmac. The obvious alternative, letting
-## the mountain start at the wall's foot, interpolates a vertex on the road with one behind the
-## wall and puts a sheet of hillside across the lane.
+## [b]A band, not a test.[/b] Every vertex within [constant BAND] metres of any road edge sample is
+## held below that sample's slab, and BAND is wider than a cell's diagonal, so the slope up to the
+## mountain only ever happens behind the wall. Starting the mountain at the wall's foot would put
+## a sheet of hillside across the lane.
 ##
 ## [b]The same on every machine.[/b] Heights are arithmetic over the route's samples and
-## [DdWeather.unit] of the route id — not [method @GlobalScope.hash], whose djb2 differs only
-## in its low bits for neighbouring keys (Decision 2) and would put the same bump in every cell.
-## A server never builds it: it has nobody to show a mountain to, and nothing collides with it.
-## The road's own trimesh stays the only thing a truck stands on.
+## [DdWeather.unit] of the route id, not [method @GlobalScope.hash] (djb2 differs only in its low
+## bits for neighbouring keys). A server never builds it; the road's trimesh is all a truck stands on.
 
 const DdWeather := preload("dd_weather.gd")
 
