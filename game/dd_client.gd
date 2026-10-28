@@ -952,8 +952,7 @@ func _process(delta: float) -> void:
 
 		if at_wheel:
 			audio.speed = float(facts.get("speed", _speed_of(me)))
-			# The wheel's own command, or the stand-in's when the wheel is handed over (a shot, a
-			# suite): sampled keys say nothing about a truck the autopilot is driving.
+			# Sampled keys say nothing about a truck the autopilot (a shot, a suite) is driving.
 			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
@@ -1017,15 +1016,14 @@ func _hear_walkers() -> void:
 	if audio == null:
 		return
 
-	var walking := _walkers_heard
-	walking.clear()
+	_walkers_heard.clear()
 	if walker != null and walker.visible:
-		walking.append(walker)
+		_walkers_heard.append(walker)
 	for k: StringName in game.drivers:
 		var other: DdGame.Driver = game.drivers[k]
 		if k != local_key and other.walker != null and is_instance_valid(other.walker) and other.walker.visible:
-			walking.append(other.walker)
-	audio.keep_walkers(walking)
+			_walkers_heard.append(other.walker)
+	audio.keep_walkers(_walkers_heard)
 
 
 ## What the HUD shows: from the trip this client holds offline, from the server's TRIP online.

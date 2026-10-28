@@ -50,6 +50,17 @@ static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, ti
 	return {"sky": sky, "wind": windy or storm, "storm": storm, "fog": fog}
 
 
+static var _gust_keys: Dictionary = {}
+
+
+## The zone id [method gust] hashes for a route's zone, built once instead of a string per frame.
+static func gust_key(route_id: Variant, zone: String) -> String:
+	var per_route: Dictionary = _gust_keys.get_or_add(route_id, {})
+	if not per_route.has(zone):
+		per_route[zone] = "%s|%s" % [route_id, zone]
+	return per_route[zone]
+
+
 ## The wind's side force at [param tick], from -1 to 1: a slow swell with gusts on it. Which
 ## way it blows is the zone's, from the hash, so a pass blows the same way for everybody.
 static func gust(seed_value: int, zone_id: String, tick: int, tick_rate: int) -> float:
