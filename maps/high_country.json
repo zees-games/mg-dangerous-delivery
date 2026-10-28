@@ -3,6 +3,7 @@
 	"kind": "map",
 	"id": "high_country",
 	"name": "High Country",
+	"ambient": {"level": 1.3, "lively": true},
 	"blurb": "The three hardest routes, from Snowline Pass up to the Devil's Spine.",
 	"order": 30,
 	"routes": [

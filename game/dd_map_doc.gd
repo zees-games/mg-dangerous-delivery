@@ -182,11 +182,18 @@ static func normalise(doc: Variant) -> DotResult:
 		else:
 			return DotResult.fail(DotError.CODE_INVALID, "shape.%s is not mirror or one of %s." % [str(key), DdRouteDoc.SHAPE_RANGES.keys()])
 
-	return DotResult.success({
+	var out := {
 		"hazards": hazards, "shape": shape,
 		"format": FORMAT, "kind": "map", "id": id, "name": str(d.get("name", id)), "blurb": str(d.get("blurb", "")),
 		"author": str(d.get("author", "")), "order": int(d.get("order", 100)), "routes": routes, "layout": layout, "land": land,
-	})
+	}
+
+	# The bed's level and liveliness, read by the ambience director; a bare mood name also passes.
+	var raw_ambient: Variant = d.get("ambient")
+	if raw_ambient is Dictionary or raw_ambient is String:
+		out["ambient"] = raw_ambient
+
+	return DotResult.success(out)
 
 
 ## [x, z] as two floats, or [] when it is not two numbers within [constant REACH].

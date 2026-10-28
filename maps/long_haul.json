@@ -3,6 +3,7 @@
 	"kind": "map",
 	"id": "long_haul",
 	"name": "The Long Haul",
+	"ambient": {"level": 0.8, "lively": false},
 	"blurb": "Every route, far apart across open country: a long drive from the lot to each gate.",
 	"order": 40,
 	"routes": [],

@@ -3,6 +3,7 @@
 	"kind": "map",
 	"id": "range",
 	"name": "The Whole Range",
+	"ambient": {"level": 1.2, "lively": true},
 	"blurb": "Every route this server has, side by side, a road from the lot to each.",
 	"order": 10,
 	"routes": [],

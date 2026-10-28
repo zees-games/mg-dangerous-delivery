@@ -3,6 +3,7 @@
 	"kind": "map",
 	"id": "low_country",
 	"name": "Low Country",
+	"ambient": {"level": 1.0, "lively": true},
 	"blurb": "The four gentlest routes, close together: a short drive from the lot to any of them.",
 	"order": 20,
 	"routes": [

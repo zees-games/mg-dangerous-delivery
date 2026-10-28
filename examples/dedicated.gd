@@ -14,7 +14,7 @@ const DdNetLink := preload("../game/net/dd_net_link.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
 const SECTIONS := 12
-const CHECKS := 99
+const CHECKS := 101
 
 const SERVER_DIR := "user://dd_dedicated"
 const PORT := 28941
@@ -796,6 +796,11 @@ func _test_ambient_cvars_reach_the_client() -> void:
 	var _low := game.set_mountain(&"low_country")
 	_check(audio.ambient.ambient.effective_mood() == &"outdoor_night",
 		"laying low_country picks outdoor_night", str(audio.ambient.ambient.effective_mood()))
+	_check(audio.ambience != null and is_equal_approx(audio.ambience._gain(), audio.ambience.level * 1.0),
+		"low_country's meta ambient level reaches the bed", str(audio.ambience._gain() if audio.ambience != null else -1.0))
+	var _long := game.set_mountain(&"long_haul")
+	_check(audio.ambience != null and is_equal_approx(audio.ambience._gain(), audio.ambience.level * 0.8),
+		"and the long haul's quieter 0.8 does", str(audio.ambience._gain() if audio.ambience != null else -1.0))
 	game.map_laid.disconnect(audio.on_map)
 	var _range := game.set_mountain(&"range")
 	_check(audio.ambient.has_moods(), "the stock moods loaded")
