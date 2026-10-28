@@ -73,7 +73,51 @@ static func normalise(doc: Variant) -> DotResult:
 			return DotResult.fail(DotError.CODE_INVALID, "routes: '%s' is not a route id." % str(r))
 		routes.append(str(r))
 
-	var raw_layout: Variant = d.get("layout", {})
+	var layout_res := _normalise_layout(d.get("layout", {}), routes)
+
+	if not layout_res.ok:
+		return layout_res
+
+	var layout: Dictionary = layout_res.value
+
+	var land_res := _normalise_land(d.get("land", {}))
+
+	if not land_res.ok:
+		return land_res
+
+	var land: Dictionary = land_res.value
+
+	var hazards_res := _normalise_hazards(d.get("hazards", {}))
+
+	if not hazards_res.ok:
+		return hazards_res
+
+	var hazards: Dictionary = hazards_res.value
+
+	var shape_res := _normalise_shape(d.get("shape", {}))
+
+	if not shape_res.ok:
+		return shape_res
+
+	var shape: Dictionary = shape_res.value
+
+	var out := {
+		"hazards": hazards, "shape": shape,
+		"format": FORMAT, "kind": "map", "id": id, "name": str(d.get("name", id)), "blurb": str(d.get("blurb", "")),
+		"author": str(d.get("author", "")), "order": int(d.get("order", 100)), "routes": routes, "layout": layout, "land": land,
+	}
+
+	# The bed's level and liveliness, read by the ambience director; a bare mood name also passes.
+	var raw_ambient: Variant = d.get("ambient")
+	if raw_ambient is Dictionary or raw_ambient is String:
+		out["ambient"] = raw_ambient
+
+	return DotResult.success(out)
+
+
+## The layout block, validated against the routes this map holds.
+static func _normalise_layout(p_layout: Variant, routes: Array) -> DotResult:
+	var raw_layout: Variant = p_layout
 
 	if not (raw_layout is Dictionary):
 		return DotResult.fail(DotError.CODE_INVALID, "layout is an object.")
@@ -134,7 +178,11 @@ static func normalise(doc: Variant) -> DotResult:
 
 		layout["roads"][str(key)] = via
 
-	var raw_land: Variant = d.get("land", {})
+	return DotResult.success(layout)
+
+
+static func _normalise_land(p_land: Variant) -> DotResult:
+	var raw_land: Variant = p_land
 
 	if not (raw_land is Dictionary):
 		return DotResult.fail(DotError.CODE_INVALID, "land is an object.")
@@ -147,8 +195,12 @@ static func normalise(doc: Variant) -> DotResult:
 	if float(land["coast"]) < 120.0 or float(land["coast"]) > 1500.0:
 		return DotResult.fail(DotError.CODE_INVALID, "land.coast %.0f is outside 120 to 1500 metres." % float(land["coast"]))
 
-	# Hazards this mountain adds to every route it holds: {kind: count per route}, see DdRouteDoc.overlay.
-	var raw_hazards: Variant = d.get("hazards", {})
+	return DotResult.success(land)
+
+
+## Hazards this mountain adds to every route it holds: {kind: count per route}, see DdRouteDoc.overlay.
+static func _normalise_hazards(p_hazards: Variant) -> DotResult:
+	var raw_hazards: Variant = p_hazards
 
 	if not (raw_hazards is Dictionary):
 		return DotResult.fail(DotError.CODE_INVALID, "hazards is an object of {hazard: count}.")
@@ -160,8 +212,12 @@ static func normalise(doc: Variant) -> DotResult:
 			return DotResult.fail(DotError.CODE_INVALID, "hazards.%s is not one of %s." % [str(key), DdRouteDoc.OVERLAY_KINDS])
 		hazards[str(key)] = clampi(int((raw_hazards as Dictionary)[key]), 0, 8)
 
-	# This mountain's version of every route it holds, see DdRouteDoc.reshape.
-	var raw_shape: Variant = d.get("shape", {})
+	return DotResult.success(hazards)
+
+
+## This mountain's version of every route it holds, see DdRouteDoc.reshape.
+static func _normalise_shape(p_shape: Variant) -> DotResult:
+	var raw_shape: Variant = p_shape
 
 	if not (raw_shape is Dictionary):
 		return DotResult.fail(DotError.CODE_INVALID, "shape is an object.")
@@ -182,18 +238,9 @@ static func normalise(doc: Variant) -> DotResult:
 		else:
 			return DotResult.fail(DotError.CODE_INVALID, "shape.%s is not mirror or one of %s." % [str(key), DdRouteDoc.SHAPE_RANGES.keys()])
 
-	var out := {
-		"hazards": hazards, "shape": shape,
-		"format": FORMAT, "kind": "map", "id": id, "name": str(d.get("name", id)), "blurb": str(d.get("blurb", "")),
-		"author": str(d.get("author", "")), "order": int(d.get("order", 100)), "routes": routes, "layout": layout, "land": land,
-	}
+	return DotResult.success(shape)
 
-	# The bed's level and liveliness, read by the ambience director; a bare mood name also passes.
-	var raw_ambient: Variant = d.get("ambient")
-	if raw_ambient is Dictionary or raw_ambient is String:
-		out["ambient"] = raw_ambient
 
-	return DotResult.success(out)
 
 
 ## [x, z] as two floats, or [] when it is not two numbers within [constant REACH].
