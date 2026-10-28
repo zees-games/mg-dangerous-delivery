@@ -72,13 +72,46 @@ func _run() -> void:
 	_layers()
 	_templates(binder)
 
-	# The weather period reaches the sky: a longer period holds a draw longer.
+	_weather_period()
+	_profiles_and_prices(config)
+
+	var wb := DotGameWorkbench.new()
+	wb.panel_mode = 1
+	wb.config = {"enabled": false}
+	for set: DotProfileSet in binder.profile_sets():
+		wb.add_set(set, set.rel_path)
+	add_child(wb)
+	_check(wb.start().ok, "the workbench starts")
+	binder.attach(wb.api.runtime)
+	var listed := PackedStringArray()
+	for kind: String in wb.api.kinds():
+		var lg: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "get", "kind": kind, "id": binder.profile_id})
+		if lg.ok:
+			listed.append_array(PackedStringArray((lg.value as Dictionary).get("values", {}).keys()))
+	var missing := PackedStringArray()
+	for k in keys:
+		if not listed.has(k):
+			missing.append(k)
+	_check(missing.is_empty() and binder.profile_sets().size() == 3, "the workbench lists all %d keys over %d files" % [keys.size(), binder.profile_sets().size()], ",".join(missing))
+	var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "config_world", "id": binder.profile_id, "key": "gravity", "value": 12.5})
+	_check(res.ok and is_equal_approx(config.gravity, 12.5), "a workbench edit reaches the live config", "" if res.ok else res.error.message)
+	var files: Dictionary = wb.exporter.call("collect")
+	var text: String = files.get("cfg/game/%s/config_world/game.yml" % GAME, "")
+	_check(text.contains("gravity: 12.5"), "the export holds the edit in the cfg layout")
+
+	wb.free()
+	console.free()
+	_report(CHECKS)
+
+func _weather_period() -> void:
+	# A longer weather period holds a draw longer.
 	var zone := {"snow": 0.5, "rain": 0.5}
 	var same := true
 	for t in range(0, 100, 7):
 		same = same and DdWeatherRef.at(3, "r|z", zone, t * 60, 60, 1.0, 0.0, 0.0, 1000.0) == DdWeatherRef.at(3, "r|z", zone, 0, 60, 1.0, 0.0, 0.0, 1000.0)
 	_check(same, "weather_period_sec: one long draw holds across the minute")
 
+func _profiles_and_prices(config: DdConfig) -> void:
 	# Truck and cargo profiles.
 	var trucks := DdTrucks.new()
 	var cargo := DdCargo.new()
@@ -110,34 +143,6 @@ func _run() -> void:
 	_check(trucks.upgrade_cost(&"hauler", "engine", 0) == base * 2, "upgrade_cost_scale doubles the prices")
 	config.upgrade_engine_step = 0.5
 	_check(is_equal_approx(float(trucks.effective(&"hauler", {"engine": 1})["power_kw"]), float(trucks.get_truck(&"hauler")["power_kw"]) * 1.5), "upgrade_engine_step sets what a level adds")
-
-	var wb := DotGameWorkbench.new()
-	wb.panel_mode = 1
-	wb.config = {"enabled": false}
-	for set: DotProfileSet in binder.profile_sets():
-		wb.add_set(set, set.rel_path)
-	add_child(wb)
-	_check(wb.start().ok, "the workbench starts")
-	binder.attach(wb.api.runtime)
-	var listed := PackedStringArray()
-	for kind: String in wb.api.kinds():
-		var lg: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "get", "kind": kind, "id": binder.profile_id})
-		if lg.ok:
-			listed.append_array(PackedStringArray((lg.value as Dictionary).get("values", {}).keys()))
-	var missing := PackedStringArray()
-	for k in keys:
-		if not listed.has(k):
-			missing.append(k)
-	_check(missing.is_empty() and binder.profile_sets().size() == 3, "the workbench lists all %d keys over %d files" % [keys.size(), binder.profile_sets().size()], ",".join(missing))
-	var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "config_world", "id": binder.profile_id, "key": "gravity", "value": 12.5})
-	_check(res.ok and is_equal_approx(config.gravity, 12.5), "a workbench edit reaches the live config", "" if res.ok else res.error.message)
-	var files: Dictionary = wb.exporter.call("collect")
-	var text: String = files.get("cfg/game/%s/config_world/game.yml" % GAME, "")
-	_check(text.contains("gravity: 12.5"), "the export holds the edit in the cfg layout")
-
-	wb.free()
-	console.free()
-	_report(CHECKS)
 
 
 func _write_root(rel: String, text: String) -> void:
