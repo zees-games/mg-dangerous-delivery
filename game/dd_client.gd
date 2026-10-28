@@ -395,6 +395,7 @@ func _driver() -> DdGame.Driver:
 ## The netcode, built inside `_ready`, which runs inside the shell's scene load: up before the
 ## server has been told anybody is here, so nothing it sends is missed (mg-buses-from-hell).
 ## Asks a server whether this player may edit it (sv_workbench_remote); null offline.
+var _walkers_heard: Array = []
 var workbench_remote: DotGameWorkbenchRemoteClient = null
 
 
@@ -1016,7 +1017,8 @@ func _hear_walkers() -> void:
 	if audio == null:
 		return
 
-	var walking: Array = []
+	var walking := _walkers_heard
+	walking.clear()
 	if walker != null and walker.visible:
 		walking.append(walker)
 	for k: StringName in game.drivers:

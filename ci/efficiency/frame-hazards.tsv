@@ -1,7 +1,6 @@
 # frame-hazards
 # Baselines only shrink: scripts/<gate> --update lowers or drops entries and refuses to add.
 game/dd_client.gd::_present_walkers::node_lookup	2
-game/dd_client.gd::_process::alloc_array	1
 game/dd_client.gd::_process::string_build	1
 game/dd_client.gd::_seat_driver::node_lookup	1
 game/dd_client.gd::_speed_of::node_lookup	1
@@ -27,7 +26,6 @@ game/dd_game.gd::_stand_in_pick::alloc_array	1
 game/dd_game.gd::_stand_in_pick::alloc_dict	1
 game/dd_game.gd::_stand_in_walk::string_build	2
 game/dd_game.gd::_step_boulders::string_build	2
-game/dd_game.gd::_step_driver::string_build	1
 game/dd_game.gd::start_trip::string_build	5
 game/dd_garage.gd::covered_rect::group_lookup	1
 tools/drive.gd::_physics_process::string_build	4

@@ -199,6 +199,7 @@ func mountain_rows() -> Array:
 
 
 ## The server's maps.yml, or null when there is none (every mountain rotates, as it always did).
+var _gust_keys: Dictionary = {}
 var rotation_file: DotMapRotationFile = null
 
 
@@ -1974,7 +1975,7 @@ func _road_conditions(driver: Driver, road: DdRoute, local: Vector3, delta: floa
 	if bool(sky.get("wind", false)) and config.wind_strength > 0.0:
 		var side := DdRoute.right_of(road.yaws[trip.hint])
 		var gust_scale := config.storm_gust if bool(sky.get("storm", false)) else 1.0
-		truck.push(side, config.wind_strength * gust_scale * DdWeather.gust(seed_value, "%s|%s" % [trip.route_id, zone], tick, tick_rate))
+		truck.push(side, config.wind_strength * gust_scale * DdWeather.gust(seed_value, _gust_key(trip.route_id, zone), tick, tick_rate))
 
 	if disasters != null and disasters.linked():
 		var blown := disasters.wind_at(truck.global_position)
@@ -1993,6 +1994,15 @@ const CRASH_FLOOR_DROP := 10.0
 const CRASH_FLOOR_SIZE := 90.0
 
 
+## The gust's noise key per (route, zone), built once: a string per truck per frame otherwise.
+func _gust_key(route_id: Variant, zone: String) -> String:
+	var per_route: Dictionary = _gust_keys.get(route_id, {})
+	if not per_route.has(zone):
+		per_route[zone] = "|".join(PackedStringArray([route_id, zone]))
+		_gust_keys[route_id] = per_route
+	return per_route[zone]
+
+
 func _lay_crash_floor(road: DdRoute, at: Vector3) -> void:
 	var floor_body := StaticBody3D.new()
 	floor_body.name = "CrashFloor"
@@ -2006,7 +2016,9 @@ func _lay_crash_floor(road: DdRoute, at: Vector3) -> void:
 	add_child(floor_body)
 	var local := at - road.position
 	floor_body.global_position = Vector3(at.x, road.position.y + road.road_height_at(local) - CRASH_FLOOR_DROP - 1.0, at.z)
-	get_tree().create_timer(config.wreck_seconds + 8.0).timeout.connect(floor_body.queue_free)
+	var gone := get_tree().create_timer(config.wreck_seconds + 8.0)
+	if not gone.timeout.is_connected(floor_body.queue_free):
+		gone.timeout.connect(floor_body.queue_free)
 
 
 func _held() -> DotVehicleCommand:
