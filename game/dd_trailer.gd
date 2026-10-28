@@ -193,6 +193,7 @@ func rehitch(truck: VehicleBody3D) -> void:
 		joint.queue_free()
 
 	joint = null
+	DotLog.debug(CHANNEL, "the trailer was re-hitched", {"at": truck.global_position})
 	place_behind(truck.global_transform)
 	hitch(truck)
 

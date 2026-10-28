@@ -516,6 +516,7 @@ func _truck_model(file: String, scale_f: float) -> Node3D:
 	var packed: PackedScene = load(path) if ResourceLoader.exists(path) else null
 
 	if packed == null:
+		DotLog.warn(CHANNEL, "a truck model is missing", {"path": path})
 		return null
 
 	var model := packed.instantiate() as Node3D
