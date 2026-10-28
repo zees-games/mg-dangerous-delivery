@@ -171,6 +171,60 @@ func _ready() -> void:
 			for _i in 20:
 				await get_tree().process_frame
 
+	await _stage_view(client, view, truck)
+
+	# A held-button orbit: --orbit=yaw_degrees,pitch_degrees, as if dragged and held.
+	if str(_args.get("orbit", "")) != "":
+		var parts := str(_args["orbit"]).split(",")
+		client._orbit = Vector2(deg_to_rad(float(parts[0])), deg_to_rad(float(parts[1])))
+		client._orbit_held = true
+
+	if view == "cab":
+		client.camera_mode = DdClient.CameraMode.CAB
+	elif view == "high":
+		client.camera_mode = DdClient.CameraMode.HIGH
+
+	await get_tree().create_timer(float(_args.get("seconds", "6"))).timeout
+
+	_place_view_camera(client, view)
+
+	if str(_args.get("ballot", "0")) == "1":
+		await _show_ballot(client.game)
+
+	if view == "maps":
+		# M: the solo mountain list, with the Workshop's map among the game's own.
+		for _i in 30:
+			await get_tree().process_frame
+		var menu: Variant = (client.get("settings") as Object).get("menu")
+		menu.call(&"open_maps")
+		for _i in 10:
+			await get_tree().process_frame
+
+	# A full chat log: the lines a busy server's vote and joins put in the box, long enough to
+	# wrap the way a vote's list of games does.
+	var chat_lines := int(_args.get("chat", "0"))
+
+	if chat_lines > 0 and client.chat != null:
+		for i in chat_lines:
+			if i % 3 == 0:
+				client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, Arena (20s)")
+			else:
+				client.chat.say_locally("Driver %d: line %d of the chat log" % [i + 1, i + 1])
+		for _i in 10:
+			await get_tree().process_frame
+
+	for _i in 3:
+		await RenderingServer.frame_post_draw
+
+	var path := ProjectSettings.globalize_path(str(_args.get("out", "res://screenshots/shot.png")))
+	var image := get_viewport().get_texture().get_image()
+	var saved := image.save_png(path)
+	print("saved %s (%s)" % [path, error_string(saved)])
+	get_tree().quit()
+
+
+## Where the person stands for the lot views (seller, roam, gate, walk_gate, standin).
+func _stage_view(client: Node, view: String, truck: String) -> void:
 	# Beside a salesperson, the use key's words on screen; or at the wheel of a truck handed over
 	# in the lot, driving round it.
 	if view == "seller" or view == "roam":
@@ -209,19 +263,9 @@ func _ready() -> void:
 		var _bot = client.game.join(&"standin", "Stand-in", true)
 		_follow(client, &"standin")
 
-	# A held-button orbit: --orbit=yaw_degrees,pitch_degrees, as if dragged and held.
-	if str(_args.get("orbit", "")) != "":
-		var parts := str(_args["orbit"]).split(",")
-		client._orbit = Vector2(deg_to_rad(float(parts[0])), deg_to_rad(float(parts[1])))
-		client._orbit_held = true
 
-	if view == "cab":
-		client.camera_mode = DdClient.CameraMode.CAB
-	elif view == "high":
-		client.camera_mode = DdClient.CameraMode.HIGH
-
-	await get_tree().create_timer(float(_args.get("seconds", "6"))).timeout
-
+## The fixed cameras for the views that look at the world from outside (cab_side, land, sign, far, above).
+func _place_view_camera(client: Node, view: String) -> void:
 	# Beside the driver's door, to size and place the seated person in a truck.
 	if view == "cab_side":
 		var rig: Node3D = client.game.drivers[client.local_key].truck
@@ -246,7 +290,7 @@ func _ready() -> void:
 
 	if view == "sign":
 		# At the first entrance sign, from where a truck leaving the lot sees it.
-		var board := client.game.find_children("EntranceSign_*", "Node3D", false, false)
+		var board: Array = client.game.find_children("EntranceSign_*", "Node3D", false, false)
 
 		if not board.is_empty():
 			var at: Vector3 = (board[int(_args.get("n", "0")) % board.size()] as Node3D).global_position
@@ -283,40 +327,6 @@ func _ready() -> void:
 		client.hud.visible = false
 		# From this high, fog is all there is.
 		client._env.fog_enabled = false
-
-	if str(_args.get("ballot", "0")) == "1":
-		await _show_ballot(client.game)
-
-	if view == "maps":
-		# M: the solo mountain list, with the Workshop's map among the game's own.
-		for _i in 30:
-			await get_tree().process_frame
-		var menu: Variant = (client.get("settings") as Object).get("menu")
-		menu.call(&"open_maps")
-		for _i in 10:
-			await get_tree().process_frame
-
-	# A full chat log: the lines a busy server's vote and joins put in the box, long enough to
-	# wrap the way a vote's list of games does.
-	var chat_lines := int(_args.get("chat", "0"))
-
-	if chat_lines > 0 and client.chat != null:
-		for i in chat_lines:
-			if i % 3 == 0:
-				client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, Arena (20s)")
-			else:
-				client.chat.say_locally("Driver %d: line %d of the chat log" % [i + 1, i + 1])
-		for _i in 10:
-			await get_tree().process_frame
-
-	for _i in 3:
-		await RenderingServer.frame_post_draw
-
-	var path := ProjectSettings.globalize_path(str(_args.get("out", "res://screenshots/shot.png")))
-	var image := get_viewport().get_texture().get_image()
-	var saved := image.save_png(path)
-	print("saved %s (%s)" % [path, error_string(saved)])
-	get_tree().quit()
 
 
 ## Writes <out>_a.png and <out>_b.png.
