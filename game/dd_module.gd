@@ -132,8 +132,7 @@ func _game_load() -> DotResult:
 
 	world.bank.store = DdBank.SqlStore.new(bank_driver) if bank_driver != null else DdBank.JsonStore.new(bank_file)
 
-	# Routes from the map packs the server names (its cfg/content.yml), beside the game's
-	# own routes/. Built before anybody joins, so every client is sent the whole mountain.
+	# Routes from the map packs cfg/content.yml names, beside routes/; built before anybody joins.
 	var delivered := 0
 
 	for root in await DotGameContent.map_dirs(server, "routes"):
@@ -142,8 +141,8 @@ func _game_load() -> DotResult:
 	if delivered > 0:
 		world.build_routes()
 
-	# dot-game's "still loading": a driver behind their client's cover loses no load and counts
-	# no fall (see DdGame.harm_gate). Asked by driver key, resolved to a peer through the bridge.
+	# dot-game's "still loading": a driver behind their cover loses no load and counts no fall
+	# (DdGame.harm_gate), resolved to a peer through the bridge.
 	world.harm_gate = func(driver_key: StringName) -> bool:
 		if bridge == null:
 			return true
@@ -171,11 +170,8 @@ func _game_load() -> DotResult:
 				vote.refresh_mountains()
 	)
 
-	# [b]How many stand-ins is dot-server's [DotBotQuota], so `bot_quota` and `bot_quota_mode`
-	# mean the same thing on every server in the family.[/b] This game already ran the fill
-	# rule under its own name — `dd_bots` stand-ins less one per person — so the default is
-	# its number (`bots`, from the config file) in fill mode and an unchanged server drives
-	# the same mountain.
+	# How many stand-ins is dot-server's DotBotQuota (`bot_quota`, `bot_quota_mode`); the default is
+	# the config's `bots` in fill mode, so an unchanged server drives the same mountain.
 	_quota = DotBotQuota.install(self, world.config.bots)
 
 	# How well the stand-ins drive: dot-bot's `bot_difficulty` (easy, medium, hard, nightmare;
@@ -189,19 +185,15 @@ func _game_load() -> DotResult:
 		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
 	)
 
-	# [b]Deprecated: `dd_bots` was the count, and it forwards to `bot_quota` now.[/b] Kept
-	# rather than removed because every shipped config sets it; left as its own number it
-	# would be a second cvar deciding the same count. `dd_bots 0` still means no stand-ins.
-	# The family's `mp_forceview` (dot-player-controller's numbering, bound here because it
-	# covers the cab as well as the walker): 0 any camera, 1 the cab and the eyes only (first
-	# person), 2 the chase and high cameras and over the shoulder only. REPLICATED, because each
-	# client places its own camera.
+	# The family's `mp_forceview` (dot-player-controller's numbering, bound here because it covers
+	# the cab too): 0 any camera, 1 first person only, 2 chase and high only. REPLICATED.
 	var _view := add_cvar("mp_forceview", "0",
 		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
 		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
 	if _view != null:
 		_view.with_range(0.0, 2.0)
 
+	# Deprecated: every shipped config sets it, so it forwards to `bot_quota`; `dd_bots 0` is no stand-ins.
 	_bots = add_cvar("dd_bots", str(world.config.bots), "Deprecated, sets bot_quota. Stand-in drivers on the mountain; people take their places.")
 
 	if _bots != null:
@@ -209,19 +201,7 @@ func _game_load() -> DotResult:
 			if _quota != null and _quota.quota_cvar != null:
 				var _set := _quota.quota_cvar.set_value(str(maxi(_bots.get_int(), 0))))
 
-	_tunable_bool("dd_solo", world.config.allow_solo, "Whether players may drive solo (B)", func(v: bool) -> void: world.config.allow_solo = v)
-	_tunable_bool("dd_skip", world.config.allow_skip, "Whether players may skip a stage (N)", func(v: bool) -> void: world.config.allow_skip = v)
-	_tunable_bool("dd_rocks", world.config.boulders_enabled, "Whether rock falls", func(v: bool) -> void: world.config.boulders_enabled = v)
-	_tunable_bool("dd_stage_hazards", world.config.stage_hazards, "Whether stages bring a tornado, gusts or a quake (stage_hazards.yml says which)", func(v: bool) -> void: world.config.stage_hazards = v)
-	# Weather by cvar: a change reaches every client at once, because they compute the same sky
-	# from the same numbers (and the sky is the server's only through them).
-	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, 3.0, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")
-	_tunable_weather("dd_weather_storms", "storm_chance", 0.0, 1.0, "Share of rain periods that are storms (harder wind, less grip), 0 for none")
-	_tunable_weather("dd_weather_fog", "fog_chance", 0.0, 1.0, "Share of periods that are fog, 0 for none")
-	_tunable_weather("dd_weather_disasters", "weather_disasters", 0.0, 1.0, "1: storms bring natural-disasters' lightning when it is linked; 0: weather only")
-	_tunable_bool("dd_collide", world.config.trucks_collide, "Whether trucks hit each other", func(v: bool) -> void:
-		world.config.trucks_collide = v
-		world._refresh_exceptions())
+	_bind_tunables(world)
 
 	# mp_solidplayers, REPLICATED: a client follows it with the block rules.
 	var _bodies := world.body_rules.bind_cvars(
@@ -251,6 +231,23 @@ func _game_load() -> DotResult:
 	_wire_map(world)
 	world.mountain_changed.connect(_on_mountain_changed)
 	return DotResult.success(null)
+
+
+## The dd_* cvars that edit one config field or one weather number.
+func _bind_tunables(world: DdGame) -> void:
+	_tunable_bool("dd_solo", world.config.allow_solo, "Whether players may drive solo (B)", func(v: bool) -> void: world.config.allow_solo = v)
+	_tunable_bool("dd_skip", world.config.allow_skip, "Whether players may skip a stage (N)", func(v: bool) -> void: world.config.allow_skip = v)
+	_tunable_bool("dd_rocks", world.config.boulders_enabled, "Whether rock falls", func(v: bool) -> void: world.config.boulders_enabled = v)
+	_tunable_bool("dd_stage_hazards", world.config.stage_hazards, "Whether stages bring a tornado, gusts or a quake (stage_hazards.yml says which)", func(v: bool) -> void: world.config.stage_hazards = v)
+	# Weather by cvar: a change reaches every client at once, because they compute the same sky
+	# from the same numbers (and the sky is the server's only through them).
+	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, 3.0, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")
+	_tunable_weather("dd_weather_storms", "storm_chance", 0.0, 1.0, "Share of rain periods that are storms (harder wind, less grip), 0 for none")
+	_tunable_weather("dd_weather_fog", "fog_chance", 0.0, 1.0, "Share of periods that are fog, 0 for none")
+	_tunable_weather("dd_weather_disasters", "weather_disasters", 0.0, 1.0, "1: storms bring natural-disasters' lightning when it is linked; 0: weather only")
+	_tunable_bool("dd_collide", world.config.trucks_collide, "Whether trucks hit each other", func(v: bool) -> void:
+		world.config.trucks_collide = v
+		world._refresh_exceptions())
 
 
 ## dot-workbench over the config, the truck and cargo kinds and the block rules; the F9 panel off a dedicated server, the HTTP page only with `workbench.enabled`.

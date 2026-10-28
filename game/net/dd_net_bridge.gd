@@ -171,40 +171,45 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 		game.toys_built.connect(_pair_pending_toys)
 
 	if net.is_server:
-		game.trip_started.connect(_on_trip_started)
-		game.trip_ended.connect(_on_truck_gone)
-		game.driver_left.connect(func(key: StringName) -> void:
-			_on_truck_gone(key)
-			var walker: Node = _walker_of_key.get(key, null)
-			_walker_of_key.erase(key)
-
-			if walker != null:
-				_forget(walker)
-
-			_broadcast(DdEvents.Kind.GONE, {"key": String(key)}))
-		game.solo_changed.connect(func(key: StringName, _on: bool) -> void: _broadcast_driver(key))
-		game.stage_reached.connect(func(key: StringName, stage: int) -> void:
-			_say_to(key, "CHECKPOINT %d" % stage, "good"))
-		game.fell.connect(func(key: StringName, why: String) -> void:
-			_say_to(key, {"fell": "OVER THE EDGE", "flipped": "ON ITS SIDE", "respawn": "BACK TO THE CHECKPOINT"}.get(why, why), "bad"))
-		game.delivered.connect(func(key: StringName, _route: StringName, pay: int) -> void:
-			_say_to(key, "DELIVERED  +$%d" % pay, "money")
-			_send_trip(key))
-		game.bank.account_changed.connect(_send_garage)
-		game.boulder_made.connect(_on_boulder_made)
-		game.boulder_gone.connect(_on_boulder_gone)
-		# The sound and the jolt are the client's, so it is told where; the body comes as BODY.
-		game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
-			_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
-		game.mountain_changed.connect(_on_mountain_changed)
-		game.walker_placed.connect(_on_walker_placed)
-		game.truck_made.connect(_on_truck_made)
-		game.truck_damaged.connect(_on_truck_damaged)
-		game.bridge_moved.connect(func(route_id: StringName, decks: Array) -> void:
-			_broadcast(DdEvents.Kind.BRIDGE, {"route": String(route_id), "decks": decks}))
-		game.seated.connect(func(key: StringName) -> void: _broadcast_driver(key))
+		_connect_server_signals()
 
 	return DotResult.success(true)
+
+
+## What the server tells clients when the world changes.
+func _connect_server_signals() -> void:
+	game.trip_started.connect(_on_trip_started)
+	game.trip_ended.connect(_on_truck_gone)
+	game.driver_left.connect(func(key: StringName) -> void:
+		_on_truck_gone(key)
+		var walker: Node = _walker_of_key.get(key, null)
+		_walker_of_key.erase(key)
+
+		if walker != null:
+			_forget(walker)
+
+		_broadcast(DdEvents.Kind.GONE, {"key": String(key)}))
+	game.solo_changed.connect(func(key: StringName, _on: bool) -> void: _broadcast_driver(key))
+	game.stage_reached.connect(func(key: StringName, stage: int) -> void:
+		_say_to(key, "CHECKPOINT %d" % stage, "good"))
+	game.fell.connect(func(key: StringName, why: String) -> void:
+		_say_to(key, {"fell": "OVER THE EDGE", "flipped": "ON ITS SIDE", "respawn": "BACK TO THE CHECKPOINT"}.get(why, why), "bad"))
+	game.delivered.connect(func(key: StringName, _route: StringName, pay: int) -> void:
+		_say_to(key, "DELIVERED  +$%d" % pay, "money")
+		_send_trip(key))
+	game.bank.account_changed.connect(_send_garage)
+	game.boulder_made.connect(_on_boulder_made)
+	game.boulder_gone.connect(_on_boulder_gone)
+	# The sound and the jolt are the client's, so it is told where; the body comes as BODY.
+	game.boulder_dropped.connect(func(route_id: StringName, at: Vector3) -> void:
+		_broadcast(DdEvents.Kind.ROCK, {"route": String(route_id), "at": [at.x, at.y, at.z]}))
+	game.mountain_changed.connect(_on_mountain_changed)
+	game.walker_placed.connect(_on_walker_placed)
+	game.truck_made.connect(_on_truck_made)
+	game.truck_damaged.connect(_on_truck_damaged)
+	game.bridge_moved.connect(func(route_id: StringName, decks: Array) -> void:
+		_broadcast(DdEvents.Kind.BRIDGE, {"route": String(route_id), "decks": decks}))
+	game.seated.connect(func(key: StringName) -> void: _broadcast_driver(key))
 
 
 func open_link(parent: Node) -> void:
@@ -962,24 +967,9 @@ func _on_event(message: DotNetMessage) -> void:
 		DdEvents.Kind.DRIVER:
 			_apply_driver(data)
 		DdEvents.Kind.GONE:
-			var key := StringName(str(data.get("key", "")))
-			_drop_mirror_truck(key)
-			_drop_mirror_walker(key)
-			game.drivers.erase(key)
-			driver_changed.emit(key)
+			_apply_gone(data)
 		DdEvents.Kind.PLACE:
-			var at: Variant = data.get("at", [])
-
-			if at is Array and (at as Array).size() == 3:
-				var where := Transform3D(Basis(Vector3.UP, float(data.get("yaw", 0.0))), Vector3(float(at[0]), float(at[1]), float(at[2])))
-				var me: DdGame.Driver = game.drivers.get(local_key, null)
-
-				if me != null:
-					me.on_foot = true
-					me.walk_at = where.origin
-					me.walk_yaw = float(data.get("yaw", 0.0))
-
-				placed.emit(where)
+			_apply_place(data)
 		DdEvents.Kind.TRIP:
 			trip_view = data
 			trip_received.emit(data)
@@ -1008,13 +998,7 @@ func _on_event(message: DotNetMessage) -> void:
 		DdEvents.Kind.DAMAGE:
 			_apply_damage(data)
 		DdEvents.Kind.BRIDGE:
-			var road: Variant = game.routes.get(StringName(str(data.get("route", ""))), null)
-			var decks: Variant = data.get("decks", [])
-
-			if road != null and decks is Array:
-				for deck: Variant in decks:
-					if deck is Array and (deck as Array).size() == 3:
-						road.apply_bridge(int(deck[0]), bool(deck[1]), int(deck[2]))
+			_apply_bridge(data)
 		DdEvents.Kind.ROCK:
 			# On the mirror world, where the client listens for it offline too.
 			var at: Variant = data.get("at", [])
@@ -1022,15 +1006,52 @@ func _on_event(message: DotNetMessage) -> void:
 			if at is Array and (at as Array).size() == 3:
 				game.boulder_dropped.emit(StringName(str(data.get("route", ""))), Vector3(float(at[0]), float(at[1]), float(at[2])))
 		DdEvents.Kind.BODY_GONE:
-			var net_id := int(data.get("net_id", 0))
-			var behaviour: DdBodyNet = _entities.get(net_id, null)
-			_entities.erase(net_id)
+			_apply_body_gone(data)
 
-			if net.registry.has(net_id):
-				net.registry.unregister(net_id)
 
-			if behaviour != null and is_instance_valid(behaviour.body):
-				behaviour.body.queue_free()
+func _apply_gone(data: Dictionary) -> void:
+	var key := StringName(str(data.get("key", "")))
+	_drop_mirror_truck(key)
+	_drop_mirror_walker(key)
+	game.drivers.erase(key)
+	driver_changed.emit(key)
+
+
+func _apply_place(data: Dictionary) -> void:
+	var at: Variant = data.get("at", [])
+
+	if at is Array and (at as Array).size() == 3:
+		var where := Transform3D(Basis(Vector3.UP, float(data.get("yaw", 0.0))), Vector3(float(at[0]), float(at[1]), float(at[2])))
+		var me: DdGame.Driver = game.drivers.get(local_key, null)
+
+		if me != null:
+			me.on_foot = true
+			me.walk_at = where.origin
+			me.walk_yaw = float(data.get("yaw", 0.0))
+
+		placed.emit(where)
+
+
+func _apply_bridge(data: Dictionary) -> void:
+	var road: Variant = game.routes.get(StringName(str(data.get("route", ""))), null)
+	var decks: Variant = data.get("decks", [])
+
+	if road != null and decks is Array:
+		for deck: Variant in decks:
+			if deck is Array and (deck as Array).size() == 3:
+				road.apply_bridge(int(deck[0]), bool(deck[1]), int(deck[2]))
+
+
+func _apply_body_gone(data: Dictionary) -> void:
+	var net_id := int(data.get("net_id", 0))
+	var behaviour: DdBodyNet = _entities.get(net_id, null)
+	_entities.erase(net_id)
+
+	if net.registry.has(net_id):
+		net.registry.unregister(net_id)
+
+	if behaviour != null and is_instance_valid(behaviour.body):
+		behaviour.body.queue_free()
 
 
 func _apply_hello(data: Dictionary) -> void:

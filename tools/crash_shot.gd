@@ -17,36 +17,9 @@ func _ready() -> void:
 		if arg.begins_with("--out="):
 			out = arg.trim_prefix("--out=")
 
-	var env := WorldEnvironment.new()
-	env.environment = Environment.new()
-	env.environment.background_mode = Environment.BG_COLOR
-	env.environment.background_color = Color(0.55, 0.68, 0.82)
-	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.environment.ambient_light_color = Color(0.5, 0.5, 0.55)
-	add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -35, 0)
-	sun.shadow_enabled = true
-	add_child(sun)
-
-	# A cliff top and a 40 degree mountainside under it.
-	var land := StaticBody3D.new()
-	land.collision_layer = 1 | (1 << 19)
-	add_child(land)
-	var top := _slab(land, Vector3(60, 1, 60), Vector3(0, -0.5, 20), 0.0)
-	var slope := _slab(land, Vector3(80, 1, 300), Vector3(0, -97.5, -125), -40.0)
-	top.get_parent_node_3d()
-	slope.get_parent_node_3d()
-
-	var debris := DotVehicleDebris.new()
-	debris.collision_layer = 0
-	debris.collision_mask = 1 << 19
-	debris.lifetime = 60.0
-	add_child(debris)
-	var ragdolls := DotPlayerRagdolls.new()
-	ragdolls.rules.collision_mask = 1 | (1 << 19)
-	ragdolls.rules.max_sim_time = 20.0
-	add_child(ragdolls)
+	var built := _build_set()
+	var debris: DotVehicleDebris = built[0]
+	var ragdolls: DotPlayerRagdolls = built[1]
 
 	var trucks := DdTrucks.new()
 	var crates: Dictionary = DdCargo.new().get_load(&"crates")
@@ -112,6 +85,41 @@ func _ready() -> void:
 
 	print("blast at frame %d" % blast_at)
 	get_tree().quit(0)
+
+
+## The sky, the cliff top and slope, and the debris and ragdoll pools; returns [debris, ragdolls].
+func _build_set() -> Array:
+	var env := WorldEnvironment.new()
+	env.environment = Environment.new()
+	env.environment.background_mode = Environment.BG_COLOR
+	env.environment.background_color = Color(0.55, 0.68, 0.82)
+	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.environment.ambient_light_color = Color(0.5, 0.5, 0.55)
+	add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50, -35, 0)
+	sun.shadow_enabled = true
+	add_child(sun)
+
+	# A cliff top and a 40 degree mountainside under it.
+	var land := StaticBody3D.new()
+	land.collision_layer = 1 | (1 << 19)
+	add_child(land)
+	var top := _slab(land, Vector3(60, 1, 60), Vector3(0, -0.5, 20), 0.0)
+	var slope := _slab(land, Vector3(80, 1, 300), Vector3(0, -97.5, -125), -40.0)
+	top.get_parent_node_3d()
+	slope.get_parent_node_3d()
+
+	var debris := DotVehicleDebris.new()
+	debris.collision_layer = 0
+	debris.collision_mask = 1 << 19
+	debris.lifetime = 60.0
+	add_child(debris)
+	var ragdolls := DotPlayerRagdolls.new()
+	ragdolls.rules.collision_mask = 1 | (1 << 19)
+	ragdolls.rules.max_sim_time = 20.0
+	add_child(ragdolls)
+	return [debris, ragdolls]
 
 
 func _slab(parent: StaticBody3D, size: Vector3, at: Vector3, pitch: float) -> CollisionShape3D:

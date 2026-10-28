@@ -365,6 +365,14 @@ func _place_hazards(index: int, seg: Dictionary, start: float, length_m: float) 
 		var n := float(int(seg["gravel"]))
 		gravel.append({"d": start + length_m * (float(k) + 0.5) / n, "length": minf(GRAVEL_LENGTH, length_m / n * 0.8)})
 
+	_place_ground_hazards(index, seg, start, length_m)
+
+
+## The hazards that cut or crowd the road itself: bridges, washouts, ledges, broken road, traffic.
+func _place_ground_hazards(index: int, seg: Dictionary, start: float, length_m: float) -> void:
+	var width: float = seg["width"]
+	var id_text := str(doc.get("id", ""))
+
 	for k in int(seg["bridge"]):
 		var n := float(int(seg["bridge"]))
 		var centre := start + length_m * (float(k) + 0.5) / n
