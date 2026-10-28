@@ -79,10 +79,8 @@ signal toys_clearing()
 signal toys_built()
 signal toy_sound(id: StringName, at: Vector3, strength: float)
 
-## The lot's toys (dot-props' loose ones): beach balls and a football between the spawn and the
-## showroom, tyres and barrels by the fence. A truck ploughs them, somebody on foot walks
-## through them and sends them on. Placed from the lot ([constant TOY_SPOTS]) on both ends in
-## the same order. Null before a lot.
+## The lot's toys (dot-props' loose ones), placed from [constant TOY_SPOTS] on both ends in the
+## same order; a truck ploughs them, a walker pushes them. Null before a lot.
 var toys: DotPropToyBox = null
 
 ## dot-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
@@ -282,10 +280,8 @@ signal world_clearing()
 ## [member staged_terrain]). The client's load gate releases on it.
 signal world_rebuilt()
 
-## Asked every offline tick: true while the client's load gate covers the screen. The world
-## does not step then, so trips, weather, rock and the bots wait for the picture instead of
-## running behind it. Unset, never held. Only the self-ticking path asks; the server's module
-## and the bridge call [method step] themselves.
+## Asked every offline tick: true while the load gate covers the screen, so the world waits for
+## the picture. Unset, never held. Only the self-ticking path asks; the server calls [method step].
 var hold_clock: Callable = Callable()
 
 ## `func(driver_key: StringName) -> bool`: whether a driver may be hurt now (lose load to a knock

@@ -95,8 +95,7 @@ var distances: PackedFloat32Array = PackedFloat32Array()
 var segment_of: PackedInt32Array = PackedInt32Array()
 
 ## The road's width at each sample, eased over [constant WIDTH_EASE] samples either side of a
-## change: a segment narrower than the one before used to start with a 0.75 m step in each edge,
-## and where that edge was a cliff the step was a corner of rock square to the road.
+## change, so a narrowing is not a square step in each edge (a corner of rock on a cliff side).
 var widths: PackedFloat32Array = PackedFloat32Array()
 
 ## Distance along the road of each checkpoint, in order. The finish is [method length].
@@ -136,10 +135,9 @@ var washouts: Array = []
 ## Broken road: heaps of fallen rock on alternating sides, [code]{"d", "lateral", "size": Vector3}[/code].
 var broken: Array = []
 
-## Oncoming traffic: a car coming down the other lane of one segment, over and over, at a
-## pace that is a pure function of the tick (so every machine draws it in the same place):
-## [code]{"from", "to", "lateral", "speed", "phase", "model"}[/code]. Solid and kinematic: it
-## does not stop, and a truck in its lane meets it.
+## Oncoming traffic: a car down the other lane of one segment, at a pace that is a pure function
+## of the tick so every machine draws it alike: [code]{"from", "to", "lateral", "speed", "phase",
+## "model"}[/code]. Solid and kinematic: it does not stop, and a truck in its lane meets it.
 var traffic: Array = []
 
 ## The cars of [member traffic], in order, and where the ones on the road are.
@@ -257,11 +255,9 @@ func _ease_widths() -> void:
 		widths[i] = sum / float(hi - lo + 1)
 
 
-## Ice and debris along one segment, spaced evenly and moved by a hash so they are not in a
-## line. Debris takes one lane and leaves the other, always: a pile across the whole road is a
-## road nobody can drive, and the validator has no way to know it.
-## The first and last sample index inside [param from_d, to_d], so a gap starts and ends on a
-## sample and the deck spans exactly the missing road.
+## Ice and debris along one segment, spaced evenly and moved by a hash. Debris takes one lane
+## only: a pile across the whole road is one nobody can drive, and the validator cannot know.
+## The first and last sample index inside [param from_d, to_d], so a gap spans the missing road.
 func _hole_samples(from_d: float, to_d: float) -> Array:
 	var a := 0
 	while a < distances.size() - 1 and distances[a] < from_d:
@@ -396,10 +392,9 @@ func on_gravel(position: Vector3, hint: int = -1) -> bool:
 	return false
 
 
-## Everything along the road a driver has to deal with, in order: [code]{"d", "kind"}[/code]
-## for rock that can come down, ice, debris, roadworks, gravel, oncoming traffic, a narrowing
-## (a segment narrower than the route) and a hairpin. What the lot counts and a suite measures
-## the gaps between.
+## Everything along the road a driver has to deal with, in order: [code]{"d", "kind"}[/code] for
+## rock, ice, debris, roadworks, gravel, oncoming traffic, a narrowing and a hairpin. What the lot
+## counts and a suite measures the gaps between.
 func challenges() -> Array:
 	var out: Array = []
 
@@ -455,17 +450,9 @@ func pose_at(d: float) -> Transform3D:
 	return Transform3D(Basis(Vector3.UP, yaw), points[i].lerp(points[i + 1], t))
 
 
-## Moves every oncoming car on: down its lane at its speed, then out of the world for
-## [constant TRAFFIC_GAP] seconds, then back at the top.
-##
-## [b]Each run starts on the tick's schedule[/b] (a run every cycle, offset by the car's phase),
-## so every machine starts the same run at the same moment, and one that joins mid-run puts the
-## car where the arithmetic says. [b]Within a run the car stops for a truck in its lane[/b]
-## ([param trucks], route-local positions of every truck and trailer): a kinematic car does not
-## stop for anything by itself, and the first version shoved a truck straddling the line thirty
-## metres back down a snowy road at 11 m/s. A machine sees the same trucks (a client's are the
-## server's, interpolated), so a hold is a hold everywhere, a beat apart at most, and the next
-## run starts in step again.
+## Moves every oncoming car on: down its lane, out of the world for [constant TRAFFIC_GAP] s,
+## then back at the top. Runs start on the tick's schedule, so a late joiner agrees; within a run
+## a car stops for a [param trucks] position in its lane (route-local), as a kinematic one would shove it.
 func step_traffic(tick: int, tick_rate: int, trucks: PackedVector3Array = PackedVector3Array()) -> void:
 	var now := float(tick) / float(maxi(tick_rate, 1))
 	_car_at = PackedVector3Array()
@@ -557,11 +544,9 @@ func stages() -> int:
 	return checkpoints.size() + 1
 
 
-## The sample nearest [param position] horizontally, searched around [param hint] first.
-##
-## [b]Around a hint, because a switchback puts the road beside itself.[/b] The nearest sample
-## to a truck on the lower leg of a hairpin can be on the upper leg ten metres above it; a
-## truck's own last index, searched near first and in three dimensions, is the road it is on.
+## The sample nearest [param position] horizontally, searched around [param hint] first: a
+## switchback puts the road beside itself, so a truck's own last index, searched near first and
+## in three dimensions, is the road it is on.
 func nearest_index(position: Vector3, hint: int = -1) -> int:
 	if points.is_empty():
 		return 0

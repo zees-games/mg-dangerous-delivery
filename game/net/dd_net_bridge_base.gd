@@ -84,10 +84,9 @@ var _player_of_peer: Dictionary = {}
 var _key_of_session: Dictionary = {}
 var _peer_of_key: Dictionary = {}
 var _ready_peers: Dictionary = {}
-## Server: peers whose READY came before their seat ([method add_player]). A client sends READY
-## when its link says PLAYING, which the link decides itself after sending `loaded` on another
-## channel; over ENet with loss the READY can overtake `loaded`, and a READY dropped here left
-## that client waiting for a world for ever. Admitted when seated.
+## Server: peers whose READY came before their seat ([method add_player]); over ENet with loss
+## READY can overtake `loaded` on another channel, and dropping it left that client waiting
+## for a world for ever. Admitted when seated.
 var _ready_unseated: Dictionary = {}
 var _next_bot_session: int = FIRST_BOT_SESSION
 
