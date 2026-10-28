@@ -1,10 +1,7 @@
 extends DotGameCheckSuite
 
 ## DdConfig through DotGameConfigBinder: fields, cvars, strict refusal, the diff, a shipped yml loading back, the truck and cargo profile kinds and the workbench round trip.
-##
-## [codeblock]
-## godot --headless --path . res://examples/headless_config.tscn
-## [/codeblock]
+## Run: godot --headless --path . res://examples/headless_config.tscn
 
 const DdConfig := preload("../game/dd_config.gd")
 const DdProfiles := preload("../game/dd_profiles.gd")

@@ -196,8 +196,6 @@ func _damage(target: Object, amount: float, _at: Vector3, _ev: Object) -> void:
 			driver.trip.cargo = maxf(driver.trip.cargo - amount * 0.004, 0.0)
 
 
-# --- Stage hazards ---------------------------------------------------------
-
 func _load_hazards() -> void:
 	DotAddonConfig.game = "mg-dangerous-delivery"
 	var res := DotAddonConfig.load_dir("natural-disasters", DEFAULTS)

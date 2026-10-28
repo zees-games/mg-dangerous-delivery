@@ -45,10 +45,8 @@ const ROCKS := ["rock_largeA", "rock_largeC", "rock_tallB", "rock_tallE", "stone
 
 const CHANNEL := "delivery.route"
 
-## The layer only cameras stop against (20): the mountain, the gates and the road, so the
-## chase camera stays out of the cliff and the checkpoint arch (the first play test had it
-## inside both). Trucks collide on layer 1 and never see it; the mountain and the gates are
-## on it alone, because a truck that hit the drawn mountain would be on a second floor.
+## The layer only cameras stop against (20): the mountain, gates and road, so the chase camera stays
+## out of the cliff and arch. Trucks never see it: one that hit the drawn mountain would be on a second floor.
 const CAMERA_LAYER := 1 << 19
 
 ## Metres between samples.

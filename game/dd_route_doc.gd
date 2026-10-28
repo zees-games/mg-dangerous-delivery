@@ -236,11 +236,9 @@ static func length_of(doc: Dictionary) -> float:
 const SHAPE_RANGES := {"stretch": [0.6, 2.0], "twist": [0.5, 1.4], "climb": [0.5, 1.5], "narrow": [0.0, 1.2]}
 
 
-## [param doc] (a validated route) laid out as one mountain's version of it: `mirror` flips every
-## bend and its cliff and rail to the other side, `stretch` lengthens the straights (climb with
-## them, so the grade stays), `twist` scales the bends, `climb` the grade, `narrow` takes metres off
-## the width. Hairpins keep their shape (a 30 m radius is what a long truck can take) and the
-## checkpoints stay, so a stage count never changes. Pure on the document: every machine agrees.
+## [param doc] (a validated route) as one mountain's version: `mirror` flips bends, cliff and rail, `stretch`
+## lengthens straights (grade kept), `twist` scales bends, `climb` the grade, `narrow` takes width off.
+## Hairpins and checkpoints keep their shape. Pure on the document: every machine agrees.
 static func reshape(doc: Dictionary, shape: Dictionary) -> Dictionary:
 	if shape.is_empty():
 		return doc
@@ -274,11 +272,9 @@ static func reshape(doc: Dictionary, shape: Dictionary) -> Dictionary:
 	return out
 
 
-## [param doc] (a validated route) with [param extras] ({kind: how many}) added to the segments
-## that can take them, chosen by hash of route, kind and segment, so every machine agrees and one
-## mountain's road is another's with other hazards. Segments that already carry a hazard of that
-## kind or are too short, curved or narrow for it are skipped; the checkpoint segments keep clear
-## of the bridge and washout so a truck put down after a fall is not put in the gap.
+## [param doc] (a validated route) with [param extras] ({kind: how many}) added to segments that can take
+## them, chosen by hash of route, kind and segment so every machine agrees. Segments already carrying that
+## kind or too short, curved or narrow are skipped; checkpoints keep clear of the bridge and washout.
 static func overlay(doc: Dictionary, extras: Dictionary) -> Dictionary:
 	if extras.is_empty():
 		return doc

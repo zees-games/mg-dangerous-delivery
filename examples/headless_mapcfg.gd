@@ -1,10 +1,7 @@
 extends DotGameCheckSuite
 
-## A mountain's file sets its cvars and the next mountain gets the old values back. Runs through the real module's whitelist.
-##
-## [codeblock]
-## godot --headless --path . res://examples/headless_mapcfg.tscn
-## [/codeblock]
+## A mountain's file sets its cvars and the next mountain gets the old values back, through the real module's whitelist.
+## Run: godot --headless --path . res://examples/headless_mapcfg.tscn
 
 const DdModule := preload("res://game/dd_module.gd")
 const CHECKS := 8

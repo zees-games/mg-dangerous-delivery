@@ -92,10 +92,6 @@ func _test_on_foot() -> void:
 	_finished_section()
 
 
-## The lot's trade: a salesperson sells a truck to somebody who can pay for it, and hands over
-## one they own (brought round to a bay, them at the wheel); they drive it, stop and get out on
-## foot beside it, and get back in. A trip takes the parked truck; back from the road it is
-## parked again and they are on foot beside it. Buying is the lot's alone.
 ## The lot's toys (dot-props', loose only): all built clear of the slab's fence and the showroom,
 ## still two seconds on, and somebody on foot walking into a beach ball sends it on.
 func _test_the_lot_toys() -> void:
@@ -206,10 +202,9 @@ func _test_restart_and_back_to_lot() -> void:
 	_finished_section()
 
 
-## A stand-in does what a person does, in the world's own calls: on foot from the spawn to the
-## salesperson of its truck, at the wheel in a bay, out of the lot and along the land's road to
-## the gate of the route it chose, never far off that road nor down into the sea, and accepts
-## the delivery there, which starts the route. Within a time limit, at its difficulty's pace.
+## A stand-in does what a person does, in the world's own calls: on foot to its truck's salesperson,
+## at the wheel in a bay, along the land's road to its route's gate (never off it or into the sea),
+## and accepts the delivery there. Within a time limit, at its difficulty's pace.
 func _test_stand_in_to_gate() -> void:
 	_section("a stand-in walks to its truck and drives the road to a gate")
 	var key := &"roadbot"
@@ -304,10 +299,8 @@ func _test_every_mountain() -> void:
 	_finished_section()
 
 
-## The map system: a map is a document (`maps/`, or a map pack's `routes/` beside its routes)
-## saying which routes the world holds and how it is laid out; a bad one is refused in words; one
-## that places a route, the lot and a road's bends by hand is built exactly so; every shipped map
-## builds with every road reaching its gate and none crossing.
+## Maps are documents (`maps/` or a pack's `routes/`): a bad one is refused in words, a hand-placed
+## one is built exactly so, and every shipped map builds with every road reaching its gate, none crossing.
 func _test_maps_are_documents() -> void:
 	_section("maps are documents")
 	var files := DirAccess.get_files_at("res://maps")
@@ -484,10 +477,8 @@ func _clean_offer(trip: DdTrip) -> int:
 	return copy.pay_now(game.config)
 
 
-## [param s] seconds of SIMULATION, counted in physics ticks rather than on the clock.
-## On the clock, a slow CI runner simulated fewer ticks in the same wall time and the
-## truck had not settled onto its four wheels by the check after "1.2 s" (2 of 4 on
-## GitHub, 4 of 4 here).
+## [param s] seconds of SIMULATION, counted in physics ticks: on the clock a slow runner simulates
+## fewer ticks in the same wall time and a truck has not settled by the check.
 func _seconds(s: float) -> void:
 	for _i in range(ceili(s * Engine.physics_ticks_per_second)):
 		await get_tree().physics_frame

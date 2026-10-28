@@ -3,18 +3,9 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
-## Bot soak on the real game: N stand-in drivers deliver on the mountain's roads for M simulated
-## minutes through dot-bot's DotBotSoak, fed by dot-spawn's DotSpawnWatch. A "map" here is a route id
-## (every stand-in starts on it); "all" lets the stand-ins pick, which spreads them over the routes.
-##
-## [codeblock]
-## ./game.sh soak [route|all] [minutes]
-## godot --headless --fixed-fps 60 --path . res://tools/soak.tscn -- --map dd_foothills --bots 3 --minutes 2
-## [/codeblock]
-##
-## Takes the harness's own flags too (--soak-max-stuck-sec and the rest of DotBotSoakConfig).
-## Writes .godot/test-logs/soak-<map>.json, prints the SOAK line, exits 1 when the run fails.
-## Trucks are physics bodies, so the world is ticked by the engine's physics frames, not stepped.
+## Bot soak on the real game: N stand-ins deliver for M simulated minutes through dot-bot's DotBotSoak and dot-spawn's DotSpawnWatch.
+## A "map" is a route id every stand-in starts on; "all" lets them pick. `./game.sh soak [route|all] [minutes]`, or
+## `godot --headless --fixed-fps 60 --path . res://tools/soak.tscn -- --map dd_foothills --bots 3 --minutes 2` (DotBotSoakConfig flags too).
 
 const DEFAULT_MAP := &"all"
 const DEFAULT_MINUTES := 1.0
