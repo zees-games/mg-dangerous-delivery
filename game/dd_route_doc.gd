@@ -83,25 +83,12 @@ static func normalise(doc: Variant) -> DotResult:
 	if width < 4.0 or width > 30.0:
 		return DotResult.fail(DotError.CODE_INVALID, "width %.1f is outside 4 to 30 metres." % width)
 
-	var zones: Dictionary = {}
-	var raw_zones: Variant = d.get("zones", {})
+	var zones_res := _normalise_zones(d.get("zones", {}))
 
-	if not (raw_zones is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "zones is an object of zone id to weather.")
+	if not zones_res.ok:
+		return zones_res
 
-	for zone_id: Variant in raw_zones:
-		var z: Variant = raw_zones[zone_id]
-
-		if not (z is Dictionary):
-			return DotResult.fail(DotError.CODE_INVALID, "zone '%s' is not an object." % zone_id)
-
-		var zone := {
-			"name": str((z as Dictionary).get("name", zone_id)),
-			"snow": clampf(float((z as Dictionary).get("snow", 0.0)), 0.0, 1.0),
-			"rain": clampf(float((z as Dictionary).get("rain", 0.0)), 0.0, 1.0),
-			"wind": clampf(float((z as Dictionary).get("wind", 0.0)), 0.0, 1.0),
-		}
-		zones[str(zone_id)] = zone
+	var zones: Dictionary = zones_res.value
 
 	var raw_segments: Variant = d.get("segments", [])
 
@@ -112,98 +99,17 @@ static func normalise(doc: Variant) -> DotResult:
 	var checkpoints := 0
 
 	for i in (raw_segments as Array).size():
-		var s: Variant = raw_segments[i]
+		var seg_res := _normalise_segment(i, raw_segments[i], zones, width)
 
-		if not (s is Dictionary):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d is not an object." % i)
+		if not seg_res.ok:
+			return seg_res
 
-		var seg: Dictionary = s
-		var length := float(seg.get("length", 0.0))
+		var seg_out: Dictionary = seg_res.value
 
-		if length < 2.0 or length > 2000.0:
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: length %.1f is outside 2 to 2000 metres." % [i, length])
-
-		var turn := float(seg.get("turn", 0.0))
-
-		if absf(turn) / length > MAX_TURN_PER_METRE:
-			return DotResult.fail(DotError.CODE_INVALID,
-				"segment %d turns %.0f degrees in %.0f metres; a truck cannot take that." % [i, turn, length])
-
-		var climb := float(seg.get("climb", 0.0))
-
-		if absf(climb) / length > MAX_GRADE:
-			return DotResult.fail(DotError.CODE_INVALID,
-				"segment %d climbs %.0f metres in %.0f; the most is %.0f%%." % [i, climb, length, MAX_GRADE * 100.0])
-
-		var wall := str(seg.get("wall", "none"))
-		var rail := str(seg.get("rail", "none"))
-
-		if not WALLS.has(wall) or not WALLS.has(rail):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: wall and rail are one of %s." % [i, WALLS])
-
-		var zone := str(seg.get("zone", ""))
-
-		if zone != "" and not zones.has(zone):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d names zone '%s', which is not in zones." % [i, zone])
-
-		var seg_width := float(seg.get("width", width))
-
-		if seg_width < 4.0 or seg_width > 30.0:
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
-
-		# Roadworks close 42% of the road, and what is left has to be a lane a truck fits.
-		var works := clampi(int(seg.get("works", 0)), 0, 32)
-
-		if works > 0 and seg_width * 0.58 < MIN_OPEN_LANE:
-			return DotResult.fail(DotError.CODE_INVALID,
-				"segment %d: roadworks on a %.1f m road leave %.1f m; a truck needs %.1f." % [i, seg_width, seg_width * 0.58, MIN_OPEN_LANE])
-
-		# Oncoming cars only on a road wide enough to pass them and straight enough to see them.
-		var traffic := clampi(int(seg.get("traffic", 0)), 0, 8)
-
-		if traffic > 0 and (seg_width < MIN_TRAFFIC_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 80.0):
-			return DotResult.fail(DotError.CODE_INVALID,
-				"segment %d: oncoming traffic needs 80 m of road %.1f m wide turning at most %.1f degrees a metre." % [i, MIN_TRAFFIC_WIDTH, MAX_TRAFFIC_TURN])
-
-		# A bridge spans a straight stretch, a washout takes a side of a road wide enough to keep
-		# the other, and a broken road is bumps on one side.
-		var bridge := clampi(int(seg.get("bridge", 0)), 0, 2)
-		var washout := clampi(int(seg.get("washout", 0)), 0, 2)
-
-		if bridge > 0 and (absf(turn) > 4.0 or length < BRIDGE_MIN_SEGMENT):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge needs %.0f m of straight road." % [i, BRIDGE_MIN_SEGMENT])
-
-		if washout > 0 and (seg_width < 7.0 or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
-
-		var ledge := clampi(int(seg.get("ledge", 0)), 0, 2)
-
-		if ledge > 0 and (seg_width < LEDGE_MIN_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a ledge needs 60 m of nearly straight road at least %.1f m wide." % [i, LEDGE_MIN_WIDTH])
-
-		if bridge > 0 and washout > 0:
-			return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
-
-		var checkpoint := bool(seg.get("checkpoint", false))
-
-		if checkpoint:
+		if bool(seg_out["checkpoint"]):
 			checkpoints += 1
 
-		segments.append({
-			"length": length, "turn": turn, "climb": climb, "width": seg_width,
-			"wall": wall, "rail": rail, "zone": zone, "checkpoint": checkpoint,
-			"boulders": clampi(int(seg.get("boulders", 0)), 0, 32),
-			"ice": clampi(int(seg.get("ice", 0)), 0, 32),
-			"debris": clampi(int(seg.get("debris", 0)), 0, 32),
-			"works": works,
-			"gravel": clampi(int(seg.get("gravel", 0)), 0, 32),
-			"traffic": traffic,
-			"bridge": bridge,
-			"washout": washout,
-			"ledge": ledge,
-			"broken": clampi(int(seg.get("broken", 0)), 0, 4),
-			"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
-		})
+		segments.append(seg_out)
 
 	return DotResult.success({
 		"format": FORMAT,
@@ -220,6 +126,131 @@ static func normalise(doc: Variant) -> DotResult:
 		"segments": segments,
 		"stages": checkpoints + 1,
 	})
+
+
+## The zones object, each clamped to 0..1 weather.
+static func _normalise_zones(p_zones: Variant) -> DotResult:
+	if not (p_zones is Dictionary):
+		return DotResult.fail(DotError.CODE_INVALID, "zones is an object of zone id to weather.")
+
+	var zones: Dictionary = {}
+
+	for zone_id: Variant in p_zones:
+		var z: Variant = p_zones[zone_id]
+
+		if not (z is Dictionary):
+			return DotResult.fail(DotError.CODE_INVALID, "zone '%s' is not an object." % zone_id)
+
+		var zone := {
+			"name": str((z as Dictionary).get("name", zone_id)),
+			"snow": clampf(float((z as Dictionary).get("snow", 0.0)), 0.0, 1.0),
+			"rain": clampf(float((z as Dictionary).get("rain", 0.0)), 0.0, 1.0),
+			"wind": clampf(float((z as Dictionary).get("wind", 0.0)), 0.0, 1.0),
+		}
+		zones[str(zone_id)] = zone
+
+	return DotResult.success(zones)
+
+
+## One segment of a route, checked against its zones and the route's width.
+static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: float) -> DotResult:
+	if not (s is Dictionary):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d is not an object." % i)
+
+	var seg: Dictionary = s
+	var length := float(seg.get("length", 0.0))
+
+	if length < 2.0 or length > 2000.0:
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: length %.1f is outside 2 to 2000 metres." % [i, length])
+
+	var turn := float(seg.get("turn", 0.0))
+
+	if absf(turn) / length > MAX_TURN_PER_METRE:
+		return DotResult.fail(DotError.CODE_INVALID,
+			"segment %d turns %.0f degrees in %.0f metres; a truck cannot take that." % [i, turn, length])
+
+	var climb := float(seg.get("climb", 0.0))
+
+	if absf(climb) / length > MAX_GRADE:
+		return DotResult.fail(DotError.CODE_INVALID,
+			"segment %d climbs %.0f metres in %.0f; the most is %.0f%%." % [i, climb, length, MAX_GRADE * 100.0])
+
+	var wall := str(seg.get("wall", "none"))
+	var rail := str(seg.get("rail", "none"))
+
+	if not WALLS.has(wall) or not WALLS.has(rail):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: wall and rail are one of %s." % [i, WALLS])
+
+	var zone := str(seg.get("zone", ""))
+
+	if zone != "" and not zones.has(zone):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d names zone '%s', which is not in zones." % [i, zone])
+
+	var seg_width := float(seg.get("width", width))
+
+	if seg_width < 4.0 or seg_width > 30.0:
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
+
+	var bad := _check_features(i, seg, seg_width, turn, length)
+
+	if not bad.ok:
+		return bad
+
+	var checkpoint := bool(seg.get("checkpoint", false))
+
+	return DotResult.success({
+		"length": length, "turn": turn, "climb": climb, "width": seg_width,
+		"wall": wall, "rail": rail, "zone": zone, "checkpoint": checkpoint,
+		"boulders": clampi(int(seg.get("boulders", 0)), 0, 32),
+		"ice": clampi(int(seg.get("ice", 0)), 0, 32),
+		"debris": clampi(int(seg.get("debris", 0)), 0, 32),
+		"works": clampi(int(seg.get("works", 0)), 0, 32),
+		"gravel": clampi(int(seg.get("gravel", 0)), 0, 32),
+		"traffic": clampi(int(seg.get("traffic", 0)), 0, 8),
+		"bridge": clampi(int(seg.get("bridge", 0)), 0, 2),
+		"washout": clampi(int(seg.get("washout", 0)), 0, 2),
+		"ledge": clampi(int(seg.get("ledge", 0)), 0, 2),
+		"broken": clampi(int(seg.get("broken", 0)), 0, 4),
+		"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
+	})
+
+
+## A segment's roadworks, traffic, bridge, washout and ledge against the road under them.
+static func _check_features(i: int, seg: Dictionary, seg_width: float, turn: float, length: float) -> DotResult:
+	# Roadworks close 42% of the road, and what is left has to be a lane a truck fits.
+	var works := clampi(int(seg.get("works", 0)), 0, 32)
+
+	if works > 0 and seg_width * 0.58 < MIN_OPEN_LANE:
+		return DotResult.fail(DotError.CODE_INVALID,
+			"segment %d: roadworks on a %.1f m road leave %.1f m; a truck needs %.1f." % [i, seg_width, seg_width * 0.58, MIN_OPEN_LANE])
+
+	# Oncoming cars only on a road wide enough to pass them and straight enough to see them.
+	var traffic := clampi(int(seg.get("traffic", 0)), 0, 8)
+
+	if traffic > 0 and (seg_width < MIN_TRAFFIC_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 80.0):
+		return DotResult.fail(DotError.CODE_INVALID,
+			"segment %d: oncoming traffic needs 80 m of road %.1f m wide turning at most %.1f degrees a metre." % [i, MIN_TRAFFIC_WIDTH, MAX_TRAFFIC_TURN])
+
+	# A bridge spans a straight stretch, a washout takes a side of a road wide enough to keep
+	# the other, and a broken road is bumps on one side.
+	var bridge := clampi(int(seg.get("bridge", 0)), 0, 2)
+	var washout := clampi(int(seg.get("washout", 0)), 0, 2)
+
+	if bridge > 0 and (absf(turn) > 4.0 or length < BRIDGE_MIN_SEGMENT):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge needs %.0f m of straight road." % [i, BRIDGE_MIN_SEGMENT])
+
+	if washout > 0 and (seg_width < 7.0 or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
+
+	var ledge := clampi(int(seg.get("ledge", 0)), 0, 2)
+
+	if ledge > 0 and (seg_width < LEDGE_MIN_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a ledge needs 60 m of nearly straight road at least %.1f m wide." % [i, LEDGE_MIN_WIDTH])
+
+	if bridge > 0 and washout > 0:
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
+
+	return DotResult.success()
 
 
 ## How long the road is, in metres, without building it.
