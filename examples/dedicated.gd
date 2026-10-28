@@ -1,32 +1,12 @@
-extends DotGameCheckSuite
+extends "dedicated_base.gd"
 
 ## The game as a deployed server runs it: a real [DotServer], the world from the server scene,
 ## the module loaded BY PATH the way an operator names it.
 ##
 ##   godot --headless --path . res://examples/dedicated.tscn
 
-const DdAmbience := preload("../game/dd_ambience.gd")
-const DdAudio := preload("../game/dd_audio.gd")
-const DdGame := preload("../game/dd_game.gd")
-const DdMountains := preload("../game/dd_mountains.gd")
-const DdNetBridge := preload("../game/net/dd_net_bridge.gd")
-const DdNetLink := preload("../game/net/dd_net_link.gd")
-const DdTrip := preload("../game/dd_trip.gd")
-
 const SECTIONS := 12
 const CHECKS := 101
-
-const SERVER_DIR := "user://dd_dedicated"
-const PORT := 28941
-const QUERY_PORT := 28942
-const TICK_RATE := 60
-
-var _entered := 0
-var _finished := 0
-
-var server: DotServer = null
-var scene: Node = null
-var game: DdGame = null
 
 
 func _ready() -> void:
@@ -60,66 +40,8 @@ func _run() -> void:
 	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
-## A booted server's listener holds the main loop: take it down before quitting, or the run
-## prints its results and hangs.
-func _shut_down() -> void:
-	if server == null:
-		return
-
-	if server.modules != null:
-		server.modules.unload_all()
-
-	server.shutdown("the dedicated test is finished")
-
-	for _i in range(10):
-		await get_tree().process_frame
-
-	if is_instance_valid(scene):
-		remove_child(scene)
-		scene.free()
-
-	if is_instance_valid(server):
-		remove_child(server)
-		server.free()
-
-	await get_tree().process_frame
 
 
-func _boot() -> void:
-	_section("booting")
-	var cfg_path := "%s/server.cfg" % SERVER_DIR
-	var cfg := FileAccess.open(cfg_path, FileAccess.WRITE)
-	cfg.store_line("sv_tickrate %d" % TICK_RATE)
-	cfg.close()
-
-	var config := DotServerConfig.new()
-	config.startup_config = cfg_path
-	config.autoexec_config = ""
-	config.hostname = "dangerous delivery test"
-	config.max_players = 16
-	config.hibernate_when_empty = false
-	config.rcon_password = ""
-	config.port = PORT
-	config.query_port = QUERY_PORT
-	config.admins_path = "%s/admins.json" % SERVER_DIR
-	config.bans_path = "%s/bans.json" % SERVER_DIR
-	config.audit_log_path = "%s/audit.jsonl" % SERVER_DIR
-	config.stdin_console_enabled = false
-
-	server = DotServer.new()
-	server.name = "Server"
-	server.config = config
-	add_child(server)
-
-	for _i in range(120):
-		await get_tree().process_frame
-
-		if server.state == DotServer.State.RUNNING:
-			break
-
-	_check(server.state == DotServer.State.RUNNING, "the server boots", DotServer.State.keys()[server.state])
-	_check(Engine.physics_ticks_per_second == TICK_RATE, "and sv_tickrate reached the engine")
-	_finished_section()
 
 
 func _test_the_module_loads() -> void:
@@ -316,10 +238,7 @@ func _test_the_mountain_vote() -> void:
 	_check(server.hibernation_changed.is_connected(director.set_hibernating),
 		"the vote follows the server's hibernation without a line of this game's")
 
-	var ids: Array = []
-
-	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
-		ids.append(String(choice.id))
+	var ids: Array = _ballot_ids(vote)
 
 	_check(ids == ["range", "low_country", "high_country", "long_haul"], "it offers every mountain (maps/, in their order)", str(ids))
 	_check(_said(_run_command("dd_mountain"), "low_country") and server.games.current_map() == "range",
@@ -328,31 +247,7 @@ func _test_the_mountain_vote() -> void:
 			and director.rules.trigger == DotVoteRules.Trigger.TIME_LIMIT,
 		"on dot-vote's own clock: a time limit of mountain_minutes", "%s, %.0f s" % [director.current_id(), director.clock.duration])
 
-	# The map menu's server half (M): the owner's flag changes the mountain now, anybody else
-	# gets a nomination and a rock-the-vote. Contexts as dot-server makes them for a chat line.
-	var menu_half: Object = vote.get("commands").get("map_menu")
-	_check(menu_half != null and server.console.find_command("mapmenu") != null
-		and server.console.find_cvar("sv_map_menu_flag").get_string() == "generic"
-		and (menu_half.get("change_fn") as Callable).is_valid(),
-		"the map menu is there, staff-only by default, changing the mountain now")
-	var staff := DotCmdContext.new()
-	staff.source = DotCmdContext.Source.CHAT
-	staff.permissions = PackedStringArray(["generic"])
-	var player := DotCmdContext.new()
-	player.source = DotCmdContext.Source.CHAT
-	var offered: Dictionary = menu_half.call("offer", player)
-	_check((offered["maps"] as Array).size() > 1 and not bool(offered["allowed"]) and bool(offered["vote"]),
-		"a player is offered every mountain, as a vote")
-	var target: StringName = &""
-	for row: Dictionary in offered["maps"]:
-		if not bool(row["current"]):
-			target = StringName(str(row["id"]))
-			break
-	var menu_changed: Dictionary = await menu_half.call("choose", staff, target)
-	_check(bool(menu_changed["ok"]) and game.mountain_id == target, "staff choosing one changes the mountain on the spot",
-		"%s: %s" % [target, menu_changed.get("text", "")])
-	var _restore: Variant = await menu_half.call("choose", staff, &"range")
-	director.begin(&"range")
+	_map_menu_half(vote, director)
 
 	# A person mid-haul, who must not lose the trip to the clock.
 	var hauler := &"uid:hauler"
@@ -424,13 +319,6 @@ class CommandHost extends Node:
 		return null
 
 
-func _ballot_ids(vote: Node) -> Array:
-	var out: Array = []
-
-	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
-		out.append(String(choice.id))
-
-	return out
 
 
 ## `maps.yml` (dot_map tiers): which mountains rotate. The format is dot-map's selftest's; this is what the
@@ -470,19 +358,7 @@ func _test_rotation_file() -> void:
 	_check(not DdMountains.by_id(&"long_haul", game.maps).is_empty() and not game.in_rotation(&"long_haul"),
 		"it stays installed", str(game.in_rotation(&"long_haul")))
 
-	var rows: Array = game.mountain_rows()
-	var out_row: Dictionary = {}
-	var in_row: Dictionary = {}
-	for row: Dictionary in rows:
-		if row["id"] == "long_haul":
-			out_row = row
-		elif row["id"] == "low_country":
-			in_row = row
-	_check(not out_row.is_empty() and not bool(out_row["in_rotation"]) and str(out_row["detail"]).contains("not in rotation"),
-		"the map menu marks it")
-	_check(not in_row.is_empty() and bool(in_row["in_rotation"]) and not str(in_row["detail"]).contains("not in rotation"),
-		"and leaves the rotating ones alone")
-	_check(_said(_run_command("dd_mountain"), "(not in rotation)"), "dd_mountain lists it marked")
+	_menu_marks_out_of_rotation()
 
 	var moved := game.set_mountain(&"long_haul")
 	_check(moved.ok and game.mountain_id == &"long_haul", "an admin can still load it", str(moved.error))
@@ -540,6 +416,50 @@ func _test_rotation_file() -> void:
 	game.rotation_file = kept
 	vote.call("refresh_mountains")
 	_finished_section()
+
+## The map menu's server half (M): the owner's flag changes the mountain now, anybody else gets a nomination and a
+## rock-the-vote. Contexts as dot-server makes them for a chat line.
+func _map_menu_half(vote: Node, director: DotVoteDirector) -> void:
+	var menu_half: Object = vote.get("commands").get("map_menu")
+	_check(menu_half != null and server.console.find_command("mapmenu") != null
+		and server.console.find_cvar("sv_map_menu_flag").get_string() == "generic"
+		and (menu_half.get("change_fn") as Callable).is_valid(),
+		"the map menu is there, staff-only by default, changing the mountain now")
+	var staff := DotCmdContext.new()
+	staff.source = DotCmdContext.Source.CHAT
+	staff.permissions = PackedStringArray(["generic"])
+	var player := DotCmdContext.new()
+	player.source = DotCmdContext.Source.CHAT
+	var offered: Dictionary = menu_half.call("offer", player)
+	_check((offered["maps"] as Array).size() > 1 and not bool(offered["allowed"]) and bool(offered["vote"]),
+		"a player is offered every mountain, as a vote")
+	var target: StringName = &""
+	for row: Dictionary in offered["maps"]:
+		if not bool(row["current"]):
+			target = StringName(str(row["id"]))
+			break
+	var menu_changed: Dictionary = await menu_half.call("choose", staff, target)
+	_check(bool(menu_changed["ok"]) and game.mountain_id == target, "staff choosing one changes the mountain on the spot",
+		"%s: %s" % [target, menu_changed.get("text", "")])
+	var _restore: Variant = await menu_half.call("choose", staff, &"range")
+	director.begin(&"range")
+
+
+## The map menu and dd_mountain mark a mountain outside the rotation.
+func _menu_marks_out_of_rotation() -> void:
+	var rows: Array = game.mountain_rows()
+	var out_row: Dictionary = {}
+	var in_row: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["id"] == "long_haul":
+			out_row = row
+		elif row["id"] == "low_country":
+			in_row = row
+	_check(not out_row.is_empty() and not bool(out_row["in_rotation"]) and str(out_row["detail"]).contains("not in rotation"),
+		"the map menu marks it")
+	_check(not in_row.is_empty() and bool(in_row["in_rotation"]) and not str(in_row["detail"]).contains("not in rotation"),
+		"and leaves the rotating ones alone")
+	_check(_said(_run_command("dd_mountain"), "(not in rotation)"), "dd_mountain lists it marked")
 
 
 ## [b]`time_up: finish_round` waits for a person mid-haul, never for an empty road.[/b] The
@@ -719,13 +639,15 @@ func _test_a_covered_seat_is_not_harmed() -> void:
 	_finished_section()
 
 
-func _until(condition: Callable, seconds: float) -> bool:
-	var deadline := Time.get_ticks_msec() + int(seconds * 1000.0)
-	while Time.get_ticks_msec() < deadline:
-		if bool(condition.call()):
-			return true
-		await get_tree().physics_frame
-	return bool(condition.call())
+
+
+func _test_it_unloads() -> void:
+	_section("unloading")
+	server.modules.unload_all()
+	await get_tree().process_frame
+	_check(_module() == null, "the module unloads")
+	_check(is_instance_valid(game), "and leaves the world, which outlives it")
+	_finished_section()
 
 
 ## [b]`dd_ambient*` on a client.[/b] The server's ambience intent rides the replicated cvars over a real socket, and a
@@ -776,6 +698,33 @@ func _test_ambient_cvars_reach_the_client() -> void:
 	var back := await _until(func() -> bool: return rules.is_on() and rules.mood == "", 15.0)
 	_check(back, "and back", str(rules.describe()))
 
+	_ambient_audio_follows_the_map()
+	director.ambient.free()
+	director.free()
+	link.disconnect_from_server("done")
+	await get_tree().create_timer(2.0).timeout
+	side.queue_free()
+	_finished_section()
+
+
+## A message script that preloads itself leaks the whole script graph at exit
+## (mg-buses-from-hell's 8ed866c), after quit(), where no assertion reaches: checked on the source.
+func _test_no_message_preloads_itself() -> void:
+	_section("exiting clean")
+	var offenders := PackedStringArray()
+
+	for file in DirAccess.open("res://game/net").get_files():
+		if file.ends_with(".gd"):
+			var source := FileAccess.get_file_as_string("res://game/net/" + file)
+
+			if source.contains("extends DotNetMessage") and source.contains("preload(\"%s\")" % file):
+				offenders.append(file)
+
+	_check(offenders.is_empty(), "no message preloads itself", ", ".join(offenders))
+	_finished_section()
+
+## The client's audio: its director on the manager, the Effects slider on the Ambience bus, the mood and level a mountain lays.
+func _ambient_audio_follows_the_map() -> void:
 	var audio := DdAudio.new()
 	add_child(audio)
 	var made := audio.setup()
@@ -806,83 +755,3 @@ func _test_ambient_cvars_reach_the_client() -> void:
 	_check(audio.ambient.has_moods(), "the stock moods loaded")
 
 	audio.queue_free()
-	director.ambient.free()
-	director.free()
-	link.disconnect_from_server("done")
-	await get_tree().create_timer(2.0).timeout
-	side.queue_free()
-	_finished_section()
-
-
-func _test_it_unloads() -> void:
-	_section("unloading")
-	server.modules.unload_all()
-	await get_tree().process_frame
-	_check(_module() == null, "the module unloads")
-	_check(is_instance_valid(game), "and leaves the world, which outlives it")
-	_finished_section()
-
-
-## A message script that preloads itself leaks the whole script graph at exit
-## (mg-buses-from-hell's 8ed866c), after quit(), where no assertion reaches: checked on the source.
-func _test_no_message_preloads_itself() -> void:
-	_section("exiting clean")
-	var offenders := PackedStringArray()
-
-	for file in DirAccess.open("res://game/net").get_files():
-		if file.ends_with(".gd"):
-			var source := FileAccess.get_file_as_string("res://game/net/" + file)
-
-			if source.contains("extends DotNetMessage") and source.contains("preload(\"%s\")" % file):
-				offenders.append(file)
-
-	_check(offenders.is_empty(), "no message preloads itself", ", ".join(offenders))
-	_finished_section()
-
-
-# --- Harness -----------------------------------------------------------------
-
-func _module() -> DotModule:
-	return server.modules.get_module("delivery") if server != null and server.modules != null else null
-
-
-func _run_command(line: String) -> PackedStringArray:
-	var captured: Array[String] = []
-	var context := DotCmdContext.console("", PackedStringArray())
-	context.reply_sink = func(text: String) -> void: captured.append(text)
-	server.console.execute(line, context)
-	return PackedStringArray(captured)
-
-
-func _said(lines: PackedStringArray, text: String) -> bool:
-	for line in lines:
-		if line.findn(text) >= 0:
-			return true
-
-	return false
-
-
-func _seconds(s: float) -> void:
-	var until := Time.get_ticks_msec() + int(s * 1000.0)
-
-	while Time.get_ticks_msec() < until:
-		await get_tree().physics_frame
-
-
-func _section(name: String) -> void:
-	_entered += 1
-	print("")
-	print(name)
-
-
-func _finished_section() -> void:
-	_finished += 1
-
-
-
-## This fixture has one voter; each mountain's rules come back with it, so set this after every change.
-func _one_voter_rules(director: Object) -> void:
-	director.rules.rtv_delay_sec = 0.0
-	director.rules.min_players_to_vote = 1
-	director.rules.rtv_min_players = 1
-	director.rules.allow_single_voter_auto = true
