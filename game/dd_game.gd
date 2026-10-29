@@ -1,24 +1,8 @@
 extends "res://game/dd_game_base.gd"
 
 ## The mountain: every route this server has, every truck on them, and every rule a haul is
-## played under. Headless — what a player sees is [DdClient]'s.
-##
-## [b]One world holds every route at once, laid side by side.[/b] The brief asked for a big
-## map whose corners have their own weather, and for levels that get harder. Both are this:
-## each route is a level (its document's `level`), each is a corner of the one world with its
-## own zones, and a player picks which to drive from the garage. A server owner's new route
-## is a file in `routes/` and a new corner of the map at the next boot.
-##
-## [b]Server-authoritative, and trucks are not predicted[/b] — dot-vehicle's decision, for its
-## reason: two machines diverge on a rigid body within seconds, and a correction on something
-## being steered reads worse than latency. What every machine computes for itself is what is a
-## pure function: the road (from the document) and the weather (from the seed and the tick).
-##
-## [b]A person arrives on foot, in the lot[/b] ([DdLot]), where the trucks are on show and
-## sold, and is their truck once they drive one. Walking is the owner's machine's (it reports
-## where it got to; [method walk] refuses a step too long or a place nobody on foot may be),
-## and a driver is a record here rather than a body: what others see of somebody on foot is
-## [member Driver.walker], a node the bridge replicates. Stand-ins never walk.
+## played under. Headless; what a player sees is [DdClient]'s. Why one world, why trucks are
+## not predicted and how a person arrives on foot: docs/design.md ("Notes moved from code").
 
 ## Made here rather than in _ready, so whoever builds the world can set its rules before it
 ## is in the tree: the first suite to try wrote to a null config.
@@ -112,7 +96,6 @@ func _apply_gravity() -> void:
 		PhysicsServer3D.area_set_param(space, PhysicsServer3D.AREA_PARAM_GRAVITY, config.gravity)
 
 
-# --- Routes ------------------------------------------------------------------
 
 ## Reads every `.json` in [param directory]: a route, or a map (its `kind` says which; a map
 ## pack keeps both in its `routes/`). Returns how many routes were accepted.
@@ -253,10 +236,9 @@ func switch_rotation(name: String) -> DotResult:
 	return rotation_file.switch(_rot, name)
 
 
-# dot-map's rotation file marks and orders [DotMapDef]s in a [DotMapCatalogue]; this game keeps
-# its mountains as documents, so a def per mountain is mirrored and the file applied to those.
-# Rebuilt on every ask (a handful of ids), because the mountains on offer change with the
-# routes a server holds and a stale mirror would rotate yesterday's set.
+# dot-map's rotation file orders [DotMapDef]s in a [DotMapCatalogue]; this game keeps mountains
+# as documents, so a def per mountain is mirrored. Rebuilt on every ask: the mountains on offer
+# change with the routes a server holds, and a stale mirror would rotate yesterday's set.
 var _rot: DotMapRotation = null
 
 
@@ -276,8 +258,7 @@ func _rotation_mirror() -> DotMapCatalogue:
 
 
 ## The mountains maps.yml's active rotation plays, as [DdMountains] documents: in the file's
-## order for a `cycle` (starting after the mountain in play), the catalogue's own otherwise.
-## No file, no rotations or a rotation that matches nothing installed: every mountain, so a
+## order for a `cycle`, the catalogue's own otherwise. No file or no match: every mountain, so a
 ## rotation can never strand the server.
 func rotation_mountains() -> Array[Dictionary]:
 	var all := DdMountains.allowed(library, maps)
@@ -346,10 +327,9 @@ class DotCommandNamesHolder extends RefCounted:
 	var names: Dictionary = {}
 
 
-## Rebuilds the world on [param id]'s routes. Every trip ends first (the trucks go back to the
-## lot: the road they were on may not exist any more), the rock goes, and
-## [signal mountain_changed] tells the bridge to send the routes on. Already on it is a
-## success that changes nothing. Server side.
+## Rebuilds the world on [param id]'s routes: every trip ends first (trucks go back to the lot),
+## the rock goes, and [signal mountain_changed] tells the bridge. Already on it changes nothing.
+## Server side.
 func set_mountain(id: StringName) -> DotResult:
 	sync_content()
 	var mountain := DdMountains.by_id(id, maps)
@@ -430,22 +410,17 @@ func add_map(doc: Variant) -> DotResult:
 
 
 ## Takes the maps subscribed packs provide, for the index's current session only. Opt-in. A
-## pack's map is a [b]map document[/b] ([DdMapDoc], the JSON `maps/` holds) named by the entry's
-## `scene` path, with `map_kind` one of [param accepted_kinds] ("*" is every kind, empty none).
-## It names routes this game already has, so it ships no code and needs no second format.
-##
-## [b]Synced on every read rather than copied once[/b]: the index filters by its current
-## session, so a game that goes online loses them with no signal to miss.
+## pack's map is a [DdMapDoc] named by the entry's `scene` path, with `map_kind` one of
+## [param accepted_kinds] ("*" is every kind). Synced on every read: the index filters by session.
 func follow_content(index: DotContentIndex, accepted_kinds: PackedStringArray = PackedStringArray()) -> void:
 	content_index = index
 	content_kinds = accepted_kinds
 	sync_content()
 
 
-## Brings [member maps] in line with the index's current session: a pack map in, one that left
-## out. The game's own ids win, and a pack map that is not a valid document is listed in
-## [member refused] and left out. A mountain the world stands on that leaves falls back to the
-## default at the next [method _select_mountain].
+## Brings [member maps] in line with the index's current session. The game's own ids win; an
+## invalid pack map is listed in [member refused] and left out. A mountain the world stands on
+## that leaves falls back to the default at the next [method _select_mountain].
 func sync_content() -> void:
 	var wanted := {}
 
@@ -663,7 +638,6 @@ func is_unlocked(key: StringName, route_id: StringName) -> bool:
 	return false
 
 
-# --- Drivers -----------------------------------------------------------------
 
 func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 	if drivers.has(key):
@@ -802,9 +776,8 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 
 
 ## Where every truck's lost pieces go: one budget for the whole mountain. Null when nothing is
-## drawn (a dedicated server), so a part there is only hidden. The pieces touch the road and the
-## rock (the camera layer every solid of the world carries) and never a truck: each machine throws
-## its own, and a piece that could shove a truck would put the client out of step with the server.
+## drawn (a dedicated server). The pieces touch the road and the rock but never a truck: each
+## machine throws its own, and a piece that shoved a truck would put the client out of step.
 func debris() -> DotVehicleDebris:
 	if not draws:
 		return null
@@ -871,10 +844,9 @@ func end_trip(key: StringName) -> void:
 	trip_ended.emit(key)
 
 
-## T. On a road it starts the trip again. In the lot (or roaming in a truck on the land) it
-## teleports to the start of the course [param route_id] names, or failing that the one they last
-## picked: the truck at its gate, the way SET OFF puts it, which is what "restart" means from the
-## lot. [method back_to_lot] is the other way.
+## T. On a road it starts the trip again. In the lot (or roaming on the land) it teleports to
+## the start of [param route_id]'s course, or the one last picked: the truck at its gate, as
+## SET OFF puts it. [method back_to_lot] is the other way.
 func restart(key: StringName, route_id: StringName = &"") -> DotResult:
 	var driver: Driver = drivers.get(key, null)
 
@@ -987,7 +959,6 @@ func set_command(key: StringName, command: DotVehicleCommand) -> void:
 		driver.command = command
 
 
-# --- The garage --------------------------------------------------------------
 
 func buy_truck(key: StringName, truck_id: StringName) -> DotResult:
 	var def := trucks.get_truck(truck_id)
@@ -1050,7 +1021,6 @@ func garage_view(key: StringName) -> Dictionary:
 		"quick_start": config.quick_start}
 
 
-# --- The lot and walking -----------------------------------------------------
 
 ## The lot, south of every route: centred under their starts, past the furthest south any of
 ## their roads reaches by the map's `clearance` (170 m unless it says), or where the map puts
@@ -1180,10 +1150,9 @@ func _build_land() -> void:
 	world_rebuilt.emit()
 
 
-## The mountains one at a time, each over several frames, behind the lot that is already up
-## (a browser tab has one thread, and all of them at once is seconds with nothing drawn). A
-## rebuild while this runs bumps [member _terrain_gen] and it stops: the routes it holds are
-## already freed. Emits [signal terrain_progress] after each.
+## The mountains one at a time, each over several frames, behind the lot that is already up (a
+## browser tab has one thread). A rebuild while this runs bumps [member _terrain_gen] and it
+## stops. Emits [signal terrain_progress] after each.
 func _lay_terrain(finishing: Array, gen: int) -> void:
 	var done := 0
 	terrain_progress.emit(0, finishing.size())
@@ -1380,7 +1349,6 @@ func walkable(at: Vector3) -> bool:
 	return true
 
 
-# --- Trucks off the road: buying, getting in and out --------------------------
 
 ## Whether [param key] is in the lot, on foot or at the wheel: where trucks are bought and
 ## upgraded (`DdBridgeActs`).
@@ -1403,10 +1371,8 @@ static func roaming(driver: Driver) -> bool:
 
 
 ## What the use key does for [param key] where they are: [code]{action, truck, text}[/code]
-## ([code]action[/code] empty for nothing). [param owns] is [code]func(truck_id) -> bool[/code]
-## and [param money] what they have: the world's bank on the authority, the GARAGE a client
-## was sent on a mirror, so the HUD's words and the server's choice come from one function.
-## [param at] is where they stand on foot (a client's walker is ahead of the world's copy).
+## ([code]action[/code] empty for nothing). [param owns] and [param money] are the bank's,
+## [param at] where they stand on foot, so the HUD's words and the server's choice agree.
 func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vector3.INF) -> Dictionary:
 	var driver: Driver = drivers.get(key, null)
 	var none := {"action": "", "text": ""}
@@ -1713,7 +1679,6 @@ func _step_roaming(driver: Driver, delta: float) -> void:
 		put_back.emit(driver.key)
 
 
-# --- The tick ----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
 	# Covered: only the engine's own bodies settle; no trip clock, rock or weather runs.
@@ -1773,7 +1738,6 @@ func step(delta: float) -> void:
 	_advance_toys(delta)
 
 
-# --- Toys ----------------------------------------------------------------------
 
 func _build_toys() -> void:
 	if toys != null:
@@ -2195,7 +2159,6 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 	return out
 
 
-# --- Stand-ins ---------------------------------------------------------------
 
 ## A stand-in's corner braking gain at `bot_difficulty medium` (its speed is `stand_in_speed`).
 const STAND_IN_BRAKE := 1.5
@@ -2228,16 +2191,9 @@ const STAND_IN_OFF_ROAD := 40.0
 const STAND_IN_SUNK := 6.0
 
 
-## How a stand-in drives, from dot-bot's settings on this game (`bot_difficulty` and the
-## `bot_*` cvars the module binds), read again at the start of every trip so a changed preset
-## reaches the next one.
-##
-## [b]A driver's skill is its pace and when it reacts to a corner, not its aim.[/b] Two of the
-## settings mean the same thing on a road: `bot_aggression` is how hard it pushes (the speed it
-## holds on a straight, 0.92 to 1.12 of the medium pace), and `bot_reaction` is how soon it
-## brakes for a corner it is going too fast for (the brake gain, scaled by medium's reaction
-## over this one's: an easy stand-in brakes late and soft, a nightmare one early and hard).
-## Medium is exactly the numbers this game drove with before it had presets.
+## How a stand-in drives, from dot-bot's settings (`bot_difficulty` and the `bot_*` cvars), read
+## at the start of every trip. Skill is pace and when it reacts to a corner, not aim:
+## `bot_aggression` scales the straight speed and `bot_reaction` the brake gain.
 func tune_stand_in(autopilot: DotVehicleDriver) -> void:
 	var p := DotBotSettings.of(self).profile
 	var medium := DotBotProfile.new()
@@ -2329,10 +2285,9 @@ func _stand_in_pick(driver: Driver) -> StringName:
 	return best
 
 
-## A stand-in on foot walks where a person would to get a truck: to its parked truck's door
-## and in, or to the salesperson of the truck it drives, who has it brought round to a bay
-## with the stand-in at the wheel. Every step goes through [method walk], the check a person's
-## step passes; nothing about it is sent but the walker everybody already sees.
+## A stand-in on foot walks where a person would to get a truck: to its parked truck's door and
+## in, or to the salesperson of the truck it drives, who has it brought round to a bay. Every
+## step goes through [method walk]; only the walker everybody already sees is sent.
 func _stand_in_walk(driver: Driver, delta: float) -> void:
 	var target := Vector3.INF
 	var parked := roaming(driver)
@@ -2374,11 +2329,9 @@ func _stand_in_walk(driver: Driver, delta: float) -> void:
 		driver.idle = STAND_IN_SEAT_WAIT
 
 
-## A stand-in at the wheel off a road drives the land's road from its bay to its route's gate,
-## at its difficulty's pace, and accepts the delivery there as a person does with E. A truck it
-## was not given the road for (new, or put back in a bay) is given it first. One that has left
-## the road is aimed back at it; one that has not reached the gate in
-## `stand_in_road_seconds` (or is in the sea) is put back in a bay to start again.
+## A stand-in at the wheel off a road drives the land's road from its bay to its route's gate and
+## accepts the delivery there as a person does with E. A truck without the road is given it; one
+## off it is aimed back, and one stuck or in the sea is put back in a bay.
 func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 	var truck := driver.truck as DdTruck
 
@@ -2425,9 +2378,8 @@ func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 
 
 ## The way a stand-in drives from [param from] (world) to [param route_id]'s gate: out of its
-## bay into the lane behind the bays, along to the road's exit in the north fence, then the
-## land's road sample by sample, ending where a truck waits for the barrier. From anywhere off
-## the lot it joins the road at its nearest sample ahead.
+## bay, along the lane to the road's exit in the north fence, then the land's road sample by
+## sample to the barrier. From off the lot it joins the road at its nearest sample ahead.
 func stand_in_road(route_id: StringName, from: Vector3) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	var line: PackedVector3Array = land.roads.get(route_id, PackedVector3Array())
@@ -2469,7 +2421,6 @@ func stand_in_road(route_id: StringName, from: Vector3) -> PackedVector3Array:
 	return out
 
 
-# --- Weather -----------------------------------------------------------------
 
 func _refresh_weather(force: bool) -> void:
 	# Once a second is plenty: the weather holds for minutes.
@@ -2550,7 +2501,6 @@ func _sky(route_id: StringName, zone: String) -> Dictionary:
 	return weather.get("%s|%s" % [route_id, zone], {"sky": DdWeather.CLEAR, "wind": false, "storm": false, "fog": false})
 
 
-# --- Falling rock ------------------------------------------------------------
 
 func _step_boulders(delta: float) -> void:
 	for key: String in _site_cooldown.keys():
@@ -2669,7 +2619,6 @@ func _drop_boulder(route_id: StringName, road: DdRoute, site: Dictionary, lead_s
 	boulder_dropped.emit(route_id, at)
 
 
-# --- Reports -----------------------------------------------------------------
 
 func describe() -> Dictionary:
 	var on_road := 0

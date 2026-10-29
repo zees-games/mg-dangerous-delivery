@@ -1,13 +1,8 @@
 extends "res://game/dd_client_state.gd"
 
-## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera,
-## the controls, the HUD, and the sky.
-##
-## [b]Offline today, and built so a server can take the world away from it.[/b] Everything
-## the player does goes through [method _act] (garage) and [member command] (driving), and
-## everything they see comes from [member game] — which offline is an authoritative [DdGame]
-## this client owns, and against a server will be a mirror the bridge keeps. Nothing here
-## decides a price, a checkpoint or a fall.
+## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera, the
+## controls, the HUD and the sky. Actions go through [method _act] and [member command], and
+## everything seen comes from [member game], so nothing here decides a price or a fall.
 
 ## Where dot-server's client publishes its link before the game scene loads. Present: this
 ## client is connected; absent: it is offline and owns its world.
@@ -177,10 +172,8 @@ func _build_cover() -> void:
 
 
 ## The load gate: covered, and the walker and the world's clock still, until the routes and
-## mountains are laid and the player stands in the lot with the camera current.
-##
-## The staged loading screen is the gate's cover ([method _build_cover]; it knows the steps, the
-## gate only decides when it goes), so the warm-up runs under it and no frame is bare.
+## mountains are laid and the player stands in the lot with the camera current. The cover
+## ([method _build_cover]) knows the steps; the gate only decides when it goes.
 func _build_gate() -> void:
 	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
 	# and uncover half of them.
@@ -390,7 +383,6 @@ func _driver() -> DdGame.Driver:
 	return game.drivers.get(local_key, null) if game != null else null
 
 
-# --- Connected ---------------------------------------------------------------
 
 ## The netcode, built inside `_ready`, which runs inside the shell's scene load: up before the
 ## server has been told anybody is here, so nothing it sends is missed (mg-buses-from-hell).
@@ -499,7 +491,6 @@ func _say_ready() -> void:
 		bridge.ask_ready()
 
 
-# --- The garage --------------------------------------------------------------
 
 func _act(action: String, args: Dictionary = {}) -> void:
 	# G or Escape: on foot it is the lot's panel, opened and closed here; from a road it is the
@@ -706,10 +697,9 @@ func _build_settings() -> void:
 	_wire_board()
 
 
-## The Tab board: who is driving, in what, with how much money and how many deliveries, how
-## long they have been on and their ping. Money and deliveries are the server's bank, so
-## online the columns come from [DdModule]'s `_game_board_fields`; offline the bank is this
-## client's own.
+## The Tab board: who is driving, in what, with how much money and how many deliveries, how long
+## they have been on and their ping. Online the bank columns come from [DdModule]'s
+## `_game_board_fields`; offline the bank is this client's own.
 func _wire_board() -> void:
 	if platform.board == null:
 		return
@@ -745,7 +735,6 @@ func board_snapshot() -> Dictionary:
 	return {"server": {"name": "Dangerous Delivery", "game": "offline"}, "players": rows}
 
 
-# --- Controls ----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Nothing acts behind the cover: no look, key, orbit or panel.
@@ -912,7 +901,6 @@ func _speed_of(me: DdGame.Driver) -> float:
 	return behaviour.speed_ms() if behaviour != null else 0.0
 
 
-# --- Every frame -------------------------------------------------------------
 
 func _process(delta: float) -> void:
 	if net != null and net.is_running():
@@ -1060,13 +1048,8 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 
 
 ## What the mouse pointer should be now: out of the way while driving, there for the lot, the
-## menu, the console and a chat line.
-##
-## [b]The client owns it, every frame[/b], rather than dot-menu (its `manage_pointer` is off
-## here): the menu would capture the pointer when it closed even with the lot up, and nothing
-## hid it on the road at all, so the first play test drove with an arrow over the truck the
-## whole way. Captured on a desktop; hidden in a browser, where capture needs a click and the
-## mouse steers nothing here anyway.
+## menu, the console and a chat line. The client owns it every frame (dot-menu's
+## `manage_pointer` is off). Captured on a desktop; hidden in a browser, where capture needs a click.
 func pointer_mode() -> Input.MouseMode:
 	var me := _driver()
 	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
@@ -1092,10 +1075,9 @@ func _apply_pointer() -> void:
 	var want := pointer_mode()
 	if Input.mouse_mode == want:
 		return
-	# A browser grants pointer lock only inside a click. Asked every frame without one, it refused
-	# every frame (thousands of console errors while loading) and then rate-limited the request,
-	# so even the click that should have taken it could be refused. The click takes it instead
-	# ([method _capture_on_click]).
+		# A browser grants pointer lock only inside a click; asked every frame without one it was
+		# refused every frame and then rate-limited, so the click itself could fail. The click takes
+		# it instead ([method _capture_on_click]).
 	if want == Input.MOUSE_MODE_CAPTURED and DotPlatform.is_web():
 		return
 	Input.mouse_mode = want
@@ -1112,7 +1094,6 @@ func _capture_on_click(button: InputEventMouseButton) -> bool:
 	return true
 
 
-# --- On foot -----------------------------------------------------------------
 
 ## Whether a held left button may orbit the camera: driving, in the chase or the high view, with no menu or garage up. The cab view looks out of the windscreen and keeps it.
 func _can_orbit() -> bool:
@@ -1478,10 +1459,9 @@ func _follow(truck: DdTruck, delta: float) -> void:
 			target = truck.global_position + flat * (truck.half_length + 9.0) + Vector3(0.0, 5.5, 0.0)
 			look = truck.global_position - flat * 6.0 + Vector3(0.0, 1.5, 0.0)
 
-	# Leaving the cab, the chase eases out from where the camera was, as it always did. After
-	# a teleport it cuts: eased from the old place, it flew through the mountain to the new
-	# one (the play test's fly-through at a route's start, 1:27).
-	# Orbited by hand while the button is held, easing back behind the truck when it is let go.
+		# Leaving the cab, the chase eases out from where the camera was; after a teleport it cuts,
+		# or it would fly through the mountain to the new place. Orbited by hand while the button is
+		# held, easing back behind the truck when it is let go.
 	if not _orbit_held:
 		_orbit = _orbit.lerp(Vector2.ZERO, 1.0 - exp(-delta * 3.0))
 	if _orbit.length() > 0.001:
@@ -1512,14 +1492,9 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	camera.look_at(_look)
 
 
-## [param wanted] pulled toward a point over the truck until it is clear of the mountain,
-## the road, the gates and the debris (all on [constant DdRoute.CAMERA_LAYER]).
-##
-## [b]Swept, not set.[/b] The chase camera eased toward a point 9 m behind and 5.5 m over
-## the truck with nothing between, so on a hairpin with the cliff on the inside it sat in
-## the rock, and under a checkpoint's banner it sat in the banner (the first play test, at
-## 2:12 and 2:46). dot-core's [DotCameraProbe] sweeps a sphere from over the cab and eases
-## in ahead of the rock; the other trucks are on layer 1 and never stop it.
+## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the
+## road, the gates and the debris (all on [constant DdRoute.CAMERA_LAYER]). Swept, not set, by
+## dot-core's [DotCameraProbe]; other trucks are on layer 1 and never stop it.
 func _clear_of_mountain(truck: DdTruck, wanted: Vector3, delta: float) -> Vector3:
 	if _probe == null:
 		_probe = DotCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER)
@@ -1527,17 +1502,10 @@ func _clear_of_mountain(truck: DdTruck, wanted: Vector3, delta: float) -> Vector
 	return _probe.resolve(truck.global_position + Vector3.UP * PIVOT_HEIGHT, wanted, delta)
 
 
-# --- The sky -----------------------------------------------------------------
 
-## The family's daylight (game-arena's built-in maps) as a dot-lighting document: a warm sun
-## with soft shadows, a pale cool fill, filmic tone map and mild glow, with this game's own
-## mountain sky kept. **No palette change**: this is rock, grass, asphalt, snow and water, and
-## a pastel prototype grid on a mountain would say "block-out", not "mountain road"; the
-## weather is what a route is about, so the road's snow and the wet must stay as they are.
-##
-## The weather still drives the light ([method _set_weather]): the sun dims to half of its
-## clear value under rain or snow, and the fog is the old exponential fog, thickened per zone,
-## which is why the document carries no fog of its own.
+## The family's daylight as a dot-lighting document: a warm sun, a pale cool fill, filmic tone
+## map and mild glow, with this game's own mountain sky kept and no palette change. The weather
+## still drives the light ([method _set_weather]); the fog is exponential, thickened per zone.
 func _build_environment() -> void:
 	var lighting := Node3D.new()
 	lighting.name = "Lighting"
@@ -1579,17 +1547,9 @@ func _build_environment() -> void:
 	_env.fog_density = FOG_CLEAR
 
 
-## What this machine draws of the light: dot-lighting's `painted()`.
-##
-## Shadows stay on in the browser, unlike dot-lighting's `web()`: a truck's shadow on the road
-## is how far off the edge it is. `painted()` is the family's profile for a world lit by
-## nothing but the rig (no lightmap), matched to the renderer: **the Compatibility renderer,
-## which this game and the client shell use, has no headroom above white**, and at Forward+'s
-## numbers a snowy road clipped to one flat white, its centre line and its edge gone. Over the
-## hand-set numbers it replaced (the sun divided by 700, a fill of 0.62) it lowers the
-## exposure, grades, and adds a shadowless fill so a cliff's faces away from the sun are not
-## one flat tone. Glow starts above white, not at dot-lighting's 0.85, or a snow road blooms
-## into the sky.
+## What this machine draws of the light: dot-lighting's `painted()`. Shadows stay on in the
+## browser, unlike `web()`: a truck's shadow is how far off the edge it is. The Compatibility
+## renderer has no headroom above white, so `painted()` lowers exposure and glow starts above it.
 static func light_profile() -> DotLightProfile:
 	var p := DotLightProfile.painted()
 	p.sun_shadows = true
@@ -1597,10 +1557,9 @@ static func light_profile() -> DotLightProfile:
 	return p
 
 
-## dot-game's chat box and microphone, with this game's channels and voice format. It also
-## draws dot-server's own lines (the vote between games, joins, an admin's `say`), which arrive
-## on the shell's client link rather than on this game's bridge. Static so a suite can build
-## the same box the client does.
+## dot-game's chat box and microphone, with this game's channels and voice format. It also draws
+## dot-server's own lines, which arrive on the shell's client link rather than this bridge.
+## Static so a suite can build the same box the client does.
 static func new_chat() -> DotGameChatClient:
 	var box := DotGameChatClient.new()
 	box.name = "Chat"

@@ -1,20 +1,9 @@
 extends "res://game/net/dd_net_bridge_base.gd"
 
-## The only file that names both the world and the netcode. Both ends, like the other games'.
-##
-## [b]Much smaller than theirs, because nothing is predicted.[/b] A truck is a rigid body and
-## dot-vehicle does not predict rigid bodies (two machines diverge within seconds); so there is
-## no input buffer, no reconciliation and no replay here. A client sends what it is pressing,
-## four bytes a tick, unreliably; the server drives its truck with the latest one it has; the
-## truck's pose comes back in snapshots and is drawn interpolated. Everything else is a handful
-## of reliable JSON events (see [code]dd_events.gd[/code]).
-##
-## [b]What every machine computes for itself:[/b] the roads, from the documents in HELLO, and
-## the weather, from the seed in HELLO and the tick the clock already agrees on. The roads are
-## sent again only when the world is rebuilt on another mountain (MOUNTAIN, the same field
-## HELLO carries, applied through the same `adopt_documents`).
+## The only file that names both the world and the netcode, both ends. Nothing is predicted: a
+## client sends what it presses (four bytes a tick, unreliably), the server drives its truck, and
+## poses come back in snapshots drawn interpolated. See docs/netcode.md.
 
-# --- Both ends ----------------------------------------------------------------
 
 func _exit_tree() -> void:
 	# The link and the runtime hold each other through broadcast; left, both outlive the process's exit.
@@ -142,7 +131,6 @@ static func session_key(session_id: int) -> StringName:
 	return StringName("s%d" % session_id)
 
 
-# --- Server: people -----------------------------------------------------------
 
 func add_player(peer_id: int, session_id: int, display_name: String) -> DotResult:
 	if net == null or not net.is_server:
@@ -153,12 +141,9 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 	if key == &"":
 		key = session_key(session_id)
 
-	# The same account again, on another connection: the newest wins. Left alone, the second seat
-	# replicated a second walker onto the first's driver (one key) and took the key's peer, so the
-	# first tab's keys moved nothing while its link stayed up; worse, its eventual leave took the
-	# newcomer's driver out. The old peer leaves exactly as a disconnect does, BEFORE the newcomer
-	# is seated, so its later remove_peer finds no key; the money stays under the key, as for a
-	# reconnect. The module is told so it can disconnect that peer with a reason it will show.
+				# The same account again on another connection: the newest wins. The old peer leaves as a
+				# disconnect does, BEFORE the newcomer is seated, so no second walker is replicated onto the
+				# first's driver. Money stays under the key; the module disconnects that peer with a reason.
 	var held_by: int = int(_peer_of_key.get(key, 0))
 
 	if held_by != 0 and held_by != peer_id:
@@ -181,10 +166,9 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 	return DotResult.success(key)
 
 
-## A name that arrived after the driver was seated — dot-platform admits AFTER the seat, so
-## the first name is the session's whenever the profile store is slower than the join — or an
-## operator's rename later. The driver takes it and everybody is sent the DRIVER again, which a
-## client already applies to a driver it knows.
+## A name that arrived after the driver was seated (dot-platform admits AFTER the seat) or an
+## operator's rename. The driver takes it and everybody is sent the DRIVER again, which a client
+## already applies to a driver it knows.
 func rename(session_id: int, display_name: String) -> bool:
 	var key: StringName = _key_of_session.get(session_id, &"")
 	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
@@ -237,7 +221,6 @@ func key_of_peer(peer_id: int) -> StringName:
 	return _player_of_peer.get(peer_id, &"")
 
 
-# --- Both ends: the lot's toys ---------------------------------------------------
 
 ## Server: an entity for each of the lot's toys, and TOYS naming them.
 func _register_toys() -> void:
@@ -312,12 +295,9 @@ func _release_toys() -> void:
 	_toy_nets.clear()
 
 
-## Client, on TOYS: a mirror for every id at once, under the holder, whether this end's toys
-## for the lot exist yet or not. [b]A client must know every entity a snapshot carries[/b]:
-## dot-net stops reading a snapshot at the first one it does not know (a body cannot be skipped
-## without its declarations), so a toy mirror missing while the client loads the map, or ever,
-## on a client left on another map, was every player after it frozen. Paired with its toy
-## by index as soon as both are here.
+## Client, on TOYS: a mirror for every id at once, under the holder, whether this end's toys for
+## the lot exist yet or not. A client must know every entity a snapshot carries: dot-net stops
+## reading at the first unknown one. Paired with its toy by index as soon as both are here.
 func _apply_toys(told: Dictionary) -> void:
 	if net == null or net.is_server:
 		return
@@ -478,7 +458,6 @@ func _broadcast_driver(key: StringName) -> void:
 		_broadcast(DdEvents.Kind.DRIVER, body)
 
 
-# --- Server: walkers -----------------------------------------------------------
 
 ## A person's walker, for everybody to draw: a node the world moves when a report is accepted.
 func _replicate_walker(driver: DdGame.Driver) -> void:
@@ -509,7 +488,6 @@ func _send_place(key: StringName) -> void:
 	_tell(peer, DdEvents.Kind.PLACE, {"at": [driver.walk_at.x, driver.walk_at.y, driver.walk_at.z], "yaw": driver.walk_yaw})
 
 
-# --- Server: trucks and rock --------------------------------------------------
 
 ## A truck was built for somebody (a trip's, or one to drive round the world in): the bodies
 ## they had before go, the new ones are replicated, and everybody is told.
@@ -616,7 +594,6 @@ func _forget(body: Node) -> void:
 		net.registry.unregister(net_id)
 
 
-# --- Server: the tick ---------------------------------------------------------
 
 func server_tick(tick: int) -> void:
 	_tick = tick
@@ -712,7 +689,6 @@ func _tell(peer_id: int, kind: int, data: Dictionary) -> void:
 	net.send(DdEvent.new(kind, DdEvents.write_json(data)), peer_id)
 
 
-# --- Server: what a client sends ----------------------------------------------
 
 func receive_input(peer_id: int, payload: PackedByteArray) -> DotResult:
 	if net == null or not net.is_server:
@@ -794,7 +770,6 @@ func act(key: StringName, args: Dictionary) -> DotResult:
 	return DdBridgeActs.run(game, key, args)
 
 
-# --- Client -------------------------------------------------------------------
 
 func ask_ready() -> void:
 	_ask(DdEvents.Ask.READY, {})
@@ -1164,7 +1139,6 @@ func _apply_body(data: Dictionary) -> void:
 	var _id := _replicate(behaviour, body, 0, net_id)
 
 
-# --- Chat and voice: dot-game's services reach the wire through these ----------
 
 func send_chat(peer_id: int, wire: Dictionary) -> void:
 	if link == null:

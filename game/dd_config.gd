@@ -1,15 +1,9 @@
 extends DotConfig
 
-## Every rule a haul is played under. The routes themselves are documents (`routes/`), the
-## trucks a catalogue (`DdTrucks`); this is everything else, layered like every DotConfig in
-## the family: exported defaults < JSON file < DD_* environment < --dd-* command line.
-##
-## [b]Every gameplay decision is a number here, on purpose.[/b] What pays how much, how
-## slippery snow is, whether a fall costs money, whether solo players are hidden — each is a
-## server owner's call about the server they want, and a constant in code is a decision
-## taken away from them.
+## Every rule a haul is played under. Routes are documents (`routes/`), trucks a catalogue
+## (`DdTrucks`); this is the rest, layered: defaults < JSON file < DD_* environment < --dd-*
+## command line. Every gameplay decision is a number here so the server owner can change it.
 
-# --- Trips -----------------------------------------------------------------
 
 @export_group("Trips")
 
@@ -59,7 +53,6 @@ extends DotConfig
 ## Whether a route is locked until the one before it (by level) has been delivered.
 @export var levels_unlock_in_order: bool = true
 
-# --- Pay -------------------------------------------------------------------
 
 @export_group("Pay")
 
@@ -82,7 +75,6 @@ extends DotConfig
 ## Bonus fraction for a trip with no falls.
 @export_range(0.0, 5.0, 0.05) var clean_run_bonus: float = 0.25
 
-# --- Cargo -----------------------------------------------------------------
 
 @export_group("Cargo")
 
@@ -92,7 +84,6 @@ extends DotConfig
 ## Cargo lost per m/s of a knock above the threshold, as a fraction.
 @export_range(0.0, 1.0, 0.005) var knock_loss_per_speed: float = 0.02
 
-# --- Weather ---------------------------------------------------------------
 
 @export_group("Weather")
 
@@ -163,7 +154,6 @@ extends DotConfig
 ## trucks) when that addon is linked. Without the addon this does nothing.
 @export var weather_disasters: bool = true
 
-# --- Hazards ---------------------------------------------------------------
 
 @export_group("Hazards")
 
@@ -196,7 +186,6 @@ extends DotConfig
 ## Chaos each boulder that comes down adds, once per stretch of cliff per trip.
 @export_range(0.0, 3.0, 0.05) var boulder_chaos: float = 0.15
 
-# --- Players ---------------------------------------------------------------
 
 @export_group("Players")
 
@@ -214,12 +203,9 @@ extends DotConfig
 ## Whether trucks that come with a trailer (the Semi) pull one. Off turns every truck rigid.
 @export var trailers: bool = true
 
-## Stand-in drivers, so a server is not an empty mountain. People replace them. This is the
-## default for the server's `bot_quota` (fill mode: stand-ins plus people make this many).
-##
-## Two, which is what every shipped server config set `dd_bots` to: one person alone on a
-## mountain road has somebody to pass and to race to the depot. Zero made a server with no
-## config an empty mountain.
+## Stand-in drivers, so a server is not an empty mountain. People replace them. The default for
+## the server's `bot_quota` (fill mode: stand-ins plus people make this many). Two, so one
+## person alone has somebody to pass and race to the depot.
 @export_range(0, 16, 1) var bots: int = 2
 
 ## Seconds a stand-in may drive one trip before it is put back in a bay to start again.
@@ -267,13 +253,11 @@ extends DotConfig
 ## A seed for everything drawn per trip. 0 takes one from the clock.
 @export var seed_value: int = 0
 
-## Whether SET OFF on the lot's panel puts the player straight onto the route's start line, the
-## way it was before the lot had roads. Off (the default) it drives their truck to the route's
-## gate, where E accepts the delivery: a route is entered through its gate. Suites and tools
-## that only want a trip turn it on.
+## Whether SET OFF on the lot's panel puts the player straight onto the route's start line.
+## Off (the default) it drives their truck to the route's gate, where E accepts the delivery.
+## Suites and tools that only want a trip turn it on.
 @export var quick_start: bool = false
 
-# --- The mountain vote -------------------------------------------------------
 
 @export_group("Mountain")
 
@@ -281,16 +265,14 @@ extends DotConfig
 ## An id this game does not have is the whole range.
 @export var mountain: String = "range"
 
-## Minutes a mountain is played before the players' ballot picks the next one (the vote's
-## time limit; the ballot opens a minute before it runs out). 0 turns the clock off: only a
-## rocked vote changes the mountain. The `dd_vote_minutes` cvar changes it from the next
-## mountain on.
+## Minutes a mountain is played before the players' ballot picks the next one (the vote's time
+## limit; the ballot opens a minute before it runs out). 0 turns the clock off: only a rocked
+## vote changes the mountain. The `dd_vote_minutes` cvar changes it from the next mountain on.
 @export_range(0.0, 360.0, 1.0) var mountain_minutes: float = 15.0
 
-## The file that says which mountains a server ROTATES: `maps.yml` in `cfg/game/mg-dangerous-delivery/dot_map/` (shipped) or `cfg/server/addons/dot_map/` (operator; dot-map's
-## `DotMapRotationFile`: named rotations, `random` or `cycle`, wildcards, command names). Empty, or no such file, rotates every mountain. A
-## mountain the active rotation leaves out stays installed (`dd_mountain <id>` and the map menu
-## still reach it); it is only never balloted or nominated. `sv_map_rotation_file`.
+## The file that says which mountains a server ROTATES: `maps.yml` in
+## `cfg/game/mg-dangerous-delivery/dot_map/` or `cfg/server/addons/dot_map/` (dot-map's
+## `DotMapRotationFile`). Empty or absent rotates every mountain; one left out is never balloted.
 @export var map_rotation_file: String = DotMapRotationFile.DEFAULT_STEM
 
 

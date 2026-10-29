@@ -3,25 +3,9 @@ extends Node
 const DdAmbience := preload("dd_ambience.gd")
 const DdPaths := preload("dd_paths.gd")
 
-## What driving sounds like, on the client: an engine whose pitch follows the speed and whose
-## load follows the throttle, a hiss when the brakes go on, rain on the roof, a gust of wind,
-## rock coming down, a chime at the depot, and every other truck's engine where it is.
-##
-## [b]A catalogue of ids and stand-ins, which is the family's shape.[/b] dot-audio decides what
-## is audible, how many at once, how far, and what loses to what; [method sound_catalogue] is
-## those decisions, naming paths under `audio/` nobody has produced yet. None of dot-audio's
-## stock voices is a diesel, rain or wind (they are swept one-shots), so [method stand_ins]
-## bakes this game's own into the sink's bank under the id and the path a real file would have
-## (mg-deathrun does the same for its machinery). A real `audio/<id>.ogg` wins, one id at a time.
-##
-## [b]Fed, never asking[/b], like the HUD: [DdClient] sets [member speed], [member throttle],
-## [member braking], [member weather] and [member driving] every frame, feeds every other
-## truck through [method feed_other], and calls the one-shots when the world says something
-## happened. Every loop is SHAPED each frame (its volume and pitch eased towards where they
-## should be) through [method DotAudioManager.shape], which changes a playing voice in place
-## (dot-audio API level 2); restarting a loop to change its pitch is a click a frame.
-##
-## [b]Never on a server, and never deciding anything.[/b]
+## What driving sounds like, on the client: an engine following speed and throttle, brakes, rain,
+## wind, rockfall, a depot chime and every other truck's engine. [DdClient] feeds it each frame;
+## it decides nothing and never runs on a server. Loops are shaped in place, not restarted.
 
 const CHANNEL := "delivery.audio"
 
@@ -55,33 +39,17 @@ const TOP_SPEED := 22.0
 var others_heard: int = 0
 
 ## The levels, in dB before the def's gain: your engine idling and at full throttle, another
-## truck at a crawl (it gains 6 dB at speed), rain and wind.
-##
-## [b]Nine decibels under where they were.[/b] The first play test's recording of the snow stage
-## sat at -7.6 LUFS with peaks over full scale, the 66 Hz of the engine on top, where the other
-## games in the same recording sat near -25: a bed of engine, wind and snow that never stops,
-## at the level of an effect. Down 9 dB it is about -16 LUFS on that recording's scale and
-## about -36 on tools/loudness.sh's (which records the Master bus here; the two differ by the
-## play test's capture gain). The one-shots came down 5 dB, so a rockfall, the brakes and the
-## depot's chime stand out of the bed by more than before. Rain is 5 dB under the wind: its
-## noise is broadband, and at the same level a rainy stage measured 6 LU louder than a snowy one.
-##
-## [b]And then 17 dB up again, all together (2026-10-12).[/b] Measured on the Master bus with
-## dot-audio's `addons/dot_audio/tools/loudness.sh` over tools/loudness.tscn (Snowline, snow
-## and wind, two stand-ins) these levels read -35.1 LUFS, 18 units under the family's -17: the
-## shaped loops had already come down when the custom sink went, so the 9 dB cut was on top of
-## a fix. The balance between them is unchanged; dot-audio's master limiter is the backstop.
+## truck at a crawl (it gains 6 dB at speed), rain and wind. Measured with dot-audio's
+## loudness.sh over tools/loudness.tscn. Rain sits 5 dB under the wind: broadband, it read louder.
 const OWN_IDLE_DB := -6.0
 const OWN_FULL_DB := 2.0
 const OTHER_DB := -5.0
 const RAIN_DB := -13.0
 const WIND_DB := -5.0
 
-## On foot there is no engine under the mix, only the bed and the steps, and measured with the
-## family's tools (dot-audio's loudness.sh walking round the lot) it read -27.9 LUFS with the
-## steps at the stock level, ten units under the band. So out of a truck the bed is raised by
-## FOOT_BED_DB (eased over a second, back down at the wheel) and every step is STEP_DB over
-## dot-audio's stock: -17.0 and -16.9 LUFS on two walks, the snow drive unchanged at -17.8.
+## On foot there is no engine under the mix, so out of a truck the bed is raised by FOOT_BED_DB
+## (eased over a second, back down at the wheel) and every step is STEP_DB over dot-audio's
+## stock, which measured -17 LUFS on foot against -17.8 on the snow drive.
 const FOOT_BED_DB := 11.0
 const STEP_DB := 8.0
 
@@ -327,10 +295,9 @@ func feed_other(truck: Node3D, speed_ms: float, audible: bool, delta: float) -> 
 	var key := loop_key(truck)
 	_fed[key] = true
 	var pace := clampf(absf(speed_ms) / TOP_SPEED, 0.0, 1.0)
-	# Each truck a little sharp or flat of the next: the same loop at the same speed summed in
-	# phase, two stand-ins beside you were one engine 6 dB louder than any of them. And the
-	# trucks heard share one level between them, so a convoy is a convoy, not a wall: the first
-	# play test's snow stage peaked at clipping with the 66 Hz of the engines on top of it.
+		# Each truck a little sharp or flat of the next: the same loop at the same speed summed in
+		# phase was one engine 6 dB louder than any of them. The trucks heard share one level, so a
+		# convoy is a convoy, not a wall.
 	var detune := 1.0 + (float(truck.get_instance_id() % 7) - 3.0) * 0.018
 	var crowd := 10.0 * log(float(maxi(others_heard, 1))) / log(10.0)
 	_shape(key, ENGINE_OTHER, (OTHER_DB + 6.0 * pace - crowd) if audible else -80.0, (0.55 + pace * 0.9) * detune,
@@ -350,11 +317,8 @@ func delivered() -> bool:
 
 
 ## Eases loop [param key] towards [param target_db] and [param pitch], starting it when it
-## becomes audible and stopping it when it does not. [param at] places a positional one.
-##
-## [b]Started again whenever it is not playing[/b], not once: the manager refuses a positional
-## sound beyond its `max_distance` at its start, and the pool may give a quiet loop's voice to
-## something more important, so a loop started once would stay lost.
+## becomes audible and stopping it when it does not. [param at] places a positional one. Started
+## again whenever idle: the manager refuses a distant positional sound at its start.
 func _shape(key: StringName, id: StringName, target_db: float, pitch: float, k: float, at: Variant = null) -> void:
 	var loop: Dictionary = _loops.get(key, {"id": id, "handle": 0, "db": -80.0, "pitch": pitch})
 	loop["db"] = lerpf(float(loop["db"]), target_db, k)
@@ -425,9 +389,7 @@ func describe() -> Dictionary:
 	}
 
 
-# --- The stand-ins, synthesised ---------------------------------------------------
-#
-# What this game has always sounded like, baked once into the sink's bank.
+# The stand-ins, synthesised: baked once into the sink's bank.
 
 ## id -> AudioStreamWAV.
 static func stand_ins() -> Dictionary:

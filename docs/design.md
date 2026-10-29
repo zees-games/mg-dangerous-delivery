@@ -143,3 +143,23 @@ A Label3D faces its +Z; in the road's frame (forward is -Z) that is back toward 
 ## Project settings
 
 `project.godot` carries no comments: the editor drops them, and any key left at its default, the first time it saves the file, so the reasons for its settings live here. Gravity stays the engine default and nothing reads it: `DdConfig.gravity` is what the world is tuned against and `DdGame` writes it onto its own physics space, because a project setting does not travel inside a delivered pack. Physics runs at the default 60 ticks on purpose: a `VehicleBody3D`'s raycast suspension is stable at 60 and visibly bouncy at 30. The renderer is `gl_compatibility`, what the delivered client runs. Texture imports keep `detect_3d/compress_to=0` (`[importer_defaults]` starts new ones that way) so the editor never re-imports one VRAM-compressed on a first open.
+
+## Notes moved from code comments
+
+**One world holds every route at once, and trucks are not predicted** (`DdGame`): dot-vehicle's decision, for its reason: two machines diverge on a rigid body within seconds, and a correction on something being steered reads worse than latency. What every machine computes for itself is what is a pure function: the road (from the document) and the weather (from the seed and the tick). A person arrives on foot in the lot (`DdLot`), where the trucks are on show and sold; walking is the owner's machine's (it reports where it got to, and `DdGame.walk` refuses a step too long or a place nobody on foot may be), and a driver is a record on the server rather than a body: what others see of somebody on foot is `Driver.walker`, a node the bridge replicates. Stand-ins never walk the network.
+
+**The bridge sends little because nothing is predicted** (`DdNetBridge`): no input buffer, no reconciliation, no replay. The roads are sent again only when the world is rebuilt on another mountain (MOUNTAIN, the same field HELLO carries, applied through `adopt_documents`).
+
+**The mouse pointer is the client's, every frame**, not dot-menu's (`manage_pointer` is off): the menu captured the pointer when it closed even with the lot up, and nothing hid it on the road. A browser grants pointer lock only inside a click, and asking every frame without one was refused thousands of times and then rate-limited.
+
+**The chase camera is swept, not set**: eased toward a point behind the truck with nothing between, it sat in the rock on a hairpin and in a checkpoint's banner. dot-core's `DotCameraProbe` sweeps a sphere from over the cab.
+
+**Light**: `painted()` is the family's profile for a world lit by the rig alone. The Compatibility renderer has no headroom above white, and at Forward+'s numbers a snowy road clipped to flat white, so it lowers the exposure and adds a shadowless fill; glow starts above white or a snow road blooms into the sky.
+
+**Audio levels** were set on the Master bus with dot-audio's `loudness.sh` over `tools/loudness.tscn`: the engine bed is quiet because a bed that never stops at effect level sat at -7.6 LUFS, and the one-shots stand out of it. Each truck's engine is a little sharp or flat of the next, because the same loop summed in phase was one engine 6 dB louder.
+
+**Terrain**: every vertex within `BAND` metres of a road edge is held below that sample's slab, so the hillside never rises through the lane; heights use `DdWeather.unit` of the route id, not `hash`. The grid margin is 50 m short of a neighbour's road: at 80 m the last 35 m had to drop sixty metres and every route stood in a lake. A cliff tapers inside its wall's stretch (eroded, then smoothed): dilated, the mountain began before its wall with no collision under it. Where two legs of a switchback meet, the ground blends with the nearest other road by inverse distance cubed.
+
+**Suspension and grip** (`DdTrucks.tunables_for`): a load sits over the back axle, so the more of the weight is load the less the front holds; rear grip above 1 keeps a truck from spinning at full lock. Stiffness 75 is as far as it goes (110 crawled the Semi's trailer test and hopped off two wheels); relaxation damping 1.25 removes the hop and 1.5 slowed the Semi.
+
+**Chat lines and voice** travel on this game's own wire: `DotChatRouter` has the rules, and a second path through the server's chat manager would be a second set of rules. `DotVoiceRouter.relay` stamps the transport's peer id over the packet's own speaker field, or any client could speak as any other.

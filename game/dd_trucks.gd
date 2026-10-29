@@ -2,16 +2,9 @@ extends RefCounted
 
 const DdPaths := preload("dd_paths.gd")
 
-## Every truck a player can buy, and every upgrade, as data.
-##
-## [b]A harder truck pays more, and that is the whole economy in one number.[/b] Each truck
-## has a `pay` multiplier; the ones that are slower to stop, quicker to slide or longer round
-## a hairpin carry more of it. A server owner who disagrees overrides any field from
-## `user://cfg/delivery_trucks.json` (the same keys, by truck id), or adds a truck.
-##
-## [b]Handling is in dot-vehicle's own units[/b] (newtons, metres per second, degrees), and
-## every field is applied to a [DotVehicleTunables], so the chassis that drives a truck is
-## the one every vehicle in the family is driven by.
+## Every truck a player can buy, and every upgrade, as data. A harder truck pays more (`pay`). A
+## server owner overrides any field from `user://cfg/delivery_trucks.json` (by truck id) or adds a
+## truck. Handling is in dot-vehicle's units and applied to a [DotVehicleTunables].
 
 ## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs' glass is painted on the body's one surface; [method DdTruck._open_glass] moves those triangles to a see-through surface at load, so the seat is inside the cab, seen through the windows.
 const SEATS := {
@@ -33,13 +26,9 @@ static func seat_of(id: StringName) -> Dictionary:
 	return SEATS.get(id, {"at": Vector3(-0.45, 1.5, -1.6), "height": 1.2})
 
 
-## The trucks, in the order the garage shows them.
-##
-## [b]The drive is an engine, a gearbox and the air, not a top speed[/b] ([DdDrivetrain]):
-## `power_kw` and `torque_nm` through `gears` and `final_drive` on wheels of the model's size,
-## against `drag_area` (Cd times frontal area, m²) and the slope, up to `governor_kmh` on the
-## flat. `mass` is the truck empty; `capacity_kg` is what a full load ([DdCargo]) adds. A truck
-## with a trailer carries its load on the trailer. `brake_force` is newtons at the wheels.
+## The trucks, in the order the garage shows them. The drive is an engine, a gearbox and the air
+## ([DdDrivetrain]): `power_kw` and `torque_nm` through `gears` and `final_drive`, up to
+## `governor_kmh`. `mass` is the truck empty; `capacity_kg` is what a full load adds.
 const DEFAULTS := [
 	{
 		"id": "box_truck", "name": "Box Truck", "model": "models/delivery_truck.glb", "scale": 1.7,
@@ -96,13 +85,9 @@ const DEFAULTS := [
 	},
 ]
 
-## What comes off a truck, in the truck's own frame as fractions of the body's box (x 0 is the
-## left side and 1 the right, y 0 the bottom, z 0 the front and 1 the back), so one table fits
-## every model: the triangles of the one-piece Kenney body inside the region are carved off at
-## load ([method DotVehicleDebris.carve]) and come away when the part does. `strength` is the
-## knock (m/s at the part) that takes it off in one go, times the truck's `toughness`; `mass` is
-## kilograms the truck loses with it. A truck's `parts` replaces this list; `node` names a model
-## node to throw instead of a region (the Box Truck's back door).
+## What comes off a truck, in the truck's frame as fractions of the body's box (x 0 left to 1
+## right, y 0 bottom, z 0 front to 1 back): triangles inside the region are carved off at load
+## ([method DotVehicleDebris.carve]). `strength` is the knock (m/s) that takes it off.
 const PARTS := [
 	{"id": "bumper_front", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.3], "z": [0.0, 0.07], "strength": 5.0, "mass": 40.0},
 	{"id": "bumper_rear", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.25], "z": [0.94, 1.0], "strength": 5.0, "mass": 40.0},
@@ -255,10 +240,9 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	t.linear_damp = 0.0
 	t.steering_limit_deg = float(def.get("steering_limit_deg", 32.0))
 	t.steering_speed_falloff = float(def.get("steering_speed_falloff", 0.35))
-	# A load on the truck sits over the back axle and adds no tyre at the front, so the more of
-	# the weight is load the less the front holds against the back: it washes wide (understeers)
-	# instead of turning in. Rear grip above 1 is what keeps a truck from spinning at full lock;
-	# below it (as these were) every truck but the Bulk swapped ends at 55 km/h.
+		# A load sits over the back axle and adds no tyre at the front, so the more of the weight is
+		# load the less the front holds: it understeers. Rear grip above 1 keeps a truck from
+		# spinning at full lock.
 	var share := on_truck / maxf(float(def.get("mass", 4500.0)) + on_truck, 1.0)
 	t.friction_slip = float(def.get("friction_slip", 3.0)) * tyres * (1.0 - 0.18 * share)
 	t.rear_grip_fraction = clampf(float(def.get("rear_grip_fraction", 0.9)) + 0.25 * share, 0.1, 2.0)
@@ -267,11 +251,9 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	t.centre_of_mass_drop = maxf(float(def.get("centre_of_mass_drop", 0.6)) - raise, 0.05)
 	var susp: Dictionary = def.get("suspension", {})
 	t.suspension_travel = float(susp.get("travel", 0.3))
-	# Stiffer than the 60 it was: wind (a lateral central force) rocked the body 2 to 5 degrees every
-	# few seconds on a level road, and the lean falls with the spring. 75 is as far as it goes:
-	# at 110 the semi's trailer test crawled and a truck hopped off two wheels when the settle
-	# hold let go; relaxation damping 1.25 (up from 0.95) takes the hop out and 1.5 slowed the semi.
-	# Each truck's own at or below that (`suspension`): the Box Truck softest, so it leans most.
+		# Stiffer suspension falls to wind's roll, but 75 is as far as it goes: at 110 the semi's
+		# trailer test crawled and a truck hopped off two wheels. Relaxation damping 1.25 takes the
+		# hop out; 1.5 slowed the semi. Each truck's own (`suspension`) is at or below that.
 	t.suspension_stiffness = float(susp.get("stiffness", 75.0))
 	# Damped near Godot's "typical" values: at dot-vehicle's lighter defaults a loaded truck,
 	# with nothing proportional to speed damping the body any more (DdTruck), nodded on its

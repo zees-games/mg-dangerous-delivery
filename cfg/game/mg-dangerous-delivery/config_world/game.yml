@@ -72,7 +72,7 @@
 # route_ids: []
 # A seed for everything drawn per trip. 0 takes one from the clock.
 # seed_value: 0
-# Whether SET OFF on the lot's panel puts the player straight onto the route's start line, the way it was bef...
+# Whether SET OFF on the lot's panel puts the player straight onto the route's start line. Off (the default) ...
 # quick_start: false
 
 # --- Mountain

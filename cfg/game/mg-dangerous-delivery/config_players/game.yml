@@ -10,7 +10,7 @@
 # trucks_collide: true
 # Whether trucks that come with a trailer (the Semi) pull one. Off turns every truck rigid.
 # trailers: true
-# Stand-in drivers, so a server is not an empty mountain. People replace them. This is the default for the se... [0..16]
+# Stand-in drivers, so a server is not an empty mountain. People replace them. The default for the server's `... [0..16]
 # bots: 2
 # Seconds a stand-in may drive one trip before it is put back in a bay to start again. [30.0..3600.0]
 # stand_in_road_seconds: 240.0

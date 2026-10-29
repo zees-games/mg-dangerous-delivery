@@ -1,17 +1,8 @@
 extends VehicleBody3D
 
-## One truck: a VehicleBody3D built in code from a catalogue entry and a Kenney model, driven
-## by dot-vehicle's wheeled chassis.
-##
-## [b]Built in code, not a scene per truck[/b], so a server owner's new truck is a catalogue
-## entry and a model file, not an edited scene they would have to keep in step with a
-## catalogue. The collision box and the wheels are measured off the model: the Kenney trucks
-## carry their four wheels as named nodes, and those nodes ARE where the wheels go.
-##
-## [b]The chassis is dot-vehicle's, bound without the spawner.[/b] The spawner is the seat
-## handover — getting in and out — and in this game nobody gets out: a player is their truck
-## from the lot to the depot. So the instance and the chassis are made here and driven by
-## [DdGame] with one call a tick, the same [method DotVehicleChassis.drive] the spawner calls.
+## One truck: a VehicleBody3D built in code from a catalogue entry and a Kenney model, driven by
+## dot-vehicle's wheeled chassis bound without the spawner (a player is their truck from lot to
+## depot). The box and wheels are measured off the model's named nodes.
 
 const DdPaths := preload("dd_paths.gd")
 const DdTrucks := preload("dd_trucks.gd")
@@ -79,9 +70,8 @@ signal damaged(event: Dictionary)
 
 
 ## Builds it from [param p_def] with [param tunables] (from [method DdTrucks.tunables_for]).
-## Returns the body, ready to add to the tree; [method bind_chassis] once it is in.
-## [param p_cargo] is the load ([DdCargo]); its mass is already in [param tunables] (or the
-## trailer's), and here it adds its wind and its slosh.
+## Returns the body, ready to add to the tree; [method bind_chassis] once it is in. [param
+## p_cargo] is the load ([DdCargo]); its mass is already in [param tunables].
 func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables, draws: bool = true, p_cargo: Dictionary = {}) -> DotResult:
 	truck_id = p_id
 	def = p_def
@@ -421,14 +411,9 @@ func drive(command: DotVehicleCommand, delta: float) -> void:
 	_slosh_step(delta)
 
 
-## The liquid in a tank, as a mass on a spring in the truck's horizontal plane: driven by what
-## the truck does, pushing back on it a beat late and above the axles (so it rolls the truck as
-## well as shoving it). Steady in a long bend it is the same as a solid load; it is the turn-in,
-## the straightening up and the stop where a tanker is a different truck.
-##
-## Its mass is part of the body's (the catalogue's mass is the whole truck), so only the
-## difference from moving rigidly with the truck is applied: the spring's pull minus what a
-## rigid load would have needed.
+## The liquid in a tank, as a mass on a spring in the truck's horizontal plane: it pushes back a
+## beat late and above the axles, so it rolls the truck as well as shoving it. Its mass is part
+## of the body's, so only the difference from moving rigidly with the truck is applied.
 func _slosh_step(delta: float) -> void:
 	if slosh_mass <= 0.0 or delta <= 0.0:
 		return
@@ -496,11 +481,9 @@ func place(where: Transform3D) -> void:
 	repair()
 
 
-## How far above the road this truck's origin is when it stands on its wheels at rest:
-## the lowest wheel's tyre bottom, measured from the origin. Placing a truck at this
-## height puts it down on the road; the flat 0.6 m it used to be put at dropped every
-## truck, it landed at 0.4 s, bounced clear of the road and rocked on two wheels for
-## three seconds of every trip start and every put-back.
+## How far above the road this truck's origin is when it stands on its wheels at rest: the
+## lowest wheel's tyre bottom, measured from the origin. Placing a truck at this height puts it
+## down on the road instead of dropping it.
 func ride_height() -> float:
 	var lowest := 0.0
 

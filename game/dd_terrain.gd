@@ -1,20 +1,8 @@
 extends RefCounted
 
-## The ground a route is cut into: one heightfield under the whole route, rising into a
-## mountain behind every cliff and falling away under every drop to the water. Drawn only.
-##
-## [b]A heightfield, not ribbons.[/b] Per-segment hillsides overlapped the road wherever it turned
-## toward them; a grid whose every vertex knows its distance from the road can be told never to
-## rise through it.
-##
-## [b]A band, not a test.[/b] Every vertex within [constant BAND] metres of any road edge sample is
-## held below that sample's slab, and BAND is wider than a cell's diagonal, so the slope up to the
-## mountain only ever happens behind the wall. Starting the mountain at the wall's foot would put
-## a sheet of hillside across the lane.
-##
-## [b]The same on every machine.[/b] Heights are arithmetic over the route's samples and
-## [DdWeather.unit] of the route id, not [method @GlobalScope.hash] (djb2 differs only in its low
-## bits for neighbouring keys). A server never builds it; the road's trimesh is all a truck stands on.
+## The ground a route is cut into: one heightfield under the whole route, rising into a mountain
+## behind every cliff and falling away to the water. Drawn only, never built on a server, and the
+## same on every machine (arithmetic over the route's samples).
 
 const DdWeather := preload("dd_weather.gd")
 
@@ -24,11 +12,9 @@ const CHANNEL := "delivery.terrain"
 ## vertices; at 2.5 m the build took four times as long for detail the fog hides.
 const CELL := 5.0
 
-## How far the grid runs past the road on every side. Routes are a map's `layout.gap` apart (160
-## m unless it says, and never under 120, [DdMapDoc]), so a neighbour's grid can overlap this one's edge but stops 50 m short of its
-## road; where two overlap both are falling to the water and whichever is higher is the hill.
-## At 80 m, the most that never overlaps, the last 35 m had to drop sixty metres and every route
-## stood in the lake on a dark cliff of its own.
+## How far the grid runs past the road on every side. A neighbour's grid may overlap this one's
+## edge but stops 50 m short of its road; where two overlap the higher is the hill. At 80 m the
+## last 35 m had to drop sixty metres and every route stood in a lake on a dark cliff.
 const MARGIN := 110.0
 
 ## Within this many metres of a road edge the ground is held under the road. Must exceed a
@@ -123,9 +109,7 @@ var tree: SceneTree = null
 
 ## Builds the heightfield for [param route] (a built [DdRoute], untyped so the two scripts do
 ## not preload each other). [param pads] is [code][{"centre": Vector3, "basis": Basis}][/code]
-## for the lot and the depot, [param pad_half] their half extents.
-## [param keep] is route-local points along the land's roads that cross this ground (DdLand):
-## held under like the road, a road's half width and the band either side.
+## for the lot and the depot, [param keep] points along the land's roads held under like the road.
 func compute(route: Variant, wall_height: float, slab: float, drop_slope: float, p_water_y: float, pads: Array, pad_half: Vector2, keep: PackedVector3Array = PackedVector3Array()) -> void:
 	var points: PackedVector3Array = route.points
 	var yaws: PackedFloat32Array = route.yaws
@@ -142,12 +126,9 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	var started := Time.get_ticks_usec()
 
-	# Per sample: half width, how far a bank drops the low edge, and how much of a cliff stands
-	# on each side. The cliff is smoothed along the road so the mountain tapers in and out over
-	# the first and last 24 m of a wall rather than standing up in a vertical sheet — and it
-	# tapers INSIDE the wall's stretch (eroded, then smoothed), never past it. Dilated instead,
-	# the mountain began twenty metres before its wall, on what was still the drop side: a
-	# hillside in the picture with no collision under it, which a truck would fall through.
+				# Per sample: half width, bank drop and how much cliff stands on each side. The cliff tapers
+				# INSIDE the wall's stretch (eroded, then smoothed), never past it: dilated, the mountain
+				# began before its wall, a hillside with no collision under it.
 	var half := PackedFloat32Array()
 	var bank_drop := PackedFloat32Array()
 	var raw_left := PackedFloat32Array()
@@ -221,11 +202,9 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 		beyond[k] = near.y
 		heights[k] = near.x
 
-		# Blended with the nearest OTHER stretch of road, by inverse distance cubed. Between two
-		# legs of a switchback the lower one's cliff faces the upper one's drop, and on its own
-		# the lower one's mountain stood fifty metres high right beside the upper road's edge: a
-		# hillside where a driver should see a drop. Blended, the ground runs from one road to
-		# the other, and each road's own wish is what holds at its edge.
+				# Blended with the nearest OTHER stretch of road, by inverse distance cubed: between two
+				# legs of a switchback the lower leg's cliff faces the upper leg's drop, and alone it stood
+				# fifty metres high beside the upper road's edge.
 		if second[k] >= 0:
 			var other := _wish(second[k], v)
 			var w_near := 1.0 / pow(maxf(near.y + _half[nearest[k]], 1.0), 3.0)
@@ -435,9 +414,8 @@ func paint(node: MeshInstance3D, zone: String, snowy: bool, rainy: bool) -> void
 
 
 ## Where a pine or a rock stands on the mountain: [code][{"at": Vector3, "roll": float,
-## "rock": bool}][/code]. One candidate per 3x3 cells, from [DdWeather.unit] of the route and the
-## block, so every client grows the same forest; each one stands at [method height_at] of its
-## own position, sunk a little so a trunk on a slope does not show daylight on its low side.
+## "rock": bool}][/code]. One candidate per 3x3 cells from [DdWeather.unit], so every client grows
+## the same forest; each stands at [method height_at], sunk a little so a slope shows no daylight.
 func scatter() -> Array:
 	var out: Array = []
 	var gz := 1
@@ -469,7 +447,6 @@ func scatter() -> Array:
 	return out
 
 
-# --- Building ----------------------------------------------------------------
 
 ## The sample nearest every vertex, by two raster sweeps that hand each vertex its neighbours'
 ## candidates (a chamfer pass): every vertex against every sample is 25 million distances a
