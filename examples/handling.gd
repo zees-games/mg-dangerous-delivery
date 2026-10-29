@@ -20,7 +20,7 @@ const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
 const SECTIONS := 12
-const CHECKS := 60
+const CHECKS := 62
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -422,7 +422,7 @@ func _labels_face_the_driver(road: DdRoute) -> Array:
 
 func _test_signs() -> void:
 	_section("signs read from the driving side")
-	for id: StringName in [&"dd_snowline", &"dd_wind_ridge", &"dd_devils_spine"]:
+	for id: StringName in [&"dd_snowline", &"dd_wind_ridge", &"dd_devils_spine", &"dd_slate_quarry"]:
 		var road := DdRoute.new()
 		road.draws = true
 		add_child(road)
@@ -635,7 +635,7 @@ func _test_hairpins() -> void:
 	var taken := 0
 	var worst_tilt := 0.0
 	for truck in [&"box_truck", &"semi", &"bulk"]:
-		for id: StringName in [&"dd_snowline", &"dd_wind_ridge", &"dd_devils_spine"]:
+		for id: StringName in [&"dd_snowline", &"dd_wind_ridge", &"dd_devils_spine", &"dd_slate_quarry"]:
 			var road: DdRoute = game.routes[id]
 			var start := 0.0
 			for seg: Dictionary in game.documents[id]["segments"]:
@@ -672,7 +672,7 @@ func _test_hairpins() -> void:
 					game.end_trip(&"t")
 				start += length_m
 	game.fell.disconnect(on_fell)
-	_check(fell.is_empty() and taken == 21, "the Box Truck, the Semi and the Bulk Carrier round all seven hairpins on snow at a careful pace", str(fell))
+	_check(fell.is_empty() and taken == 24, "the Box Truck, the Semi and the Bulk Carrier round all eight hairpins on snow at a careful pace", str(fell))
 
 	_check(worst_tilt < 30.0, "no truck leans past 30 degrees (a roll or a flip) through the hairpins", "worst %.1f degrees" % worst_tilt)
 
