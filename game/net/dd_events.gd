@@ -1,14 +1,7 @@
 extends RefCounted
 
 ## What the server tells a client and what a client asks, by kind.
-##
-## [b]Bodies are JSON, and that is a choice about this game rather than a habit.[/b] Every
-## other game in the family packs its events into bits because they fire every few ticks
-## about every player. Here the busy traffic is the trucks themselves, which go in snapshots;
-## what is left is a hello, a driver arriving, a garage after a purchase and a trip's numbers
-## a few times a second to one person. A few hundred bytes of text is nothing to that, and a
-## garage view that grows a field is a change in one place.
-##
+## Bodies are JSON on purpose: the busy traffic is the trucks, which go in snapshots, and the rest is a few messages a second to one person.
 ## Kinds are their index on the wire: append, never reorder.
 
 enum Kind {

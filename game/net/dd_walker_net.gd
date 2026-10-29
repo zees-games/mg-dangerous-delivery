@@ -1,17 +1,8 @@
 extends DotNetBehaviour
 
 ## A person on foot: where they stand and which way they face, for everybody else to draw.
-##
-## [b]The owner walks on their own machine and says where they got to[/b] (the input packet,
-## after the drive: see `DdEvents.write_walk`); the server checks the step and the place
-## (`DdGame.walk`) and this carries the accepted pose to everybody, interpolated. Nothing on a
-## walker can hurt anybody or win anything, and a round trip on every step of walking is the
-## one latency a player feels at once, so walking is the owner's and the server only refuses.
-## Every other body in this game is still the server's (trucks, rock): see docs/netcode.md.
-##
-## [b]A plain node, not a body.[/b] The server holds no physics for a walker; a client draws a
-## figure under this node ([method DdClient._present_walkers]) and the figure animates from
-## how far the node moved, so nothing about gait is sent.
+## The owner walks on their own machine and says where they got to; the server checks the step and place (`DdGame.walk`) and this carries the accepted pose, interpolated (see docs/netcode.md).
+## A plain node, not a body: the figure animates from how far the node moved, so no gait is sent.
 
 var body: Node3D = null
 

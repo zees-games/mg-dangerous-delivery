@@ -1,8 +1,6 @@
 extends Node3D
-## A roadside sign: a post and a board, the course's name on its face. One-sided Label3D facing
-## +Z, back toward a driver coming up the road (the family's rule for every sign on a road:
-## a double-sided label reads backwards from behind). No `class_name`: this game is delivered
-## as a pack.
+## A roadside sign: a post and a board, the course's name on its face. One-sided Label3D facing +Z, back toward a driver
+## coming up the road (a double-sided label reads backwards from behind). No `class_name`: delivered as a pack.
 
 const BOARD := Vector2(8.0, 2.6)
 const POST_HEIGHT := 4.6

@@ -1,12 +1,8 @@
 extends Node
 
-## Records what the game sounds like and writes it to a WAV, for a loudness meter:
+## Records what the game sounds like to a WAV, for a loudness meter:
 ##   tools/loudness.sh [--route=dd_snowline] [--sky=snow|rain|wind|clear] [--seconds=20]
-##
-## The Master bus through an AudioEffectRecord, under xvfb (a real audio driver: headless and
-## Movie Maker both run the Dummy driver, where dot-audio's null sink plays nothing at all).
-## The first play test measured the snow stage at -5 dBFS RMS, near clipping, with the other
-## games near -25; this is how a change to a level is checked before anybody hears it.
+## Master bus through an AudioEffectRecord under xvfb: headless and Movie Maker run the Dummy driver, where dot-audio plays nothing.
 
 const DdClient := preload("res://game/dd_client.gd")
 

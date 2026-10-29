@@ -1,20 +1,8 @@
 extends Node3D
 
-## The lot: where everybody spawns on foot, where the trucks are on show and sold, and where a
-## bought truck is parked. A place, not a menu (the first play test: "the lot is a menu").
-##
-## [b]Laid out in its own frame, facing the mountain.[/b] The lot's -Z is north, toward the
-## routes' starts; the roads leave from its north edge ([method exit_points]). From south to
-## north: the spawn, the showroom (a truck of every model on a plinth with a salesperson beside
-## it), the parking bays a bought truck is put in, and the exits. Every query answers in world
-## coordinates, so nothing outside has to know the frame.
-##
-## [b]A server builds it too, without drawing it.[/b] The slab and the fence are floors and
-## walls a roaming truck drives on and into; the spots (spawn, bays, sellers) are what the
-## server places walkers and trucks at and checks a "use" against. The showroom's trucks,
-## people, signs and lamps are drawn only.
-##
-## No `class_name`: this game is delivered as a pack.
+## The lot: where everybody spawns on foot, where the trucks are on show and sold, and where a bought truck is parked.
+## Laid out in its own frame (-Z north, toward the routes); every query answers in world coordinates.
+## A server builds it too without drawing it (slab, fence and spots); the showroom's trucks, people, signs and lamps are drawn only. No `class_name`: delivered as a pack.
 
 const DdPaths := preload("dd_paths.gd")
 const DdTrucks := preload("dd_trucks.gd")
@@ -109,7 +97,7 @@ func build(p_truck_ids: Array[StringName], p_exits: int, names: Dictionary, p_dr
 		_build_sign()
 
 
-# --- Queries -----------------------------------------------------------------
+# Queries
 
 ## Whether [param p] (world) is on the lot, with [param margin] metres to spare.
 func contains(p: Vector3, margin: float = 0.0) -> bool:
@@ -181,7 +169,7 @@ func free_bay(near: Vector3, taken: Array) -> int:
 	return best
 
 
-# --- Building ----------------------------------------------------------------
+# Building
 
 func _build_slab() -> void:
 	var body := StaticBody3D.new()

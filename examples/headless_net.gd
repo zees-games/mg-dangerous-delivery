@@ -1,8 +1,6 @@
 extends "headless_net_base.gd"
 
-## A server and a client in one process, over the link's loopback, each in its own physics
-## world as two processes would be.
-##
+## A server and a client in one process, over the link's loopback, each in its own physics world.
 ##   godot --headless --path . res://examples/headless_net.tscn
 
 const SECTIONS := 21
@@ -95,11 +93,9 @@ func _test_joining() -> void:
 	_finished_section()
 
 
-## People on foot over the wire: the client is told where it stands, its steps reach the server
-## with the input and a step too long is refused with a place to stand; another person is on
-## foot on the client too, walking where the server has them, and gone when they leave.
-## The lot's toys over the wire: paired by index on both ends, frozen copies; a person walking
-## into a ball on the server sends it on, and the client sees it go.
+## People on foot over the wire: the client is told where it stands, its steps reach the server and
+## a step too long is refused with a place to stand; others walk where the server has them.
+## The lot's toys over the wire: paired by index on both ends, frozen copies.
 func _test_the_lot_toys() -> void:
 	_section("the lot's toys")
 	await _steps(4)
@@ -418,10 +414,8 @@ func _test_bots() -> void:
 	_finished_section()
 
 
-## Two browser tabs of one guest share a device id, so one uid, so one key (the module keys a
-## driver by account so money survives a reconnect). The newest connection wins: the module is
-## told to drop the older (mg-look-at-me's decision), and the older's leave, which follows the
-## kick, must not take the newcomer's driver. Peers that are only seats: neither is a net peer.
+## Two tabs of one guest share a uid, so one driver key; the newest connection wins and the older's
+## leave, which follows the kick, must not take the newcomer's driver. Peers here are only seats.
 func _test_one_account_twice() -> void:
 	_section("one account on two connections: the newest wins")
 	const TAB_ONE := 21
@@ -515,7 +509,7 @@ func _test_rock_heard() -> void:
 
 
 
-# --- Harness -----------------------------------------------------------------
+# Harness
 
 ## sv_workbench_remote over the real frames, in the order the module and the client register them: an admin gets a
 ## panel and an edit that applies and replicates; a guest, a non-admin, a revoked admin and the cvar off are refused.

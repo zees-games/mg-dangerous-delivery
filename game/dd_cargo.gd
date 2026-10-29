@@ -1,24 +1,8 @@
 extends RefCounted
 
 ## What a truck carries, as data: each load changes how the truck drives, not only what it pays.
-##
-## [b]A load is a fraction of the truck's own capacity[/b] (`fill`), so the same timber is a
-## heavier haul in the Bulk Carrier than in the Box Truck, and a light load in a big truck is a
-## truck with power to spare. What each field does to the drive:
-##
-## - `fill`: the mass, `capacity_kg` of the truck times this. A full truck climbs slower,
-##   accelerates slower and stops later (the brakes are the same brakes).
-## - `com_raise`: metres the centre of mass rises at a full load. A tall load leans out in a
-##   bend and tips sooner.
-## - `slosh`: the fraction of the load that is liquid and moves on its own ([DdTruck]'s tank
-##   model): it pushes the truck on after a turn or a stop, a beat late.
-## - `fragile`: the knock threshold is divided by this and the loss per knock multiplied, so
-##   a bump that a crate shrugs off breaks glass.
-## - `wind`: added to the truck's own wind scale (a stack of timber is a sail).
-## - `pay`: the trip's pay multiplier.
-##
-## A route names its load (`cargo` in the document). An owner adds or changes one from
-## `user://cfg/delivery_cargo.json`, the same keys by id, as with trucks.
+## A load is a fraction (`fill`) of the truck's capacity; `com_raise`, `slosh`, `fragile`, `wind` and `pay` each change the drive.
+## A route names its load; an owner overrides by id in `user://cfg/delivery_cargo.json`, as with trucks.
 
 const DEFAULTS := [
 	{"id": "crates", "name": "Crates", "blurb": "Mixed goods in crates. Forgiving.",

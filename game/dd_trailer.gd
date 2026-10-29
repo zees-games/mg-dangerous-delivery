@@ -1,16 +1,8 @@
 extends VehicleBody3D
 
-## The trailer behind a tractor unit: a box on two free-rolling axles, hitched to the truck by
-## a joint that lets it swing and nod but not roll off on its own.
-##
-## [b]A VehicleBody3D, not a box dragged along the road[/b]: a dragged box is friction against
-## the floor and stops the truck dead on a climb; wheels roll. None of them is driven or steered,
-## and the rear axle's grip is what makes it track the truck round a bend instead of sliding wide.
-##
-## [b]Why it is the point[/b]: the brief is eighteen-wheelers on mountain roads, and what makes
-## one hard is the half you are not steering. A trailer cuts inside a hairpin, swings wide on ice
-## and pushes on a descent. Configurable per truck (`trailer` in DdTrucks: length, mass, whether
-## there is one at all).
+## The trailer behind a tractor unit: a box on two free-rolling axles, hitched by a joint that lets it swing and nod but not roll off.
+## A VehicleBody3D, not a dragged box (friction stops the truck dead on a climb); the rear axle's grip makes it track the truck.
+## Configurable per truck (`trailer` in DdTrucks: length, mass, whether there is one).
 
 const CHANNEL := "delivery.trailer"
 const DdTrucks := preload("dd_trucks.gd")
@@ -45,13 +37,9 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 	mass = float(spec.get("mass", 3000.0))
 	continuous_cd = true
 	can_sleep = false
-	# The load sits just ahead of the rear axles, so the hitch carries about an eighth of it. At the
-	# hitch itself (where it was when the trailer was empty and 2.6 t) a full 9 t load stood the
-	# tractor on its back wheels and the joint fought it to a standstill.
-	# The hitch over the tractor's rear axle, not behind its tail: hung out behind, the hitch's
-	# load was a lever that lifted the tractor's front wheels off a climb (two wheels down, the
-	# steering gone). The box starts where it always did, past the tail, and a drawbar reaches
-	# forward from it to the hitch.
+	# The load sits just ahead of the rear axles, so the hitch carries about an eighth of it; at the hitch a full load stood the tractor on its back wheels.
+	# The hitch is over the tractor's rear axle, not behind its tail: hung out behind, its load lifted the front wheels off a climb.
+	# A drawbar reaches forward from the box to the hitch.
 	var tail := truck_half_length + 0.35
 	var hitch := minf(hitch_z, tail)
 	lead = tail - hitch

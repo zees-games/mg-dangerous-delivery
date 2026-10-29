@@ -1,24 +1,8 @@
 extends Node
 
 ## What a player has: their money, their trucks, their upgrades, how far they have got.
-##
-## [b]The server's, always.[/b] A client is shown its account and asks to spend it; the
-## server checks the price against the balance it holds and says yes or no. An account a
-## client kept would be an account a client edits.
-##
-## [b]Where it is kept is the owner's choice, and the brief named three databases.[/b] The
-## store is duck-typed: [code]load_account(key) -> Dictionary[/code] and
-## [code]save_account(key, account) -> DotResult[/code]. Two ship here:
-##
-## - [JsonStore], one file (`user://delivery_accounts.json` by default). A single box, nothing
-##   to install, and the default.
-## - [SqlStore], over any driver with dot-moderation's shape — [code]execute(sql, params)[/code],
-##   [code]query(sql, params)[/code], [code]dialect()[/code] — so the SQLite, PostgreSQL and
-##   MySQL drivers an owner already configured for bans keep the money too. One table, with
-##   money and deliveries as columns a web panel can sort by and the rest as JSON.
-##
-## [b]Saved on every change that matters (a delivery, a purchase), not on a timer.[/b] Money is
-## the one thing a player will notice going missing after a crash.
+## The server's, always: a client asks to spend and the server checks the price against its balance.
+## The store is duck-typed (`load_account(key)`, `save_account(key, account) -> DotResult`); [JsonStore] is the default and [SqlStore] takes any dot-moderation-shaped driver. Saved on every change that matters, not on a timer.
 
 const CHANNEL := "delivery.bank"
 
@@ -216,7 +200,7 @@ func describe_lines() -> PackedStringArray:
 	return lines
 
 
-# --- Stores ------------------------------------------------------------------
+# Stores
 
 ## Every account in one JSON file.
 class JsonStore:

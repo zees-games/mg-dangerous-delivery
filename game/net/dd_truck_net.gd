@@ -1,10 +1,7 @@
 extends "dd_body_net.gd"
 
 ## A truck: its pose, plus the steering and speed nothing else replicated can give a watcher.
-##
-## The steering is what makes a mirrored truck look driven: without it every other truck goes
-## round a hairpin with its front wheels straight ahead (mg-buses-from-hell's finding). The
-## speed is for the client's own HUD and an engine sound later.
+## The steering makes a mirrored truck look driven (else every front wheel points straight round a hairpin); the speed is for the client's HUD.
 
 var net_steering: int = 0
 var net_speed: int = 0

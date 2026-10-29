@@ -2,9 +2,7 @@ extends Node
 
 ## Under xvfb-run (never --headless, whose audio driver is Dummy): does a truck make a noise?
 ##   xvfb-run -a godot --path . res://tools/audio_probe.tscn
-##
-## Asks the engine's own players (`DotAudioManager.voice()`, read from the pooled player), not dot-audio's book-keeping:
-## a handle is the pool handing over a player, which says nothing about a speaker.
+## Asks the engine's own players (`DotAudioManager.voice()`), not dot-audio's book-keeping: a handle says nothing about a speaker.
 
 const DdClient := preload("res://game/dd_client.gd")
 const DdAudio := preload("res://game/dd_audio.gd")

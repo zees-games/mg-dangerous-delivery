@@ -1,18 +1,8 @@
 extends "res://game/dd_route_base.gd"
 
-## A route document, built: the road, the cliff it is cut into, the drop on the other side,
-## the checkpoints, the lot and the depot — and every question the game asks about where a
-## truck is along it.
-##
-## [b]The same build on every machine.[/b] A server sends the document; each client builds
-## this from it, so the road a client's camera sees and the road the server's trucks are
-## driving on are the same arithmetic over the same numbers. Nothing here is random: what
-## changes from trip to trip (weather, rock) is [DdWeather]'s and [DdGame]'s, not the road's.
-##
-## [b]The road is sampled every [constant STEP] metres and every query is over the
-## samples.[/b] A centreline that is a sequence of arcs has a closed form, and the closed
-## form is what a person writes a bug in; samples are what the mesh is built from anyway, so
-## asking them is asking the road that is actually there.
+## A route document, built: the road, the cliff, the drop, the checkpoints, the lot and the depot, and every question the game asks about where a truck is along it.
+## The same build on every machine; nothing here is random (weather and rock are [DdWeather]'s and [DdGame]'s).
+## The road is sampled every [constant STEP] metres and every query is over the samples, which is what the mesh is built from.
 
 func build(p_doc: Dictionary) -> DotResult:
 	clear()
@@ -504,10 +494,8 @@ func _build_gate(d: float, label: String) -> void:
 		solid.add_child(_camera_box(Vector3(width + 1.6, 0.9, 0.2), Vector3(0.0, 6.2, 0.0)))
 		gate.add_child(solid)
 
-	# One label on each face, each one-sided. A Label3D faces +Z, which in the road's frame is
-	# back toward a truck coming up it (forward is -Z); the one label this had was turned to face
-	# -Z and double-sided, so from the driving side it read backwards ("TOꟼƎD", the first play
-	# test). The back face's label is for a truck that turned round.
+	# One label on each face, each one-sided: a Label3D faces +Z, back toward a truck coming up the road.
+	# A double-sided label read backwards from the driving side. The back face is for a truck that turned round.
 	for face: float in [1.0, -1.0]:
 		var text := Label3D.new()
 		text.name = "Label" if face > 0.0 else "LabelBack"
@@ -549,10 +537,8 @@ func _build_scenery() -> void:
 			var out: Vector3 = right_of(yaws[i]) * side
 			var edge: Vector3 = points[i] + out * width * 0.5
 
-			# On the drop only: pines growing out of the slope below the road, and rock further
-			# down. The mountain above each cliff grows its own (DdTerrain.scatter, below): a
-			# hillside built per segment was tried first and overlapped the road wherever the road
-			# turned toward it.
+			# On the drop only: pines below the road, and rock further down. The mountain above each cliff grows its own
+			# (DdTerrain.scatter); a hillside built per segment overlapped the road wherever it turned toward it.
 			if cliff:
 				continue
 

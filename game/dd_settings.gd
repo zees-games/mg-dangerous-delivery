@@ -2,29 +2,9 @@ extends DotMenuSettings
 
 const DdBindings := preload("dd_bindings.gd")
 
-## A player's own settings and the menu that changes them: how wide the view is, how loud the
-## game is, the window, and the look of the menu itself. The lot's SETTINGS button and O open
-## it; Escape is the garage's.
-##
-## [codeblock]
-## var settings := DdSettings.new()
-## add_child(settings)
-## settings.setup()                    # loads, and pushes every value at what reads it
-## settings.bind_look(sampler.tunables)
-## settings.bind_camera(camera)
-## settings.bind_audio(audio.manager)
-## settings.open()                     # Escape does this in the client
-## [/codeblock]
-##
-## [b]dot-menu's `DotMenuSettings` with this game's schema[/b] (2026-10-09). It was a 250-line
-## copy of mg-buses-from-hell's file — a manager, a `match` over four keys and a bare settings
-## screen — and the same copy was in five other games. What is left here is what is this
-## game's: where the document lives, and the stock keys it has nothing to apply to.
-##
-## [b]The scopes are the family's, not this game's.[/b] `sensitivity` is ACCOUNT under the
-## shared `tmc_account` namespace — a person's hand, the same number in every game here.
-## `field_of_view` is SERVER_CLAMPED: a wide view is an advantage a server may cap, and
-## dot-settings gives a server no way to READ it. The volumes are this machine's.
+## A player's own settings and the menu that changes them: view, loudness, the window and the menu's look. The lot's SETTINGS button and O open it.
+## dot-menu's `DotMenuSettings` with this game's schema; `sensitivity` is ACCOUNT scope, `field_of_view` SERVER_CLAMPED, the volumes this machine's.
+## Use: `setup()`, then `bind_look`, `bind_camera`, `bind_audio`, and `open()` (Escape does this in the client).
 
 const SCHEMA_VERSION := 1
 
@@ -37,10 +17,8 @@ const APP_NAMESPACE := &"dangerous_delivery"
 ## The field of view the camera had before this existed, and still the default.
 const DEFAULT_FOV := 70
 
-## Stock keys nothing here applies: every sound is on dot-audio's SFX bus (so master and
-## effects are the two volumes), nobody turns a view with the mouse (a player is their truck),
-## the one effect is a rockfall's shake (nothing flashes, nothing spawned for a quality setting
-## to thin out), and the chat box has no switch.
+## Stock keys nothing here applies: every sound is on dot-audio's SFX bus, nobody turns a view with the mouse,
+## the one effect is a rockfall's shake, and the chat box has no switch.
 const NOT_APPLIED: Array[StringName] = [
 	&"ui_volume", &"voice_volume", &"sensitivity", &"invert_mouse",
 	&"allow_flashes", &"fx_quality", &"chat_window",

@@ -2,17 +2,7 @@ extends RefCounted
 
 ## Every key this game reads, as one dot-menu [DotMenuBindings] table: the action, the setting
 ## that stores it, the words a player sees, the default, and the card it goes on.
-##
-## [b]A table, because four things read it:[/b] the client matches events against the actions
-## and polls the driving rows, the settings document stores one binding per row, the menu's
-## Controls page draws a key per row, and the help screen (H) and the HUD's key list name
-## the key each is on now. Until 2026-10-11 these were keycodes in `DdClient`, and the HUD's
-## list was a sentence typed beside them.
-##
-## [b]The arrow keys drive as well[/b], through Godot's `ui_*` actions, which no row holds:
-## they are the second set every driving game has, and a row would make them rebindable away.
-## Escape is the lot, as G is, and is in no row because no row may hold it. H is help, in
-## every game of the family (dot-menu adds the row), so nothing here may default to it.
+## The arrows drive through `ui_*`, which no row holds; Escape and G are the lot, H is help, so no row may default to them.
 
 const THROTTLE := &"dd_throttle"
 const BRAKE := &"dd_brake"

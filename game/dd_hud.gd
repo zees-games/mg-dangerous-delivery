@@ -1,12 +1,7 @@
 extends Control
 
-## What a driver sees over the road: the stage and how far along it they are, the money, the
-## load, the speed, the sky over this stretch, what the trip pays if they get there, and the
-## buttons the genre puts down the side (respawn, restart, skip, solo) with their keys.
-##
-## [b]Fed, never asking.[/b] [DdClient] calls [method show_trip] each frame with numbers it
-## already has; the HUD holds no game state, so a client mirroring a server and an offline
-## client draw it identically.
+## What a driver sees over the road: stage progress, money, load, speed, sky, the trip's pay, and the side buttons with their keys.
+## Fed, never asking: [DdClient] calls [method show_trip] each frame, so a mirroring client and an offline one draw identically.
 
 const DdWeather := preload("dd_weather.gd")
 
@@ -34,17 +29,13 @@ var _message_left: float = 0.0
 ## `plate_edge` whenever the theme changes. See [method _restyle].
 var _plates: Array[PanelContainer] = []
 
-## The Escape menu, whose theme this HUD follows (dot-menu's `follow_hud`): the menu sets the
-## theme on this root now and at every theme change, and applies the player's HUD size.
-## Christian's first play test (2026-10-11) asked for a darker HUD a player can restyle in the
-## menu. Duck-typed and called by name, for a client shell older than dot-menu 7.
+## The Escape menu, whose theme this HUD follows (dot-menu's `follow_hud`). Duck-typed and called by name,
+## for a client shell older than dot-menu 7.
 var _menu: Object = null
 
 
-## This game's accent over whichever theme the player picked in the menu: the highlight (the
-## stage bar), the plates' edge and "good". The plates, the words and their outline are the
-## theme's, dark by default, so a light or high-contrast theme can change them. Static so a
-## render tool can use it.
+## This game's accent over whichever theme the player picked: the highlight, the plates' edge and "good".
+## The rest is the theme's. Static so a render tool can use it.
 static func piece_theme() -> Theme:
 	var t := Theme.new()
 	var type := DotHudPiece.THEME_TYPE
@@ -148,10 +139,8 @@ func _ready() -> void:
 	speed_plate.offset_bottom = -12.0
 	_speed = _label(speed_plate, "0 km/h", 34, HORIZONTAL_ALIGNMENT_RIGHT)
 
-	# The keys, down the right side: the defaults until the client says what is bound
-	# ([method show_keys]). Stacked on the speed plate, not centred: the shell's ballot column
-	# runs down the right edge from 110 px to about 440, and a centred plate (290..465 at 720)
-	# had its first lines under it. Growing upward keeps the bottom row fixed whatever it lists.
+	# The keys, down the right side, stacked on the speed plate rather than centred (a centred plate sat under the ballot column).
+	# Growing upward keeps the bottom row fixed whatever it lists.
 	var keys_plate := _plate(self)
 	keys_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	keys_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN

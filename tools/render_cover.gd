@@ -2,14 +2,9 @@ extends Node
 
 
 
-## Frames of a real client on a real server, to look at: the loading cover while the server
-## still holds the seat as loading, and the first frames after the cover lifts. A dedicated
-## world (tools/cover_server) runs in a second process.
-##
-## [codeblock]
-## xvfb-run -a godot --path . --resolution 1280x720 res://tools/render_cover.tscn
-## [/codeblock]
-## Writes screenshots/cover_up.png, cover_lifted.png, cover_after_1s.png and cover_after_9s.png.
+## Frames of a real client on a real server: the loading cover while the server holds the seat as loading, and the first frames after it lifts.
+##   xvfb-run -a godot --path . --resolution 1280x720 res://tools/render_cover.tscn
+## Needs tools/cover_server in a second process; writes screenshots/cover_*.png.
 
 ## The root is named like the server process's so the RPC path ("CoverServer/Server") resolves here.
 const PORT := 27399

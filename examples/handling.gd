@@ -1,15 +1,8 @@
 extends DotGameCheckSuite
 
-## How the trucks drive, measured: every truck and every load on a flat road and an 8% climb,
-## stopping distances, a tanker's slosh, glass on gravel, every start line and checkpoint
-## driven away from, every hairpin taken carefully in snow, a truck hung over an open edge, the
-## oncoming cars, every route's challenges and every sign read from the driving side.
-##
+## How the trucks drive, measured: every truck and load on a flat road and a climb, stopping distances,
+## slosh, hairpins in snow, challenges and signs; the checks are on how the numbers differ between trucks.
 ##   godot --headless --path . res://examples/handling.tscn
-##
-## The numbers are printed as tables, and the checks are on how they differ: a top speed
-## that was the same for every truck on every road (68 km/h, the first play test) is the
-## failure this suite is for.
 
 const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
@@ -42,10 +35,8 @@ var game: DdGame = null
 var numbers: Dictionary = {}
 
 
-## Simulated seconds per wall-clock second. Each physics step is still 1/60 s of simulation
-## (ticks per second times the time scale), so the vehicle integrates exactly as it does in
-## play; there are only more of them a second. A suite that drives five trucks up a 1.5 km
-## climb at wall-clock speed takes twenty minutes.
+## Simulated seconds per wall-clock second. Each physics step is still 1/60 s, so the vehicle
+## integrates as in play; a suite at wall-clock speed would take twenty minutes.
 const SPEED_UP := 8
 const TICK := 1.0 / 60.0
 
@@ -122,7 +113,7 @@ func _runs(only: String, word: String) -> bool:
 	return only == "" or only == word
 
 
-# --- The test roads ------------------------------------------------------------
+# The test roads
 
 func _use_test_routes(docs: Array) -> void:
 	game.documents.clear()
@@ -253,7 +244,7 @@ func _gross(truck: StringName, load_id: StringName) -> float:
 	return float(def["mass"]) + (trailer if trailer > 0.0 else game.trucks.load_mass(def, load_def))
 
 
-# --- Sections -------------------------------------------------------------------
+# Sections
 
 func _test_trucks() -> void:
 	_section("every truck, with crates")
@@ -703,7 +694,7 @@ func _test_hairpins() -> void:
 	_finished_section()
 
 
-# --- Harness ----------------------------------------------------------------------
+# Harness
 
 ## Each truck its own, heavier ones washing wide, and what comes off changing the drive.
 func _test_damage() -> void:

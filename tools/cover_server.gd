@@ -1,12 +1,8 @@
 extends Node
 
 
-## A headless dedicated world for tools/render_cover.gd to join: the boot examples/dedicated.gd
-## does (DotServer, the world, the module), left running.
-##
-## [codeblock]
-## godot --headless --path . res://tools/cover_server.tscn -- --port 27399
-## [/codeblock]
+## A headless dedicated world for tools/render_cover.gd to join: the boot examples/dedicated.gd does, left running.
+##   godot --headless --path . res://tools/cover_server.tscn -- --port 27399
 
 var server: DotServer = null
 var scene: Node = null

@@ -1,9 +1,7 @@
 extends Node
 
-## Drives every truck on an open slab and prints what it does: top of a steady circle (lateral g,
-## body roll, how much it turns compared with where its front wheels point), a step of full steer
-## at speed (peak roll, whether it went over), and the stop from 60 km/h. Not a suite: numbers to
-## tune by. `tools/handling_probe.sh`-free: `godot --headless --path . res://tools/handling_probe.tscn [-- --load=gravel --truck=semi]`.
+## Drives every truck on an open slab and prints a steady circle, a full-steer step at speed, and the stop from 60 km/h. Not a suite: numbers to tune by.
+##   godot --headless --path . res://tools/handling_probe.tscn [-- --load=gravel --truck=semi]
 
 const DdTrucks := preload("res://game/dd_trucks.gd")
 const DdTruck := preload("res://game/dd_truck.gd")

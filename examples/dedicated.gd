@@ -1,9 +1,7 @@
 extends "dedicated_base.gd"
 
 ## The game as a deployed server runs it: a real [DotServer], the world from the server scene,
-## the module loaded BY PATH the way an operator names it.
-##
-##   godot --headless --path . res://examples/dedicated.tscn
+## the module loaded by path the way an operator names it.
 
 const SECTIONS := 12
 const CHECKS := 101
@@ -90,10 +88,8 @@ func _noblock_and_config(module: DotModule) -> void:
 	var _restore := server.console.set_cvar("dd_ambient_volume", "0.4")
 
 
-## A module reload must leave ONE link under the server, still named for the client's route.
-## Two used to be left, the live one renamed `@Node@n`, and every RPC to a real client was lost
-## without an error. Twice, before any client; the proof is the covered-seat section, where a
-## real client signs on over the socket (server events) and is seated.
+## A module reload must leave one link under the server, still named for the client's route,
+## or every RPC to a real client is lost without an error.
 func _test_a_module_reload() -> void:
 	_section("a module reload leaves one live link")
 	for _i in range(2):
@@ -157,10 +153,8 @@ func _test_stand_ins() -> void:
 	var driver: DdGame.Driver = game.drivers[key]
 	_check(truck.global_position.distance_to(start) > 5.0, "and a stand-in drives",
 		"%.1f m, %s, throttle %.2f" % [truck.global_position.distance_to(start), (driver.trip as RefCounted).call("describe") if driver.trip != null else "to a gate", driver.command.throttle])
-	# [b]A person takes a stand-in's place, and leaving gives it back[/b]: DotBotQuota's fill
-	# mode, the family's default, with `dd_bots` forwarding to `bot_quota`. The roster check is
-	# called rather than waited for, and the person is added through the bridge with peer
-	# zero, so the count is exact and nothing else moves under it.
+	# A person takes a stand-in's place and leaving gives it back (DotBotQuota fill mode, `dd_bots`).
+	# The roster check is called rather than waited for, so the count is exact.
 	var quota := server.console.find_cvar("bot_quota")
 	var _three := _run_command("dd_bots 3")
 	_check(quota != null and quota.get_int() == 3, "the old dd_bots sets the shared bot_quota",
@@ -209,15 +203,8 @@ static func _bot_keys_of(module: Object) -> Array:
 
 
 ## The players' vote decides the next mountain, end to end through what a player types, on
-## dot-vote's own clock (this game has no rounds): a nomination, the ballot opening a minute
-## before the mountain's time is up with the nomination on it, a vote by number, the time
-## running out while a person is still hauling (the change waits for them), the road clearing
-## and the world REBUILT on the voted mountain; then rock-the-vote opening a ballot early and
-## changing it at once, the cvar that sets the window, and an operator's dd_mountain back.
-##
-## Commands run at the console, which is where a `!vote` typed in chat lands; the console's
-## voter is "console", so the voter list is that one name. Synchronous throughout: the server
-## ticks the module every frame too, and its vote clock must not run between two checks.
+## dot-vote's own clock: nomination, ballot, vote, the change waiting for a hauler, rebuild.
+## Commands run at the console and the module's tick is synchronous, so the vote clock cannot run between two checks.
 func _test_the_mountain_vote() -> void:
 	_section("the mountain vote")
 	var module := _module()
@@ -321,11 +308,9 @@ class CommandHost extends Node:
 
 
 
-## `maps.yml` (dot_map tiers): which mountains rotate. The format is dot-map's selftest's; this is what the
-## GAME does with it: a mountain left out is installed and loadable (dd_mountain) and is never on
-## a ballot or accepted as a nomination, and is marked in the lists; a rotation's order (a
-## cycle) orders the ballot; a switch takes effect; a renamed command is registered; a file
-## read from disk gives the same; no file rotates everything.
+## `maps.yml` (dot_map tiers) as the game uses it: a mountain left out is loadable but never on a
+## ballot or nominated, a rotation orders the ballot, a switch takes effect, a renamed command
+## is registered, and no file rotates everything.
 func _test_rotation_file() -> void:
 	_section("rotation file")
 	var module := _module()
@@ -546,11 +531,8 @@ func _finish_round_probe(hook: Callable, applied: Array) -> DotVoteDirector:
 
 
 
-## [b]A driver whose client has not lifted its loading cover loses nothing, and does once it does[/b]
-## (dot-game's "still loading"), over a real ENet socket. A client joins and says nothing, as one
-## still loading its level; a knock and a fall on its truck then cost it neither load nor a
-## counted fall, and the same knock and fall cost it both once its `game.cover` report arrives.
-## Stand-ins never reach this: a bot is never loading.
+## A driver whose client has not lifted its loading cover loses nothing, and does once it does
+## (dot-game's "still loading"), over a real ENet socket. Stand-ins never reach this: a bot is never loading.
 func _test_a_covered_seat_is_not_harmed() -> void:
 	_section("a client behind its loading cover loses nothing, and does once it lifts")
 

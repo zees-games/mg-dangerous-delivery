@@ -2,13 +2,8 @@ extends Control
 
 const DdHud := preload("dd_hud.gd")
 
-## What a player sees from the first frame until they are standing in the lot: the title, the
-## step being done and a bar. On the web everything is the main thread, so a world built in one
-## go is a grey window for as long as it takes; this is painted first and told each step.
-##
-## In the HUD's theme: the plates and words are the Escape menu's once [method follow_menu] has
-## it (the menu is built after this, so until then dot-ui's dark defaults), the bar is this
-## game's amber.
+## What a player sees from the first frame until they are standing in the lot: the title, the step and a bar.
+## On the web everything is the main thread, so this is painted first and told each step. In the HUD's theme once [method follow_menu] has it.
 
 const AMBER := Color(0.98, 0.78, 0.12)
 
@@ -65,10 +60,8 @@ func follow_menu(menu: Object) -> void:
 		menu.call(&"follow_hud", self, DdHud.piece_theme())
 
 
-## The load gate's cover contract (`DotLoadGate.cover`). This screen is shown from the first frame
-## by the client and told each step through [method set_step], so the gate's own status line and
-## fraction are ignored; it only decides when the screen goes: [method hide_cover] is the gate
-## opening, after its warm-up, so no frame between the screen and the world is uncovered.
+## The load gate's cover contract (`DotLoadGate.cover`). The screen is told each step through [method set_step],
+## so the gate's own status is ignored; [method hide_cover] is the gate opening, after warm-up.
 func show_cover() -> void:
 	visible = true
 

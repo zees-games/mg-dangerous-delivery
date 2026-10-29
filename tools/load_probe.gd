@@ -2,12 +2,9 @@ extends SceneTree
 
 const DdClient := preload("../game/dd_client.gd")
 
-## Boots the real entry's client (staged load, offline) and prints, per rendered frame, what a
-## player would see: whether the walker and the camera exist, where the walker is, whether the
-## load gate still covers the screen, and whether the world's clock has run. A walker that moves
-## or a clock that ticks while covered is the glitch. Needs xvfb-run, never --headless:
+## Boots the real entry's client (staged load, offline) and prints per frame whether the walker, camera and load cover exist and the clock has run.
+## A walker that moves or a clock that ticks while covered is the glitch. Needs xvfb-run, never --headless:
 ##   xvfb-run -a godot --path . --script tools/load_probe.gd -- [--frames=240] [--shot=N]
-## Saves the frame the cover is up (4) and the one it lifts into.
 var _client: Node = null
 var _frame := 0
 var _frames := 240

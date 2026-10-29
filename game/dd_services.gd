@@ -1,9 +1,7 @@
 extends DotGameServices
 
 ## Chat, voice and moderation over dot-game's base: what this game decides about them.
-##
-## [b]Solo does not touch any of it.[/b] The brief is that a solo player still plays on the
-## server and chats; solo is about trucks, not people.
+## Solo does not touch any of it: solo is about trucks, not people.
 
 const DdGame := preload("dd_game.gd")
 

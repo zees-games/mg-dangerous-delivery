@@ -1,20 +1,8 @@
 extends CharacterBody3D
 
-## The player on foot, on their own machine: a body, dot-player-controller's third-person
-## motor, and one of the family's animated people (dot-player-char).
-##
-## [b]Walked here and reported, never predicted against the server.[/b] This game predicts
-## nothing (a truck is a rigid body), so there is no rewind to keep a walker in step with; the
-## owner's machine moves them and says where they got to, and the server only refuses a step
-## that is too long or a place nobody on foot may be (`DdGame.walk`), answering with a place
-## to stand ([method put]). Offline the world is this machine's and the same call is made on
-## it directly. Everybody else's walkers are drawn by the client from the server's poses.
-##
-## [b]The controller only moves the body.[/b] Its camera is off (`owns_camera`): the client
-## has one camera for driving, walking and the lot, swept against the mountain by dot-core's
-## probe, so the settings' field of view and the rock's shake reach all three.
-##
-## No `class_name`: this game is delivered as a pack.
+## The player on foot, on their own machine: a body, dot-player-controller's third-person motor, and one of dot-player-char's people.
+## Walked here and reported, never predicted: the server only refuses a step that is too long or a forbidden place (`DdGame.walk`) and answers with [method put].
+## The controller only moves the body; the client's one camera (owns_camera is off) serves driving, walking and the lot. No `class_name`: delivered as a pack.
 
 const DdLot := preload("dd_lot.gd")
 

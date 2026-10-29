@@ -1,24 +1,8 @@
 extends Node3D
 
-## Lightning, thunder and storm visuals from natural-disasters, when it is linked.
-##
-## A Node3D, because the addon draws under its manager's parent and a plain Node has no place to draw (storms had no visuals before this).
-##
-## [b]An optional adapter, never a dependency.[/b] The storm itself (rain, wind, grip, pay) is
-## [DdWeather], a pure function of the tick that every machine computes. What natural-disasters
-## adds on top is the part a function cannot give: bolts that land where something is, thunder
-## late by the distance, and the shake. So a storm period starts one thunderstorm over its zone
-## and the end of the period ends it; the addon sends each event once and each bolt as one small
-## message, which [member send_fn] carries to every client and [method send_snapshot] to a joiner.
-##
-## [b]Stage hazards[/b] are the other half: a tornado, a wind gust or a quake a stage's cfg names
-## ([code]stage_hazards.yml[/code], read through [DotAddonConfig]). A truck coming up to one of a
-## route's sites (a pure function of the seed, so every run meets them in the same places) sets
-## it off: a warning goes to every client ([signal warned]: siren and HUD), and
-## [code]warning_seconds[/code] later the addon's own kind starts, small enough to finish through.
-##
-## The addon is loaded by path: a script that named [code]DotDisasterManager[/code] would not
-## compile in a checkout without it, and the game must run and pass its suites then.
+## Lightning, thunder and storm visuals from natural-disasters, when it is linked; a Node3D because the addon draws under its manager's parent.
+## An optional adapter: the storm itself is [DdWeather], a pure function of the tick; this adds bolts, late thunder, and stage hazards a truck sets off.
+## The addon is loaded by path: naming `DotDisasterManager` would not compile in a checkout without it.
 
 const DdWeather := preload("dd_weather.gd")
 const DdRoute := preload("dd_route.gd")

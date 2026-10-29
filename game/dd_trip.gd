@@ -1,12 +1,8 @@
 extends RefCounted
 
-## One player's haul: which route, which truck, how far, how much cargo is left, and what it
-## went through on the way.
-##
-## [b]What a trip pays is measured, not drawn.[/b] The chaos a trip is paid for is the weather
-## it actually drove through and the rock that actually came down near it — counted per zone,
-## once each, as the truck enters them — because the brief is "the more chaos, the more money"
-## and a bonus for a blizzard the player never met is a bonus for nothing.
+## One player's haul: which route, which truck, how far, how much cargo is left, and what it went through on the way.
+## What a trip pays is measured, not drawn: weather and rock counted per zone as the truck enters them,
+## because a bonus for a blizzard the player never met is a bonus for nothing.
 
 const DdWeather := preload("dd_weather.gd")
 

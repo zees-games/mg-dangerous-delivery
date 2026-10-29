@@ -1,21 +1,8 @@
 extends RefCounted
 
 ## The mountains a server can be on: this game's maps, for the players' vote and the M menu.
-##
-## [b]A mountain is a map document[/b] ([DdMapDoc]): a named set of routes and how the world
-## holding them is laid out (where each route stands, where the lot is, which way its roads
-## run, how high the land's hills are). The game's own are the files in `maps/`; a server's
-## map packs add theirs beside their routes (`DdGame.load_directory` sorts a document by its
-## `kind`). Every route is a corner of one world and a player picks theirs at its gate, so a
-## ballot over single routes would decide nothing; what a server can change for everybody at
-## once is WHICH routes the world holds and how far apart, and that is what a map says.
-##
-## [b]`range` is every route loaded[/b] (the game's own `routes/`, the server's delivered
-## route packs, both narrowed by the operator's `route_ids`), and is the default: a server
-## that never votes plays what it always played. A mountain's lowest level is always open
-## (`DdGame.is_unlocked` counts levels over the routes the world holds).
-##
-## No `class_name`: this game is delivered as a pack.
+## A mountain is a map document ([DdMapDoc]); the game's own are in `maps/`, a server's map packs add theirs. A ballot over single routes would decide nothing, so a map decides WHICH routes the world holds and how far apart.
+## `range` is every route loaded, the default, so a server that never votes plays what it always played. No `class_name`: delivered as a pack.
 
 const DdMapDoc := preload("dd_map_doc.gd")
 const DdPaths := preload("dd_paths.gd")
@@ -104,11 +91,9 @@ static func routes_of(mountain: Dictionary, library: Dictionary) -> Array[String
 	return out
 
 
-## The mountains this server can offer out of [param catalogue] (the shipped ones when empty):
-## those holding at least one loaded route, and never two that would build the same world (an
-## operator's `route_ids` can narrow the whole range down to Low Country, and a ballot of one
-## world under two names is a ballot rigged by spelling). Two maps of the same routes laid out
-## differently are two worlds, and both are offered.
+## The mountains this server can offer out of [param catalogue] (the shipped ones when empty): those holding a loaded route,
+## never two that would build the same world (a ballot of one world under two names is rigged by spelling).
+## Two maps of the same routes laid out differently are two worlds, and both are offered.
 static func allowed(library: Dictionary, catalogue: Array[Dictionary] = []) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var seen: Array = []

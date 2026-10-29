@@ -431,10 +431,8 @@ func _follow(client: Node, key: StringName) -> void:
 		cam.current = true
 
 
-## A real ballot from this game's vote: every mountain this world can offer, four voters, three
-## of whom have voted, drawn the way the client shell's notice overlay draws a `map_ballot` — a
-## [DotBallotPanel] down the right-hand side. Waits a second for the voters' discs to slide to
-## the row they chose; a frame too soon catches one between rows.
+## A real ballot from this game's vote: every mountain this world can offer, four voters, three of whom have voted,
+## drawn as the client shell's notice overlay draws a `map_ballot`. Waits a second for the voters' discs to slide to their row.
 func _show_ballot(world: Node) -> void:
 	var list: Array = []
 

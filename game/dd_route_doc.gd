@@ -2,34 +2,8 @@ extends RefCounted
 const DdWeather := preload("dd_weather.gd")
 
 ## What a route IS: a document a server reads, checks, and sends whole to every client.
-##
-## [b]A road is written the way somebody would describe it out loud[/b] — "two hundred metres
-## straight and climbing, then a hard right round the cliff" — as a list of segments, each a
-## length, a turn and a climb from where the last one ended. Not a list of points: a point
-## list is what a tool writes, and the brief is that a server owner writes their own maps.
-## Moving one bend moves everything after it, which is what a person editing a road means.
-##
-## [codeblock]
-## {
-##   "format": 1, "kind": "route", "id": "dd_foothills", "name": "Foothills",
-##   "author": "you", "blurb": "One line.", "level": 1, "pay": 400, "width": 7.5,
-##   "zones": {"pass": {"name": "The Pass", "snow": 0.8, "rain": 0.0, "wind": 0.3}},
-##   "segments": [
-##     {"length": 80},
-##     {"length": 120, "turn": -60, "climb": 12, "wall": "left", "zone": "pass"},
-##     {"length": 60, "checkpoint": true, "boulders": 2, "width": 6.0, "rail": "none"}
-##   ]
-## }
-## [/codeblock]
-##
-## `ice` and `debris` place patches and piles along a segment, `works` closes one lane for a
-## stretch, `gravel` lays loose stone across it, and `traffic` sends that many cars down the
-## other lane, over and over (see the README).
-##
-## Every length is metres, every angle degrees (positive turns right), and a segment's
-## `climb` is its whole rise (negative descends). `wall` is the cliff side: "left", "right",
-## "both" or "none"; the other side is the drop. `rail` is a low barrier on a side; the
-## default is none, because a mountain road with rails is not this game.
+## A road is a list of segments (a length, a turn and a climb from where the last ended), not points, so moving one bend moves everything after it. The format is in docs/design.md.
+## Lengths are metres, angles degrees (positive turns right); `wall` is the cliff side, the other is the drop; `rail` defaults to none.
 
 const FORMAT := 1
 

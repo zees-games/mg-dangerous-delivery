@@ -1,14 +1,8 @@
 extends Node
 
-## What a driver has done, as dot-stats numbers, and what they have earned, as achievements over
-## those numbers — reported to TMC's backbone when the server has one, like every game here.
-##
-## [b]It listens and nothing calls it.[/b] The world's own signals (`delivered`, `fell`,
-## `boulder_dropped`'s count on the trip) are the whole input, so a number cannot drift from
-## what happened. Server only: a client counting its own deliveries is a client awarding itself.
-##
-## [b]Filed under the same key as the money[/b] (`uid:…`), so a driver's numbers and their bank
-## are one person across reconnects. A stand-in is never counted.
+## What a driver has done, as dot-stats numbers, and what they earned, as achievements, reported to TMC's backbone when the server has one.
+## It listens and nothing calls it: the world's signals are the whole input, and it is server only (a client counting its own deliveries awards itself).
+## Filed under the same key as the money (`uid:...`); a stand-in is never counted.
 
 const DdGame := preload("dd_game.gd")
 const DdTrip := preload("dd_trip.gd")

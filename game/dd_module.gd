@@ -1,11 +1,7 @@
 extends DotGameModule
 
-## This game, as a module a dedicated server loads. Over dot-game, like mg-deathrun's.
-##
-## What is this game's: the netcode's numbers, the cvars, the console commands, stand-ins that
-## keep a mountain from being empty, where the money is kept, and the key it is kept under.
-##
-## [b]No `class_name`[/b]: a module delivered inside a dot-cloud pack cannot have one.
+## This game, as a module a dedicated server loads, over dot-game: the netcode's numbers, cvars, commands, stand-ins, and where the money is kept.
+## No `class_name`: a module delivered inside a dot-cloud pack cannot have one.
 
 const DdNetBridge := preload("net/dd_net_bridge.gd")
 const DdServices := preload("dd_services.gd")
@@ -98,10 +94,8 @@ func _make_services() -> Node:
 	return DdServices.new()
 
 
-## Profiles and names: dot-platform's identity, with no avatar schema: a person on foot is
-## drawn as one of the family's people picked from their key (`DdClient.look_of`), and in a
-## truck they are their truck. What it gives is the site's name over the session's, and
-## admission; authentication is the host's, as for every game.
+## Profiles and names: dot-platform's identity with no avatar schema (a person on foot is one of the family's people picked from their key).
+## What it gives is the site's name over the session's, and admission; authentication is the host's.
 func _make_identity() -> Node:
 	return DotPlatformIdentity.new()
 
@@ -418,14 +412,9 @@ func _game_unload() -> void:
 	noblock = null
 
 
-## The players' vote for the next mountain, over dot-vote: `!vote`, `!rtv`, `!nominate`.
-##
-## [b]On dot-vote's own clock[/b] (no rounds here): a mountain runs `dd_vote_minutes`, the
-## ballot opens a minute before, and the winner is built once the people on the road have
-## delivered (see [code]game/dd_vote.gd[/code] and [code]game/dd_mountains.gd[/code]). A
-## server owner reshapes it in `user://cfg/delivery_vote.json` or `game.yml`'s
-## `metadata: mountain_vote:`, keyed as dot-vote's [DotVoteRules]. A vote that cannot be built
-## is logged and the server stays on its mountain, never a server that will not start.
+## The players' vote for the next mountain, over dot-vote: `!vote`, `!rtv`, `!nominate`, on dot-vote's own clock (no rounds here).
+## A server owner reshapes it in `user://cfg/delivery_vote.json` or `game.yml`'s `metadata: mountain_vote:`.
+## A vote that cannot be built is logged and the server stays on its mountain.
 func _build_vote(world: DdGame) -> void:
 	vote = DdVote.new()
 	vote.name = "MountainVote"

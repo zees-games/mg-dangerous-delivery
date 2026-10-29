@@ -1,29 +1,8 @@
 extends Node3D
 
 ## The land round the lot, and the roads from it to every route's gate.
-##
-## [b]Why there is land at all.[/b] Christian's first play test: "there are actual road paths to
-## each section/level, but you cannot enter it unless you have a vehicle … users can drive or
-## walk/run around the entire map (which should be massive) and see the trails that lead
-## everywhere." Until then every route was an island in a sea and the lot a menu. Now the lot
-## stands on a plain of low hills, and a road leaves its north fence for every route, runs
-## across the plain and out over the water on an embankment to the route's start, where a gate
-## stops it ([DdGate]).
-##
-## [b]One heightfield, built from the routes, the lot and the roads alone[/b], so every machine
-## builds the same land from what HELLO already carries (the documents) and nothing about it is
-## sent. The ground is the sea within [constant SEA_NEAR] of any route's road (an island keeps
-## its own mountain, [DdTerrain], and nobody on foot can reach it but by a road), plain beyond
-## [constant SEA_FAR], hills growing away from the roads and the lot; every road is flat at
-## the lot's height across its width and banks down to the water either side, which is what
-## carries it over the sea.
-##
-## [b]It collides, unlike an island's mountain[/b] (a `HeightMapShape3D` on layer 1 and the
-## camera's): the plain is somewhere to walk and drive, and nothing here is a route, so the
-## rule that a road's trimesh is a route's only floor is untouched. A server builds the
-## collision and the roads' decks; only a drawing client builds the meshes.
-##
-## No `class_name`: this game is delivered as a pack.
+## One heightfield built from the routes, lot and roads alone, so every machine builds the same land and nothing is sent.
+## It collides (a `HeightMapShape3D`), unlike an island's mountain. A server builds collision and decks; only a drawing client builds meshes. No `class_name`: delivered as a pack.
 
 const DdTerrain := preload("dd_terrain.gd")
 const DdRoute := preload("dd_route.gd")
@@ -176,7 +155,7 @@ func build(route_points: PackedVector3Array, lot_centre: Vector3, lot_size: Vect
 	DotLog.debug(CHANNEL, "land built", {"grid": "%dx%d" % [nx, nz], "roads": roads.size(), "ms": (Time.get_ticks_usec() - started) / 1000})
 
 
-# --- Queries -----------------------------------------------------------------
+# Queries
 
 ## The ground's height at world [param x], [param z]: the two triangles a cell is drawn and
 ## collides as. [constant SEA_FLOOR] off the grid.
@@ -228,16 +207,14 @@ func road_near(at: Vector3, reach: float) -> StringName:
 	return best
 
 
-# --- Building ----------------------------------------------------------------
+# Building
 
 func _index(gx: int, gz: int) -> int:
 	return gz * nx + gx
 
 
-## Every sample's distance to the nearest of [param points] (and to [param area], when it has
-## one): the points dropped into their cells, then two chamfer sweeps (each sample offered its
-## neighbours' best plus the step), which is a few percent long on a diagonal and eight lookups
-## a sample instead of every sample against every road.
+## Every sample's distance to the nearest of [param points] (and [param area]): points dropped into cells,
+## then two chamfer sweeps, a few percent long on a diagonal but far cheaper than every sample against every road.
 func _distance_from(points: PackedVector3Array, area: Rect2) -> PackedFloat32Array:
 	var count := nx * nz
 	var out := PackedFloat32Array()
@@ -607,11 +584,8 @@ static func guide_tint(order: int) -> Color:
 	return GUIDE_COLORS[order % GUIDE_COLORS.size()]
 
 
-## A guide painted on the road itself: a band lifted just off the deck's own samples (so it
-## follows the road graph exactly and clears the centre dashes), from [constant GUIDE_LEAD]
-## metres inside the lot, out through its exit to the gate, with an arrowhead every
-## [constant GUIDE_CHEVRON] metres pointing the way. A decal would need a box per bend and
-## projects onto whatever is under it; the road's own samples cannot miss the road.
+## A guide painted on the road itself: a band just off the deck's samples, from [constant GUIDE_LEAD] metres
+## inside the lot to the gate, with a chevron every [constant GUIDE_CHEVRON] metres. A decal would need a box per bend.
 func _build_guide(id: StringName, line: PackedVector3Array, tint: Color) -> void:
 	if line.size() < 2:
 		return

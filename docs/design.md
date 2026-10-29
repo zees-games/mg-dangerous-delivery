@@ -163,3 +163,19 @@ A Label3D faces its +Z; in the road's frame (forward is -Z) that is back toward 
 **Suspension and grip** (`DdTrucks.tunables_for`): a load sits over the back axle, so the more of the weight is load the less the front holds; rear grip above 1 keeps a truck from spinning at full lock. Stiffness 75 is as far as it goes (110 crawled the Semi's trailer test and hopped off two wheels); relaxation damping 1.25 removes the hop and 1.5 slowed the Semi.
 
 **Chat lines and voice** travel on this game's own wire: `DotChatRouter` has the rules, and a second path through the server's chat manager would be a second set of rules. `DotVoiceRouter.relay` stamps the transport's peer id over the packet's own speaker field, or any client could speak as any other.
+
+## Documents and delivered paths (moved from code comments)
+
+A route is a list of segments, each a length, a turn and a climb from where the last ended, because a point list is what a tool writes and a server owner writes their own maps; moving one bend moves everything after it. `ice`, `debris`, `works`, `gravel` and `traffic` place patches, piles, a closed lane, loose stone and oncoming cars along a segment.
+
+```json
+{"format": 1, "kind": "route", "id": "dd_foothills", "name": "Foothills", "level": 1, "pay": 400, "width": 7.5,
+ "zones": {"pass": {"name": "The Pass", "snow": 0.8, "rain": 0.0, "wind": 0.3}},
+ "segments": [{"length": 80},
+              {"length": 120, "turn": -60, "climb": 12, "wall": "left", "zone": "pass"},
+              {"length": 60, "checkpoint": true, "boulders": 2, "width": 6.0, "rail": "none"}]}
+```
+
+A map (a mountain) names routes and lays them out: `routes` (empty or absent: every route loaded), `layout.gap` (metres between routes west to east), `layout.place` (a route's start x and z), `layout.lot` (the lot's middle), `layout.clearance` (the lot's distance south of every road), `layout.roads` (points a road passes through) and `land` (`hills`, `coast`). A map file sits in `maps/` or in a map pack's `routes/`; a document's `kind` says which it is.
+
+A delivered pack mounts at `res://dot_cloud/<id>/<version>/`. The publisher rewrites `res://` strings in scenes, resources and imports onto the mount but not those in scripts, so a path may or may not already be under the mount, and `DdPaths.rebase` must be idempotent (rebasing twice doubles the prefix and fails to load). Built in, the root is `res://`, so a suite asserting rebase alone passes whatever the body says; `rebase_onto` takes a given root so the mounted case can be tested.

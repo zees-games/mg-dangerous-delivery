@@ -4,12 +4,7 @@ extends Control
 signal settings_requested
 
 ## The lot: pick a route, pick a truck, buy one, upgrade it, set off.
-##
-## [b]It asks and is told.[/b] Every button calls [member act] with an action and its
-## arguments — "start", "buy_truck", "select_truck", "upgrade" — and the garage redraws from
-## the next [method refresh]. Offline, [member act] is the world itself; against a server it is
-## a request on the wire. The garage never decides whether a purchase happened, because the
-## party that holds the money does.
+## It asks and is told: every button calls [member act]; the garage never decides whether a purchase happened, the party that holds the money does.
 
 ## [code]func(action: String, args: Dictionary)[/code].
 var act: Callable = Callable()
@@ -27,16 +22,8 @@ var _view: Dictionary = {}
 ## The lot's panel. Moved and narrowed by [method make_room].
 var _frame: PanelContainer = null
 
-## [b]The lot makes room for a ballot.[/b] The client shell draws every ballot (the server's
-## game vote, this game's mountain vote) as a panel in a column down the right-hand side, over
-## whatever the game drew, and the lot's third column read through it. The shell cannot reach
-## into the game, so the game looks: every visible Control in dot-ui's
-## [code]dot_hud_cover[/code] group is something on top of it. While one overlaps the lot, the
-## lot slides left and narrows to end [constant ROOM_GAP] px short of it, and slides back when
-## it goes. [b]Not a lot with a column cut[/b]: the upgrades are a third of what the lot is
-## for, and a player waiting out a vote is a player at the lot. [b]Not shrunk in place[/b]:
-## the lot is centred, and a centred lot narrow enough to clear the column is 64 px narrower
-## again for nothing.
+## The lot makes room for a ballot: any visible Control in dot-ui's `dot_hud_cover` group on top of it
+## slides the lot left and narrows it to end [constant ROOM_GAP] px short, rather than cutting a column or shrinking it centred.
 const COVER_GROUP := &"dot_hud_cover"
 
 ## The lot's size when nothing covers it, and the margin it keeps from the frame's edge.
@@ -52,13 +39,7 @@ const LOT_MIN_WIDTH := 720.0
 const LOT_MIN_HEIGHT := 400.0
 
 ## The chat box (a `DotChatWindow`), whose log the lot keeps clear of. Null for none.
-##
-## [b]The lot lifts and shortens above the log while the log has lines.[/b] The box is drawn
-## bottom-left on a layer above this one, and a full log (eight rows from 518 px at 720) lay
-## over the routes column from its third row up: a server's vote or a join, arriving while a
-## driver is choosing a route, was printed through the route list. Not the log hidden behind
-## the lot: the lot is where a driver waits out a vote, and the vote's lines are what they are
-## waiting for. Only the rows the log is drawing count, so an empty log costs the lot nothing.
+## The lot lifts and shortens above the log while it has lines, so a vote line never prints through the route list.
 var chat_window: Control = null
 
 ## How fast the lot slides out of the way and back, per second; it eases either way.

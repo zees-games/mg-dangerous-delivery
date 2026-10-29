@@ -4,17 +4,9 @@ const DdGame := preload("res://game/dd_game.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 const DdVote := preload("res://game/dd_vote.gd")
 
-## What a subscribed map pack does to this game's lists, against a fixture
-## [DotContentIndex] and never the process's shared one.
-##
-## [codeblock]
-## godot --headless --path . res://examples/headless_workshop.tscn
-## [/codeblock]
-##
-## The point: a solo pack map is listed ("Name [Pack]", in the M menu rows and the ballot) and
-## can be played, an online session lists none of it, a map kind the game does not accept is
-## left out, and the game's own ids win. The pack's map is a real map document naming routes the
-## game already has, written to `user://` here.
+## What a subscribed map pack does to this game's lists, against a fixture [DotContentIndex].
+##   godot --headless --path . res://examples/headless_workshop.tscn
+## A solo pack map is listed and playable, an online session lists none of it, an unaccepted kind is left out, the game's own ids win.
 
 const SECTIONS := 6
 const MAP := &"fixture_pass"

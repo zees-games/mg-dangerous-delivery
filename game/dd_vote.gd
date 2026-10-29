@@ -1,23 +1,8 @@
 extends Node
 
-## The players choose the next mountain.
-##
-## [DotVoteDirector] over a [DotVoteListSource] of this server's mountains (`DdMountains`).
-## This game has no rounds and no match, so the ballot runs on [b]dot-vote's own clock[/b]:
-## a mountain is played for [code]duration_sec[/code] (`mountain_minutes`, the
-## `dd_vote_minutes` cvar), the ballot opens a minute before that runs out, and the winner is
-## built when it does. Everything about the ballot itself (how many options, the counting
-## method, the tie-break, rock the vote, nominations, cooldowns) is dot-vote's settings and
-## none of it is restated here; [method _rules] only says which of them a game with no rounds
-## wants by default.
-##
-## [b]The hauls on the road are the "round" a time limit waits for[/b] (`time_up:
-## finish_round`). A mountain change ends every trip, so the change waits until no person is
-## mid-haul, at most [code]finish_round_max_sec[/code]: the module calls [method note_road_clear]
-## each tick the road is clear. A rocked vote does not wait — that is the players asking now.
-##
-## [b]Server side only.[/b] A client draws the ballot from the notice [member ballot_fn] sends
-## (the client shell's [DotBallotPanel]) and never holds a director.
+## The players choose the next mountain: a [DotVoteDirector] over a [DotVoteListSource] of [DdMountains], server side only.
+## No rounds, so the ballot runs on dot-vote's own clock (`dd_vote_minutes`); the hauls on the road are the "round" a `finish_round` time limit waits for.
+## Ballot options, counting, rock the vote and cooldowns are dot-vote's settings; [method _rules] says only which a game with no rounds wants.
 
 const DdMountains := preload("dd_mountains.gd")
 
@@ -34,10 +19,8 @@ const COMMAND_NAMES := {"vote": "vote"}
 ## module sets it from `DdConfig.mountain_minutes`; 0 is no clock (rock the vote only).
 @export var minutes: float = 15.0
 
-## The file a server owner configures the vote in, keyed exactly as [DotVoteRules]. Layered:
-## [code]_rules() < game.yml metadata mountain_vote: < this file < DOT_VOTE_* < --vote-*[/code].
-## Empty skips the file. [code]{"enabled": false}[/code] turns the vote off and the server
-## stays on its mountain.
+## The file a server owner configures the vote in, keyed as [DotVoteRules]. Layered: `_rules() < game.yml metadata mountain_vote: < this file < DOT_VOTE_* < --vote-*`.
+## Empty skips the file; `{"enabled": false}` turns the vote off.
 @export var config_path: String = "user://cfg/delivery_vote.json"
 
 ## [code]func() -> Array[/code] of [code][id, name][/code] pairs: every mountain a ballot may offer.
@@ -70,10 +53,8 @@ var ballot_fn: Callable = Callable()
 ## [code]func(voter: StringName) -> Dictionary[/code]: a voter's name and avatar, for the ballot.
 var people_fn: Callable = Callable()
 
-## [code]func() -> bool[/code]: whether a person is mid-haul — the "round" a
-## [code]time_up: finish_round[/code] change waits for. Handed to dot-vote, so a road with
-## nobody on it lets the change through at once rather than on the next tick's
-## [method note_road_clear]. The host's, because only the world knows who is driving.
+## `func() -> bool`: whether a person is mid-haul, the "round" a `finish_round` change waits for.
+## The host's, because only the world knows who is driving.
 var round_in_progress_fn: Callable = Callable()
 
 var director: DotVoteDirector = null
@@ -124,11 +105,8 @@ func setup() -> DotResult:
 	# Reports a "round end" (the road clear of people) so FINISH_ROUND has something to wait
 	# for; this game has no other rounds, and no round limit is set.
 	director.round_based = true
-	# [b]Set by name, and only where it exists.[/b] A delivered pack runs on the shell's
-	# dot-vote, and one older than API 3 has no `round_in_progress_fn`: naming it would fail
-	# the pack's parse. There, the module's tick still releases the change with
-	# note_road_clear, one tick later. Read through this node's own field, so the order the host
-	# sets it in does not matter.
+	# Set by name, only where it exists: a pack on a shell with dot-vote older than API 3 has no `round_in_progress_fn`, and naming it fails the parse.
+	# There, note_road_clear still releases the change one tick later.
 	if "round_in_progress_fn" in director:
 		director.set(&"round_in_progress_fn", func() -> bool:
 			return not round_in_progress_fn.is_valid() or bool(round_in_progress_fn.call()))

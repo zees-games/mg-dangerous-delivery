@@ -1,27 +1,8 @@
 extends "res://addons/dot_vehicle/runtime/dot_vehicle_wheeled.gd"
 
 ## A truck's engine, gearbox and the air and road it pushes against: what decides how fast a
-## truck goes, instead of a ceiling.
-##
-## [b]Why not dot-vehicle's own engine force.[/b] The stock chassis pushes with the whole
-## `engine_force` from standstill to `top_speed` and with nothing above it, and the body's
-## default linear damping (0.1 per second, proportional to speed) was the only thing pushing
-## back. Every truck reached its `top_speed` within seconds on every road and sat there: the
-## first play test's speedometer read 68 to 69 km/h on every straight of every route (19 m/s,
-## the box truck's number). A loaded truck on a 10% climb is not that truck on the flat.
-##
-## Here the force at the wheels is the engine's torque through the gear it is in, never more
-## than its power can give at that speed, and the truck is held back by rolling resistance,
-## the air (rising with the square of the speed) and the slope (the physics engine's gravity).
-## So the top speed is wherever those meet: on the flat for an empty light truck, a governor
-## (a real truck has one); up a climb with a full load, far below it, and lower again in the
-## Bulk Carrier than in the Flatbed. The gearbox is automatic, shifts by engine speed with a
-## gap between up and down so it never hunts, and drives nothing while it shifts, which is
-## what makes a heavy truck lose speed on a climb at every change.
-##
-## [b]Extends the wheeled chassis by path[/b], the extension point dot-vehicle names: Godot's
-## signs, the wheel tunables and the braking stay its; only the force a throttle is worth and
-## the resistance are this game's. A delivered pack cannot resolve a `class_name` of its own.
+## truck goes, instead of a ceiling. Torque through the gear, capped by power, against rolling resistance, drag and slope.
+## Extends the wheeled chassis by path (the extension point dot-vehicle names); a delivered pack cannot resolve its own `class_name`.
 
 ## The drivetrain's numbers, from the truck catalogue ([DdTrucks]): power, torque, gears.
 var power_w: float = 180000.0
@@ -226,10 +207,7 @@ func _drive(command: DotVehicleCommand, delta: float) -> void:
 
 	super._drive(command, delta)
 
-	# The brakes are dot-vehicle's (super): newtons times the physics step on each wheel, since
-	# 4f4afaf. This class did it itself before then, because Godot reads a wheel's `brake` as an
-	# impulse per step and the stock chassis's `brake_force / wheels` stopped a loaded Flatbed
-	# from 50 km/h in 0.7 m.
+	# The brakes are dot-vehicle's (super): newtons times the physics step on each wheel.
 
 	# What pushes back: the tyres rolling, the air, and the engine with the throttle shut. Along
 	# the velocity (air, tyres) or along the truck (the engine), never gravity: the physics

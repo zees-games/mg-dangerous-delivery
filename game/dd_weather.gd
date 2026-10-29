@@ -1,17 +1,8 @@
 extends RefCounted
 
-## What the sky is doing over each zone, as a pure function of the seed, the zone and the
-## tick.
-##
-## [b]The world's weather, not a trip's.[/b] Several trucks share one mountain, so snow on the
-## pass is snow for everybody on it — a per-trip draw would put one driver in a blizzard and
-## the driver beside them in sunshine on the same bend. What a trip earns for bad weather is
-## measured from the weather it actually drove through ([DdTrip]), not drawn for it.
-##
-## [b]A function of the tick, like mg-wipeout's obstacles[/b], so nothing about it is ever sent
-## after the seed: a client paints a zone white on the same tick the server makes it slippery.
-## The weather holds for [constant PERIOD_SECONDS] and is drawn again, per zone, from a hash —
-## not from a random stream, whose answer depends on how many times somebody asked it.
+## What the sky is doing over each zone, as a pure function of the seed, the zone and the tick.
+## The world's weather, not a trip's: trucks share a mountain, so snow on the pass is snow for everybody, and nothing is sent after the seed.
+## It holds for [constant PERIOD_SECONDS] and is drawn again per zone from a hash, not a random stream, whose answer depends on how often it was asked.
 
 ## How long one draw of a zone's weather lasts.
 const PERIOD_SECONDS := 150.0
@@ -21,17 +12,9 @@ const RAIN := 1
 const SNOW := 2
 
 
-## The weather over [param zone_id] at [param tick]:
-## [code]{"sky": CLEAR/RAIN/SNOW, "wind": bool, "storm": bool, "fog": bool}[/code].
-##
-## [b]Extreme weather is the same draw, one roll deeper.[/b] A storm is a rain period that came
-## up again against [param storm_chance] (so it is always wet, always windy, and blows harder),
-## and fog is a period of any zone that came up against [param fog_chance]. Both are hashed from
-## their own salts, so adding them moved no draw an older version made.
-##
-## [param zone] is the document's zone ({snow, rain, wind} chances); [param frequency]
-## multiplies every chance (DdConfig.weather_frequency). Snow is drawn before rain, so a zone
-## that may do both does the colder one when both come up.
+## The weather over [param zone_id] at [param tick]: `{"sky": CLEAR/RAIN/SNOW, "wind": bool, "storm": bool, "fog": bool}`.
+## Storm and fog are the same draw one roll deeper, hashed from their own salts so older draws did not move; snow is drawn before rain.
+## [param zone] is the document's zone chances; [param frequency] multiplies every chance.
 static func at(seed_value: int, zone_id: String, zone: Dictionary, tick: int, tick_rate: int, frequency: float = 1.0, storm_chance: float = 0.0, fog_chance: float = 0.0, period_sec: float = PERIOD_SECONDS) -> Dictionary:
 	if zone.is_empty():
 		return {"sky": CLEAR, "wind": false, "storm": false, "fog": false}
@@ -77,12 +60,8 @@ static func _roll(seed_value: int, zone_id: String, period: int, salt: int) -> f
 
 
 ## A number in [0, 1) from [param text], well mixed.
-##
-## [b]Not [code]hash()[/code].[/b] Godot's string hash is djb2, and two strings that differ in
-## their last character differ only in the hash's low bits: period 0 to period 5 of one zone
-## rolled 0.2816 to 0.2819, so a zone that should have been snowy half the time was snowy every
-## time or never. MD5 is overkill as a hash and exactly right as a mixer, and it is the same
-## on every platform.
+## Not `hash()`: Godot's djb2 differs only in the low bits for strings that differ in their last character, so a zone was snowy every time or never.
+## MD5 is the same on every platform.
 static func unit(text: String) -> float:
 	return float(text.md5_text().substr(0, 8).hex_to_int()) / 4294967296.0
 

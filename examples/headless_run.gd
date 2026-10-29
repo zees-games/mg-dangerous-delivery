@@ -1,11 +1,8 @@
 extends "res://examples/headless_run_base.gd"
 
 ## The game, headless: documents, the road, the weather, the money, and trucks really driven.
-##
 ##   godot --headless --path . res://examples/headless_run.tscn
-##
-## Counts sections entered against sections finished AND the checks, because a script error
-## aborts the section it is in and the section counter alone is satisfied by that.
+## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 32
 const CHECKS := 260
@@ -346,10 +343,8 @@ func _test_sql() -> void:
 	_finished_section()
 
 
-## The land: a road from the lot to every route, ending at the route's gate; the barrier stops a
-## truck and the people's wall a walker; at the gate the load is offered (or refused while the
-## route is locked), and accepted the trip starts past the barrier. SET OFF drives a truck to the
-## gate. The islands' mountains are held under the roads that cross them.
+## The land: a road from the lot to every route ending at its gate; barrier and wall stop a truck
+## and a walker, the load is offered at the gate (refused while locked), SET OFF drives a truck there.
 func _test_roads_and_gates() -> void:
 	_section("roads to every route, and a gate on each")
 	_check(game.gates.size() == game.routes.size() and game.land.roads.size() == game.routes.size(), "every route has a gate and a road",
@@ -841,10 +836,8 @@ func _test_a_trailer() -> void:
 	_finished_section()
 
 
-## dot-core's [DotCollisionAudit] over the world as a client draws it: every route, the lot, the
-## land and its gates, and a Semi with its trailer. Visible geometry nothing collides with is
-## walked or driven through. The lenient audit is used because a route's drawing (road, rock,
-## rail) sits beside the one trimesh that serves it rather than under a body of its own.
+## dot-core's [DotCollisionAudit] over the world as a client draws it. The lenient audit is used because
+## a route's drawing sits beside the one trimesh that serves it, not under a body of its own.
 func _test_collision_audit() -> void:
 	_section("nothing drawn is walked through")
 	var world := DdGame.new()

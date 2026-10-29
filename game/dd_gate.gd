@@ -1,24 +1,8 @@
 extends Node3D
 
-## A route's gate: where the land's road meets the route's start, a barrier across it that no
-## truck drives through and nobody walks past.
-##
-## [b]A delivery is accepted at the gate, not past it.[/b] Christian's words: "you cannot enter it
-## unless you have a vehicle (if you try driving into it, you must accept the delivery,
-## otherwise it will block the vehicle from getting in)." A truck that drives up to the barrier
-## is offered the route's load ([method DdGame.use_choice]: E accepts); accepted, the route's
-## own loaded truck (and trailer) is put down on the start line past the barrier, which is the
-## trip as it always began. So the barrier never has to open, and nothing can follow somebody
-## through it.
-##
-## [b]Two walls.[/b] The boom and its posts are on layer 1, which a truck and a walker both
-## stop at. Either side of the road, over the water, a wall on [constant DdLot.WALKER_WALL] is
-## one only people stop at: on foot the road is the only way out to a route's start and the gate
-## is the end of it ("players on foot … cannot enter a route without a vehicle"). The world
-## refuses a walker past the line as well ([method beyond], `DdGame.walkable`).
-##
-## Laid out in its own frame: the route's, -Z toward the route, +Z back down the road to the
-## lot. No `class_name`: this game is delivered as a pack.
+## A route's gate: where the land's road meets the route's start, a barrier no truck drives through and nobody walks past.
+## A delivery is accepted at the gate (E, [method DdGame.use_choice]), then the loaded truck is put on the start line, so the barrier never opens.
+## Boom and posts are on layer 1; the walls over the water on [constant DdLot.WALKER_WALL] stop people only. Laid out in the route's frame. No `class_name`: delivered as a pack.
 
 const DdLot := preload("dd_lot.gd")
 const DdRoute := preload("dd_route.gd")

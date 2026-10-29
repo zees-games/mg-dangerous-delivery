@@ -1,17 +1,8 @@
 extends Node
 
-## Drives the client's own chase camera down every road of the mountain and fails on any
-## frame it ends inside the rock, the road, a gate or debris: the check behind the first play
-## test's chase camera in the cliff (2:12) and in the checkpoint arch (2:46).
-##
-##   tools/camera_check.sh                 # headless, every route, exit 1 on a failure
-##   tools/camera_check.sh --render        # and draws the worst frame of each route, before and after
-##
-## [b]Armed.[/b] Every frame is asked twice: where the eased chase camera wanted to be
-## (`DdClient._chase_at`, no probe) and where the client put it. The run needs the first in
-## or behind the mountain on some frames (a road with no cliff beside it would prove
-## nothing) and the second inside on none. The truck is placed along the road each frame
-## rather than driven, so the camera sees every bend at a steady 30 m/s.
+## Drives the client's own chase camera down every road and fails on any frame it ends inside the rock, road, a gate or debris.
+##   tools/camera_check.sh [--render]   # exit 1 on a failure; --render draws the worst frame of each route
+## Armed: each frame is asked with and without the probe; the run needs the unprobed camera inside the mountain on some frames, the probed on none.
 
 const DdClient := preload("res://game/dd_client.gd")
 const DdRoute := preload("res://game/dd_route.gd")
