@@ -74,7 +74,11 @@ func _make_bridge() -> Node:
 	bridge_node.key_fn = func(_peer_id: int, session_id: int) -> StringName:
 		var session := server.session_by_userid(session_id) if server != null else null
 		var uid := session.uid() if session != null else ""
-		return StringName("uid:%s" % uid) if uid != "" else &""
+		var key := StringName("uid:%s" % uid) if uid != "" else &""
+
+		if key != &"" and progress != null:
+			progress.note_session(key, session)
+		return key
 	# One account, one driver: the newest connection wins and the older is told why it was
 	# dropped (docs/design.md, "One account, one connection"). Deferred, because the bridge
 	# says so from inside the roster seating the newcomer, and a kick re-enters that roster.

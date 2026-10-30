@@ -5,7 +5,7 @@ extends "res://examples/headless_run_base.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 32
-const CHECKS := 260
+const CHECKS := 261
 
 
 

@@ -5,6 +5,7 @@ extends Node
 ## Filed under the same key as the money (`uid:...`); a stand-in is never counted.
 
 const DdGame := preload("dd_game.gd")
+const DdStatsRelay := preload("dd_stats_relay.gd")
 const DdTrip := preload("dd_trip.gd")
 
 const CHANNEL := "delivery.progress"
@@ -24,6 +25,13 @@ var game: DdGame = null
 var stats: DotStatsTracker = null
 var achievements: DotAchievementTracker = null
 var link: DotAchievementStatsLink = null
+
+## Only the stats report is filed under dot-game's stable key; the wallet, drivers and awards keep `uid:...`.
+var stats_feed := DotGameStatsFeed.new()
+var relay := DdStatsRelay.new()
+
+## driver key -> [stats key, userid], noted at admission by [method note_session].
+var _stats_keys: Dictionary = {}
 
 
 static func schema() -> DotStatsSchema:
@@ -116,7 +124,8 @@ func setup(world: DdGame, directory: String, report: bool) -> DotResult:
 	link = DotAchievementStatsLink.new()
 	link.name = "StatsLink"
 	link.tracker = achievements
-	link.stats = stats
+	relay.follow(stats)
+	link.stats = relay
 	add_child(link)
 	var linked := link.start()
 
@@ -153,17 +162,28 @@ func _on_delivered(key: StringName, route_id: StringName, pay: int) -> void:
 			break
 
 
+## Notes the stable stats key of a driver's seat; a driver never noted files under the driver key.
+func note_session(key: StringName, session: DotClientSession) -> void:
+	stats_feed.open_sessions = false
+	_stats_keys[key] = [stats_feed.key_for(session), session.userid]
+
+
+func _stats_key(key: StringName) -> StringName:
+	return _stats_keys[key][0] if _stats_keys.has(key) else key
+
+
 func record(key: StringName, stat: StringName, value: float = 1.0) -> void:
 	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
 
 	if stats == null or driver == null or driver.is_bot:
 		return
 
-	if not stats.has_player(key):
-		stats.begin(key, driver.name)
+	if not stats.has_player(_stats_key(key)):
+		stats.begin(_stats_key(key), driver.name)
+		relay.record_of[_stats_key(key)] = key
 		_begin(key)
 
-	var filed := stats.record(key, stat, value)
+	var filed := stats.record(_stats_key(key), stat, value)
 
 	if not filed.ok:
 		DotLog.warn(CHANNEL, "a reading was refused", {"player": String(key), "stat": String(stat), "why": filed.error.message})
@@ -177,10 +197,16 @@ func _begin(key: StringName) -> void:
 
 
 func leave(key: StringName) -> void:
-	if stats == null or not stats.has_player(key):
+	if stats == null or not stats.has_player(_stats_key(key)):
 		return
 
-	var _values := stats.end(key)
+	var _values := stats.end(_stats_key(key))
+	relay.record_of.erase(_stats_key(key))
+
+	if _stats_keys.has(key):
+		stats_feed.forget(int(_stats_keys[key][1]))
+		_stats_keys.erase(key)
+
 	link.forget(String(key))
 	var ended: DotResult = await achievements.end(String(key))
 
@@ -189,4 +215,4 @@ func leave(key: StringName) -> void:
 
 
 func session_values(key: StringName) -> DotStatsValues:
-	return stats.session_values(key) if stats != null else DotStatsValues.new()
+	return stats.session_values(_stats_key(key)) if stats != null else DotStatsValues.new()

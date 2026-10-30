@@ -15,6 +15,7 @@ const DdTruck := preload("res://game/dd_truck.gd")
 const DdBank := preload("res://game/dd_bank.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdProgress := preload("res://game/dd_progress.gd")
+const ProgressKeysCheck := preload("res://examples/progress_keys_check.gd")
 const DdTerrain := preload("res://game/dd_terrain.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 const DdLot := preload("res://game/dd_lot.gd")
@@ -465,6 +466,8 @@ func _test_a_fall() -> void:
 	_check(not (me.truck as DdTruck).has_exploded() and (me.truck as DdTruck).damage.lost_parts().is_empty(), "and the wreck is whole again")
 	_check(trip.pay_now(game.config) < _clean_offer(trip), "a fall loses the clean-run bonus")
 	_check(progress.session_values(&"p1").get_value(DdProgress.FALLS) == 1.0, "and is counted")
+	var split: Array[String] = ProgressKeysCheck.run(game, progress)
+	_check(split.is_empty(), "stats file under the stable key, the wallet under the driver key", str(split))
 	_finished_section()
 
 
