@@ -576,6 +576,13 @@ func _build_progress(world: DdGame) -> void:
 		if peer > 0:
 			bridge.call("notice", peer, "Achievement: %s (+%d)" % [title, points]))
 
+	if progress == null:
+		return
+
+	var report := bind_stats_report(progress.set_reporting)
+	if world.config.report_progress and report.get_string() != "1":
+		var _on := report.set_value("1")
+
 
 func _tunable_weather(cvar_name: String, setting: String, low: float, high: float, description: String) -> void:
 	var world := game as DdGame

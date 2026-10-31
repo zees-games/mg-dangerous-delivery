@@ -31,6 +31,6 @@
 # Whether a server counts drivers' numbers and achievements at all.
 # keep_progress: true
 # Whether they are reported to TMC's backbone (when the server has one).
-# report_progress: true
+# report_progress: false
 # Where achievement progress is kept between sessions. Empty keeps it in memory.
 # progress_directory: "user://delivery_achievements"

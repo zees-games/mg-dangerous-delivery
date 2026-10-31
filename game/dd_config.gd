@@ -234,7 +234,7 @@ extends DotConfig
 @export var keep_progress: bool = true
 
 ## Whether they are reported to TMC's backbone (when the server has one).
-@export var report_progress: bool = true
+@export var report_progress: bool = false
 
 ## Where achievement progress is kept between sessions. Empty keeps it in memory.
 @export var progress_directory: String = "user://delivery_achievements"

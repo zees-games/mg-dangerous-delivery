@@ -4,7 +4,7 @@ extends "dedicated_base.gd"
 ## the module loaded by path the way an operator names it.
 
 const SECTIONS := 12
-const CHECKS := 101
+const CHECKS := 106
 
 
 func _ready() -> void:
@@ -61,7 +61,35 @@ func _test_the_module_loads() -> void:
 	_check(net != null and absf(net.config.world_extent - DdGame.NET_WORLD_EXTENT) < 0.01 and not net.config.enable_prediction,
 		"against the world extent a client decodes with, and predicting nothing")
 	_noblock_and_config(module)
+	_test_stats_report()
 	_finished_section()
+
+
+## The family cvar `stats_report` is registered, off, and turning it on makes the tracker report.
+func _test_stats_report() -> void:
+	var cv: DotConVar = server.console.find_cvar("stats_report")
+	var progress = _module().get("progress") if _module() != null else null
+	_check(cv != null and cv.get_string() == "0", "stats_report is registered and off by default")
+	_check(progress != null and progress.stats != null and not progress.stats.report_to_backbone,
+		"and the tracker does not report at boot")
+	if cv == null or progress == null:
+		return
+	var _on := cv.set_value("1")
+	_check(not progress.stats.report_to_backbone, "on with no backbone client stays off, not a crash")
+
+	var client := Node.new()
+	var stub := GDScript.new()
+	stub.source_code = "extends Node\nfunc post_integration(_a = null, _b = null, _c = null): return null\n"
+	var _reloaded := stub.reload()
+	client.set_script(stub)
+	DotRegistry.register(&"dot_backbone_client", client)
+	var _r0 := cv.set_value("0")
+	var _r1 := cv.set_value("1")
+	_check(progress.stats.report_to_backbone, "on with a backbone client makes the tracker report")
+	var _r2 := cv.set_value("0")
+	_check(not progress.stats.report_to_backbone, "off stops it again")
+	DotRegistry.unregister_instance(&"dot_backbone_client", client)
+	client.free()
 
 
 ## Config cvars, the workbench, and dot-team's block rules through dot-game's DotGameNoblock.
