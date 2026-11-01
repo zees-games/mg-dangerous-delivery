@@ -30,12 +30,12 @@ const CARGO_FIELDS := {
 
 ## The `truck` kind: [param ids] exist without a file.
 static func truck_set(ids: PackedStringArray, strict: bool) -> DotProfileSet:
-	return _make_set("truck", TRUCK_FIELDS, DdTrucksRef.DEFAULTS[0], ids, strict)
+	return _make_set("truck", TRUCK_FIELDS, DdTrucksRef.DEFAULTS, ids, strict)
 
 
 ## The `cargo` kind.
 static func cargo_set(ids: PackedStringArray, strict: bool) -> DotProfileSet:
-	return _make_set("cargo", CARGO_FIELDS, DdCargoRef.DEFAULTS[0], ids, strict)
+	return _make_set("cargo", CARGO_FIELDS, DdCargoRef.DEFAULTS, ids, strict)
 
 
 ## Defaults for keys the first catalogue entry leaves unsaid (the code's own fallbacks).
@@ -43,7 +43,11 @@ const FALLBACKS := {"reverse_ratio": 5.5, "rolling": 0.009, "traction_g": 0.42, 
 	"cargo_units": 4, "cargo_strength": 9.0, "wind_scale": 0.0}
 
 
-static func _make_set(kind: String, fields: Dictionary, sample: Dictionary, ids: PackedStringArray, strict: bool) -> DotProfileSet:
+static func _make_set(kind: String, fields: Dictionary, catalogue: Array, ids: PackedStringArray, strict: bool) -> DotProfileSet:
+	var sample: Dictionary = catalogue[0]
+	var by_id := {}
+	for def: Dictionary in catalogue:
+		by_id[str(def["id"])] = def
 	var schema: Array = []
 	for key: String in fields:
 		var spec: Array = fields[key]
@@ -54,7 +58,17 @@ static func _make_set(kind: String, fields: Dictionary, sample: Dictionary, ids:
 	var set := DotProfileSet.create("", GAME, kind, schema)
 	set.implicit_ids = ids
 	set.strict = strict
+	set.validator = func(p: DotProfile) -> DotResult: return _own_defaults(p, by_id)
 	return set
+
+
+## The schema default is the first entry's; a profile nothing set takes its own catalogue entry's value instead (the workbench shows these).
+static func _own_defaults(p: DotProfile, by_id: Dictionary) -> DotResult:
+	var def: Dictionary = by_id.get(p.id, {})
+	for key: String in p.values:
+		if def.has(key) and not p.file_keys.has(key) and not p.runtime_keys.has(key) and not p.overrides.has(key):
+			p.values[key] = def[key]
+	return DotResult.success(p)
 
 
 ## Folds every file and runtime key of every profile in [param set] into [param catalogue]'s entries. Value: the number applied.

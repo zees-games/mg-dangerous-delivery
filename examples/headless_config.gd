@@ -10,7 +10,7 @@ const DdCargo := preload("../game/dd_cargo.gd")
 const DdWeatherRef := preload("../game/dd_weather.gd")
 const ROOT := "user://dd_cfgtest"
 const GAME := "mg-dangerous-delivery"
-const CHECKS := 40
+const CHECKS := 42
 
 
 func _ready() -> void:
@@ -128,6 +128,10 @@ func _profiles_and_prices(config: DdConfig) -> void:
 		"cfg/game/<game>/truck/<id>.yml changes a truck", "" if tapplied.ok else tapplied.error.message)
 	_check(capplied.ok and is_equal_approx(float(cargo.get_load(&"glass")["fragile"]), 4.0), "cfg/game/<game>/cargo/<id>.yml changes a cargo")
 	_check(int(trucks.get_truck(&"box_truck")["price"]) == 0, "the other trucks keep the catalogue")
+	var flatbed: DotProfile = truck_set.load_profile("flatbed").value
+	_check(int(flatbed.values["price"]) == 1500 and is_equal_approx(float(flatbed.values["pay"]), 1.3), "the workbench shows each truck's own values, not the first entry's")
+	var gravel: DotProfile = cargo_set.load_profile("gravel").value
+	_check(is_equal_approx(float(gravel.values["fill"]), 1.0), "and each cargo's own values")
 	_write("res://cfg/game/%s/truck/hauler.yml" % GAME, "no_such_key: 1\n")
 	truck_set.clear_cache()
 	_check(not DdProfiles.apply(truck_set, trucks).ok, "strict: an unknown truck key is refused")
