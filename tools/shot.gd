@@ -220,6 +220,7 @@ func _ready() -> void:
 	var image := get_viewport().get_texture().get_image()
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
+	await DotShotSeq.new().record(get_tree(), path)
 	get_tree().quit()
 
 
