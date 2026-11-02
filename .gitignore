@@ -58,9 +58,7 @@ Thumbs.db
 # Editors
 .vscode/
 
-# Optional: natural-disasters, which adds lightning and thunder over storms
-# (game/dd_disasters.gd loads it by path; absent, the game runs without it).
-# No leading slash on purpose: game.sh and dot-ci treat every "/addons/x" line as required.
-addons/natural_disasters
+# natural-disasters: the storms. Listed with a slash because the headless suite names its classes.
+/addons/natural_disasters
 __pycache__/
 /addons/dot_team

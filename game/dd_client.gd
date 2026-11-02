@@ -45,7 +45,7 @@ func _ready() -> void:
 	_hold_for_world()
 	game.terrain_progress.connect(func(done: int, total: int) -> void:
 		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
-			print(DdLoad.report()))
+			DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()}))
 	_step("Building the world" if _offline else "Waiting for the server", 0.1 if _offline else 0.15)
 
 	if staged_load and _offline:
@@ -1596,10 +1596,10 @@ func _go() -> void:
 		_report_load()
 
 
-## `--dd-load-times` prints where the time went, a line per step; otherwise it is a debug line.
+## `--dd-load-times` logs where the time went at INFO; otherwise it is a debug line.
 func _report_load() -> void:
 	if OS.get_cmdline_user_args().has("--dd-load-times"):
-		print(DdLoad.report())
+		DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()})
 	else:
 		DotLog.debug(CHANNEL, "load times", {"report": DdLoad.report()})
 
