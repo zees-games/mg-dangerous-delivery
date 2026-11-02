@@ -984,7 +984,7 @@ func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
 			audio.braking = driven != null and driven.brake > 0.1
 			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
 
-		var route := StringName(str(facts.get("route", "")))
+		var route := StringName(facts.get("route", &""))
 		audio.on_route(route)
 
 
