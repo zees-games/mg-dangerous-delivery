@@ -101,6 +101,25 @@ func _ready() -> void:
 
 	DotLog.result(CHANNEL, "chat, offline", chat.attach(null))
 
+	_connect_offline_feedback()
+
+	hud.show_money(game.bank.money(local_key))
+	_refresh_garage()
+	# On foot in the lot, not in a menu: the panel is G (or a salesperson's E).
+	_show_garage(false)
+	_place_walker(_on_foot_transform())
+	DdLoad.mark("walker")
+	_go()
+	_report_load()
+
+	if auto_route != &"":
+		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
+		game.config.quick_start = true
+		_act("start", {"route": String(auto_route)})
+
+
+## Offline, the client's own HUD answers the world's signals; a connected one hears them from the bridge.
+func _connect_offline_feedback() -> void:
 	game.stage_reached.connect(func(key: StringName, stage: int) -> void:
 		if key == local_key:
 			hud.say("CHECKPOINT %d" % stage, 2.0, Color(1.0, 0.85, 0.3)))
@@ -120,20 +139,6 @@ func _ready() -> void:
 		if key == local_key:
 			hud.show_solo(on)
 			hud.say("SOLO" if on else "WITH EVERYBODY", 1.5, Color(0.6, 0.85, 1.0)))
-
-	hud.show_money(game.bank.money(local_key))
-	_refresh_garage()
-	# On foot in the lot, not in a menu: the panel is G (or a salesperson's E).
-	_show_garage(false)
-	_place_walker(_on_foot_transform())
-	DdLoad.mark("walker")
-	_go()
-	_report_load()
-
-	if auto_route != &"":
-		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
-		game.config.quick_start = true
-		_act("start", {"route": String(auto_route)})
 
 
 ## The platform is the first child, so its cover is the first thing drawn; it knows the link

@@ -1799,27 +1799,8 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		driver.ghost_until = 0.0
 		_refresh_exceptions()
 
-	match trip.state:
-		DdTrip.State.HOLD:
-			trip.wait -= delta
-			truck.drive(_held(), delta)
-
-			if trip.wait <= 0.0:
-				trip.state = DdTrip.State.DRIVING
-
-			return
-		DdTrip.State.FALLEN:
-			trip.wait -= delta
-
-			if trip.wait <= 0.0:
-				trip.state = DdTrip.State.DRIVING
-				_put_at(driver, trip.stage)
-				put_back.emit(driver.key)
-
-			return
-		DdTrip.State.DELIVERED:
-			truck.drive(_held(), delta)
-			return
+	if _step_not_driving(driver, delta):
+		return
 
 	trip.seconds += delta
 	truck.drive(DotVehicleCommand.new() if truck.wreck != null and truck.wreck.is_wrecked() else driver.command, delta)
@@ -1833,15 +1814,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 
 	_road_conditions(driver, road, local, delta)
 
-	# A knock: the cargo feels a change of speed the road did not ask for.
-	var dv := (truck.linear_velocity - trip.last_velocity).length()
-	trip.last_velocity = truck.linear_velocity
-
-	# A fragile load feels a smaller knock and loses more to it.
-	var threshold := config.knock_threshold / trip.fragile
-
-	if dv > threshold and can_be_harmed(driver.key) and not (truck.wreck != null and truck.wreck.is_wrecked()):
-		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
+	_cargo_knock(driver)
 
 	# Checkpoints.
 	var reached := road.stage_of(trip.distance)
@@ -1875,31 +1848,76 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		_fall(driver, "fell")
 		return
 
-	# Hung up: off the road's edge on its belly, or wedged on a rail, with wheels in the air and
-	# going nowhere. The first play test sat at 0 to 1 km/h on the River Cut's open edge with two
-	# wheels over it until R; nothing let it fall and nothing put it back.
+	if _stuck_fall(driver, truck, trip, delta):
+		return
+
+	# The depot.
+	if trip.distance >= road.length() - 2.0:
+		_deliver(driver)
+
+
+## Holds, falls and arrivals: true when the trip is not driving this tick.
+func _step_not_driving(driver: Driver, delta: float) -> bool:
+	var trip: DdTrip = driver.trip
+	var truck: DdTruck = driver.truck
+	match trip.state:
+		DdTrip.State.HOLD:
+			trip.wait -= delta
+			truck.drive(_held(), delta)
+
+			if trip.wait <= 0.0:
+				trip.state = DdTrip.State.DRIVING
+
+			return true
+		DdTrip.State.FALLEN:
+			trip.wait -= delta
+
+			if trip.wait <= 0.0:
+				trip.state = DdTrip.State.DRIVING
+				_put_at(driver, trip.stage)
+				put_back.emit(driver.key)
+
+			return true
+		DdTrip.State.DELIVERED:
+			truck.drive(_held(), delta)
+			return true
+
+	return false
+
+
+## A knock: the cargo feels a change of speed the road did not ask for; a fragile load loses more.
+func _cargo_knock(driver: Driver) -> void:
+	var trip: DdTrip = driver.trip
+	var truck: DdTruck = driver.truck
+	var dv := (truck.linear_velocity - trip.last_velocity).length()
+	trip.last_velocity = truck.linear_velocity
+	var threshold := config.knock_threshold / trip.fragile
+
+	if dv > threshold and can_be_harmed(driver.key) and not (truck.wreck != null and truck.wreck.is_wrecked()):
+		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
+
+
+## Hung up on the road's edge or on its back for long enough: the truck is put back. True if it fell.
+func _stuck_fall(driver: Driver, truck: DdTruck, trip: DdTrip, delta: float) -> bool:
 	if truck.wheels_on_ground() < truck.wheel_count() - 1 and truck.linear_velocity.length() < 1.0:
 		trip.hung_for += delta
 
 		if trip.hung_for >= config.hung_respawn_seconds:
 			_fall(driver, "hung")
-			return
+			return true
 	else:
 		trip.hung_for = 0.0
 
-	# On its back.
 	if truck.is_flipped() and truck.linear_velocity.length() < 2.0:
 		trip.flipped_for += delta
 
 		if trip.flipped_for >= config.flipped_respawn_seconds:
 			_fall(driver, "flipped")
-			return
+			return true
 	else:
 		trip.flipped_for = 0.0
 
-	# The depot.
-	if trip.distance >= road.length() - 2.0:
-		_deliver(driver)
+	return false
 
 
 ## Weather, ice, gravel, bridges and wind on one driver's truck, and the chaos each is paid for.

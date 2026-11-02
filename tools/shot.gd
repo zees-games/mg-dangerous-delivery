@@ -200,18 +200,7 @@ func _ready() -> void:
 		for _i in 10:
 			await get_tree().process_frame
 
-	# A full chat log: the lines a busy server's vote and joins put in the box, long enough to
-	# wrap the way a vote's list of games does.
-	var chat_lines := int(_args.get("chat", "0"))
-
-	if chat_lines > 0 and client.chat != null:
-		for i in chat_lines:
-			if i % 3 == 0:
-				client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, Arena (20s)")
-			else:
-				client.chat.say_locally("Driver %d: line %d of the chat log" % [i + 1, i + 1])
-		for _i in 10:
-			await get_tree().process_frame
+	await _fill_chat(client, int(_args.get("chat", "0")))
 
 	for _i in 3:
 		await RenderingServer.frame_post_draw
@@ -222,6 +211,19 @@ func _ready() -> void:
 	print("saved %s (%s)" % [path, error_string(saved)])
 	await DotShotSeq.new().record(get_tree(), path)
 	get_tree().quit()
+
+
+## A full chat log: the lines a busy server's vote and joins put in the box, long enough to wrap.
+func _fill_chat(client: Node, chat_lines: int) -> void:
+	if chat_lines <= 0 or client.chat == null:
+		return
+	for i in chat_lines:
+		if i % 3 == 0:
+			client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, Arena (20s)")
+		else:
+			client.chat.say_locally("Driver %d: line %d of the chat log" % [i + 1, i + 1])
+	for _i in 10:
+		await get_tree().process_frame
 
 
 ## Where the person stands for the lot views (seller, roam, gate, walk_gate, standin).
