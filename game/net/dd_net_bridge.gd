@@ -1,4 +1,4 @@
-extends "res://game/net/dd_net_bridge_base.gd"
+extends "dd_net_bridge_base.gd"
 
 ## The only file that names both the world and the netcode, both ends. Nothing is predicted: a
 ## client sends what it presses (four bytes a tick, unreliably), the server drives its truck, and

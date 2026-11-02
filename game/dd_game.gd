@@ -1,4 +1,4 @@
-extends "res://game/dd_game_base.gd"
+extends "dd_game_base.gd"
 
 ## The mountain: every route this server has, every truck on them, and every rule a haul is
 ## played under. Headless; what a player sees is [DdClient]'s. Why one world, why trucks are

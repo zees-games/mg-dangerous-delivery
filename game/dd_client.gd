@@ -1,4 +1,4 @@
-extends "res://game/dd_client_state.gd"
+extends "dd_client_state.gd"
 
 ## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera, the
 ## controls, the HUD and the sky. Actions go through [method _act] and [member command], and
