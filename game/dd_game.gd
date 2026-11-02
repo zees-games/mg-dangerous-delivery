@@ -1079,7 +1079,6 @@ func _build_land() -> void:
 		old.queue_free()
 
 	gates.clear()
-
 	if land == null:
 		land = DdLand.new()
 		land.name = "Land"
@@ -1087,8 +1086,48 @@ func _build_land() -> void:
 
 	var order := routes_west_to_east()
 	var exits := lot.exit_points()
-	var lines := {}
 	var map := map_doc()
+	var lines := _build_gates(order, exits, map)
+
+	var samples := PackedVector3Array()
+	for id: StringName in routes:
+		var road: DdRoute = routes[id]
+		for k in range(0, road.points.size(), 3):
+			samples.append(road.points[k] + road.position)
+
+	land.hill_height = float(map["land"]["hills"])
+	land.coast = float(map["land"]["coast"])
+	DdLoad.mark("gates, road lines")
+	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
+	DdLoad.mark("land")
+	_build_entrance_signs(order)
+
+	# Each mountain held under the roads that cross its ground, now they are known.
+	var finishing: Array = []
+	for id: StringName in routes:
+		var road: DdRoute = routes[id]
+		var keep := PackedVector3Array()
+		for line_id: StringName in land.roads:
+			for p: Vector3 in land.roads[line_id]:
+				keep.append(p - road.position)
+
+		finishing.append([road, keep])
+
+	_terrain_gen += 1
+
+	if staged_terrain and is_inside_tree():
+		_lay_terrain(finishing, _terrain_gen)
+		return
+
+	for pair: Array in finishing:
+		pair[0].finish_terrain(pair[1])
+	DdLoad.mark("terrain")
+	world_rebuilt.emit()
+
+
+## A gate on every route's pad and the road line from the lot to it, by route id.
+func _build_gates(order: Array, exits: Array, map: Dictionary) -> Dictionary:
+	var lines := {}
 	var via_of: Dictionary = map["layout"]["roads"]
 
 	for i in order.size():
@@ -1108,46 +1147,7 @@ func _build_land() -> void:
 			via.append(Vector3(float(p[0]), lot.global_position.y, float(p[1])))
 
 		lines[order[i]] = _road_line(exits[i] if i < exits.size() else lot.global_position, at.origin, at.origin - at.basis.z * (GATE_SETBACK + 0.5), via)
-
-	var samples := PackedVector3Array()
-
-	for id: StringName in routes:
-		var road: DdRoute = routes[id]
-
-		for k in range(0, road.points.size(), 3):
-			samples.append(road.points[k] + road.position)
-
-	land.hill_height = float(map["land"]["hills"])
-	land.coast = float(map["land"]["coast"])
-	DdLoad.mark("gates, road lines")
-	land.build(samples, lot.global_position, DdLot.SIZE, lines, draws)
-	DdLoad.mark("land")
-	_build_entrance_signs(order)
-
-	# Each mountain held under the roads that cross its ground, now they are known.
-	var finishing: Array = []
-
-	for id: StringName in routes:
-		var road: DdRoute = routes[id]
-		var keep := PackedVector3Array()
-
-		for line_id: StringName in land.roads:
-			for p: Vector3 in land.roads[line_id]:
-				keep.append(p - road.position)
-
-		finishing.append([road, keep])
-
-
-	_terrain_gen += 1
-
-	if staged_terrain and is_inside_tree():
-		_lay_terrain(finishing, _terrain_gen)
-		return
-
-	for pair: Array in finishing:
-		pair[0].finish_terrain(pair[1])
-	DdLoad.mark("terrain")
-	world_rebuilt.emit()
+	return lines
 
 
 ## The mountains one at a time, each over several frames, behind the lot that is already up (a

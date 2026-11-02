@@ -912,14 +912,11 @@ func _process(delta: float) -> void:
 		net.interpolate_frame(-1.0)
 
 	_apply_pointer()
-
 	if _weather != null and camera != null:
 		_weather.advance(delta, camera.global_position)
 
 	var me := _driver()
-
 	_hear_engines(me)
-
 	for k: StringName in game.drivers:
 		var other: DdGame.Driver = game.drivers[k]
 
@@ -932,27 +929,11 @@ func _process(delta: float) -> void:
 				_feed_engine(other, seen, delta)
 
 	_present_walkers(me)
-
 	_hear_walkers()
-
 	var facts := _trip_facts(me)
-
 	var at_wheel := not facts.is_empty() or (me != null and me.truck != null and not me.on_foot)
 
-	if audio != null:
-		audio.driving = at_wheel
-		audio.listen_from(camera.global_position)
-
-		if at_wheel:
-			audio.speed = float(facts.get("speed", _speed_of(me)))
-			# Sampled keys say nothing about a truck the autopilot (a shot, a suite) is driving.
-			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
-			audio.throttle = absf(driven.throttle) if driven != null else 0.0
-			audio.braking = driven != null and driven.brake > 0.1
-			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
-
-		var route := StringName(str(facts.get("route", "")))
-		audio.on_route(route)
+	_drive_audio(me, facts, at_wheel)
 
 	if facts.is_empty():
 		_set_weather({"sky": DdWeather.CLEAR, "wind": false})
@@ -988,6 +969,23 @@ func _process(delta: float) -> void:
 		_follow(me.truck as DdTruck, delta)
 
 	_present_effects(delta)
+
+
+func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
+	if audio != null:
+		audio.driving = at_wheel
+		audio.listen_from(camera.global_position)
+
+		if at_wheel:
+			audio.speed = float(facts.get("speed", _speed_of(me)))
+			# Sampled keys say nothing about a truck the autopilot (a shot, a suite) is driving.
+			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
+			audio.throttle = absf(driven.throttle) if driven != null else 0.0
+			audio.braking = driven != null and driven.brake > 0.1
+			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
+
+		var route := StringName(str(facts.get("route", "")))
+		audio.on_route(route)
 
 
 ## How many other engines are in earshot (60 m, the def's range): they share one level.

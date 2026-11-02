@@ -539,6 +539,14 @@ func _build_road(id: StringName, line: PackedVector3Array) -> void:
 
 		along += a.distance_to(b)
 
+	var body := _road_body(id, faces)
+
+	if not draws:
+		return
+	_dress_road(body, deck, paint)
+
+
+func _road_body(id: StringName, faces: PackedVector3Array) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Road_%s" % String(id)
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
@@ -552,10 +560,11 @@ func _build_road(id: StringName, line: PackedVector3Array) -> void:
 	collider.shape = shape
 	body.add_child(collider)
 	add_child(body)
+	return body
 
-	if not draws:
-		return
 
+
+func _dress_road(body: StaticBody3D, deck: SurfaceTool, paint: SurfaceTool) -> void:
 	deck.generate_normals()
 	var asphalt := StandardMaterial3D.new()
 	asphalt.albedo_color = DdRoute.ASPHALT

@@ -320,7 +320,6 @@ func make_node(grain: Texture2D) -> MeshInstance3D:
 	var colours := PackedColorArray()
 	var zones := PackedVector2Array()
 	var blends := PackedVector2Array()
-	var indices := PackedInt32Array()
 	var count := nx * nz
 	vertices.resize(count)
 	colours.resize(count)
@@ -351,23 +350,7 @@ func make_node(grain: Texture2D) -> MeshInstance3D:
 		zones[k] = Vector2(float(_sample_zone[lo]), float(_sample_zone[hi]))
 		blends[k] = Vector2(float(into) / float(hi - lo + 1) if _sample_zone[lo] != _sample_zone[hi] else 0.0, 0.0)
 
-	indices.resize((nx - 1) * (nz - 1) * 6)
-	var w := 0
-
-	for gz in nz - 1:
-		for gx in nx - 1:
-			var a := gz * nx + gx
-			var b := a + 1
-			var c := a + nx + 1
-			var d := a + nx
-			# Clockwise from above, which is Godot's front face; height_at splits the same way.
-			indices[w] = a
-			indices[w + 1] = b
-			indices[w + 2] = c
-			indices[w + 3] = a
-			indices[w + 4] = c
-			indices[w + 5] = d
-			w += 6
+	var indices := _grid_indices()
 
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -394,6 +377,28 @@ func make_node(grain: Texture2D) -> MeshInstance3D:
 	# software-rendered frame, and its normals already shade it.
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return node
+
+
+func _grid_indices() -> PackedInt32Array:
+	var indices := PackedInt32Array()
+	indices.resize((nx - 1) * (nz - 1) * 6)
+	var w := 0
+
+	for gz in nz - 1:
+		for gx in nx - 1:
+			var a := gz * nx + gx
+			var b := a + 1
+			var c := a + nx + 1
+			var d := a + nx
+			# Clockwise from above, which is Godot's front face; height_at splits the same way.
+			indices[w] = a
+			indices[w + 1] = b
+			indices[w + 2] = c
+			indices[w + 3] = a
+			indices[w + 4] = c
+			indices[w + 5] = d
+			w += 6
+	return indices
 
 
 ## Snow and rain on one zone's ground, as [method DdRoute.paint_zone] does the road.

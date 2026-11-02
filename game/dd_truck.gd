@@ -136,6 +136,10 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 		_model.free()
 		_model = null
 
+	return _bind_chassis(tunables, scale_f, draws)
+
+
+func _bind_chassis(tunables: DotVehicleTunables, scale_f: float, draws: bool) -> DotResult:
 	instance = DotVehicleInstance.new()
 	instance.node = self
 	instance.alive = true

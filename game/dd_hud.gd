@@ -127,6 +127,11 @@ func _ready() -> void:
 	_solo.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	_solo.visible = false
 
+	_build_corner_plates()
+	_restyle()
+
+
+func _build_corner_plates() -> void:
 	# Speed, bottom right.
 	var speed_plate := _plate(self)
 	_speed_plate = speed_plate
@@ -172,7 +177,6 @@ func _ready() -> void:
 	_message.offset_top = -120.0
 	_message.offset_bottom = -60.0
 	_message.add_theme_constant_override("outline_size", 8)
-	_restyle()
 
 
 ## The key list down the right side, as bound now: `[[key, what], ...]` (`DdBindings.hud_lines`).

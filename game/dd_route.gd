@@ -122,11 +122,8 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 	var rock := SurfaceTool.new()
 	road.begin(Mesh.PRIMITIVE_TRIANGLES)
 	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-
 	var wall := str(seg["wall"])
 	var rail := str(seg["rail"])
-
 	for i in range(from_i, to_i):
 		var l0 := _edge(i, -1.0, width, bank)
 		var r0 := _edge(i, 1.0, width, bank)
@@ -173,12 +170,14 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 				_cap(rock, i, r0 + up, r1 + up, 1.0, i == from_i, i + 1 == to_i)
 
 		_drop_and_rail(rock, i, [l0, r0, l1, r1], wall, rail)
-
 		_dash(road, i)
 
+	_add_segment_meshes(index, seg, road, rock)
+
+
+func _add_segment_meshes(index: int, seg: Dictionary, road: SurfaceTool, rock: SurfaceTool) -> void:
 	road.generate_normals()
 	rock.generate_normals()
-
 
 	var road_mesh := MeshInstance3D.new()
 	road_mesh.name = "Road%d" % index

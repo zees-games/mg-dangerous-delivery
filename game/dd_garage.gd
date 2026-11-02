@@ -84,6 +84,20 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 10)
 	frame.add_child(column)
 
+	_build_head(column)
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 16)
+	column.add_child(body)
+	_routes = _section(body, "ROUTES", 1.3)
+	_routes_heading = _routes.get_parent().get_parent().get_child(0) as Label
+	_trucks = _section(body, "TRUCKS", 1.0)
+	_upgrades = _section(body, "UPGRADES", 0.8)
+
+	_build_foot(column)
+
+
+func _build_head(column: VBoxContainer) -> void:
 	var head := HBoxContainer.new()
 	column.add_child(head)
 	var title := Label.new()
@@ -96,15 +110,9 @@ func _ready() -> void:
 	_money.add_theme_color_override("font_color", Color(0.55, 0.95, 0.5))
 	head.add_child(_money)
 
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 16)
-	column.add_child(body)
-	_routes = _section(body, "ROUTES", 1.3)
-	_routes_heading = _routes.get_parent().get_parent().get_child(0) as Label
-	_trucks = _section(body, "TRUCKS", 1.0)
-	_upgrades = _section(body, "UPGRADES", 0.8)
 
+
+func _build_foot(column: VBoxContainer) -> void:
 	var foot := HBoxContainer.new()
 	column.add_child(foot)
 	_notice = Label.new()
@@ -142,6 +150,8 @@ func _ready() -> void:
 	go.add_theme_font_size_override("font_size", 22)
 	go.pressed.connect(func() -> void: _do("start", {"route": String(_picked_route)}))
 	foot.add_child(go)
+
+
 
 
 func _section(parent: Node, heading: String, stretch: float) -> VBoxContainer:

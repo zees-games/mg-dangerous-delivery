@@ -355,31 +355,35 @@ func _build_showroom(names: Dictionary) -> void:
 		spot.add_child(label)
 		_labels.append(label)
 
-		var seller := Node3D.new()
-		seller.name = "Seller_%s" % String(id)
-		add_child(seller)
-		seller.global_position = sellers[id]
-		# Facing the spawn, a little toward their truck.
-		seller.rotation.y = PI - 0.35
-		var person := DotHumanoidFigure.new()
-		person.name = "Person"
-		seller.add_child(person)
-		var look := DotHumanoidLook.stock(int(DdWeather.unit("lot|staff|%s" % id) * 100000.0))
-		# The lot's staff wear its colours: amber tops, dark trousers.
-		look.top = Color(0.95, 0.68, 0.12)
-		look.bottom = Color(0.16, 0.17, 0.2)
-		person.build(look, 1.8)
-		var tag := Label3D.new()
-		tag.name = "Tag"
-		tag.text = "%s · SALES" % STAFF[i % STAFF.size()]
-		tag.font_size = 40
-		tag.pixel_size = 0.006
-		tag.outline_size = 8
-		tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		tag.position = Vector3(0.0, 2.15, 0.0)
-		tag.visibility_range_end = 70.0
-		seller.add_child(tag)
-		_labels.append(tag)
+		_build_seller(id, i)
+
+
+func _build_seller(id: StringName, i: int) -> void:
+	var seller := Node3D.new()
+	seller.name = "Seller_%s" % String(id)
+	add_child(seller)
+	seller.global_position = sellers[id]
+	# Facing the spawn, a little toward their truck.
+	seller.rotation.y = PI - 0.35
+	var person := DotHumanoidFigure.new()
+	person.name = "Person"
+	seller.add_child(person)
+	var look := DotHumanoidLook.stock(int(DdWeather.unit("lot|staff|%s" % id) * 100000.0))
+	# The lot's staff wear its colours: amber tops, dark trousers.
+	look.top = Color(0.95, 0.68, 0.12)
+	look.bottom = Color(0.16, 0.17, 0.2)
+	person.build(look, 1.8)
+	var tag := Label3D.new()
+	tag.name = "Tag"
+	tag.text = "%s · SALES" % STAFF[i % STAFF.size()]
+	tag.font_size = 40
+	tag.pixel_size = 0.006
+	tag.outline_size = 8
+	tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	tag.position = Vector3(0.0, 2.15, 0.0)
+	tag.visibility_range_end = 70.0
+	seller.add_child(tag)
+	_labels.append(tag)
 
 
 ## Bay lines and the walkway's edge, as thin paint on the slab.
