@@ -13,7 +13,7 @@ const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
 const SECTIONS := 13
-const CHECKS := 64
+const CHECKS := 66
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -761,9 +761,12 @@ func _test_damage() -> void:
 func _test_crash() -> void:
 	_section("a wall strike reaches the breakage as a real contact")
 	_use_test_routes([FLAT])
+	# Headless has no debris budget unless the game draws.
+	game.draws = true
 	var me := _set_off(&"box_truck", &"crates", &"t_flat")
 	await _seconds(0.6)
 	var truck := _truck(me)
+	var thrown_before := game.debris().thrown_count
 	var ahead := -truck.global_basis.z.normalized()
 	var wall := StaticBody3D.new()
 	var shape := CollisionShape3D.new()
@@ -785,10 +788,13 @@ func _test_crash() -> void:
 		"%s" % [knocks])
 	_check(truck.linear_velocity.length() < 8.0 and truck.global_position.distance_to(wall.global_position) < 6.0,
 		"and the wall stops the truck at its nose", "%.1f m/s, %.1f m from the wall" % [truck.linear_velocity.length(), truck.global_position.distance_to(wall.global_position)])
-	# Known gap (nightly dd-crash-contact-1): the contact is reported at the rear corner and
-	# as 9.4 m/s of about 20, so no part comes off; checked here only once that is fixed.
+	var lost := truck.damage.lost_parts()
+	_check(knocks[0].z < -0.5, "the knock is at the nose, not the tail", "%s" % [knocks[0]])
+	_check(not lost.is_empty() and game.debris().thrown_count > thrown_before, "a strike that hard sheds parts and throws them as debris",
+		"lost %s, thrown %d -> %d, knocks %s" % [lost, thrown_before, game.debris().thrown_count, knocks])
 	wall.queue_free()
 	game.end_trip(&"t")
+	game.draws = false
 	_finished_section()
 
 
