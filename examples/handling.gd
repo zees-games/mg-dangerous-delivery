@@ -12,8 +12,8 @@ const DdTrip := preload("res://game/dd_trip.gd")
 const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 12
-const CHECKS := 62
+const SECTIONS := 13
+const CHECKS := 64
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -48,7 +48,6 @@ func _ready() -> void:
 	Engine.max_physics_steps_per_frame = 8 * SPEED_UP
 	game = DdGame.new()
 	game.mountain_hazards = false
-	game.draws = false
 	game.config.start_hold_seconds = 0.2
 	game.config.respawn_seconds = 0.3
 	game.config.wreck_seconds = 0.5
@@ -105,6 +104,7 @@ func _ready() -> void:
 	# Last: it puts the test routes back, and the sections above expect the shipped ones.
 	if _runs(only, "damage"):
 		await _test_damage()
+		await _test_crash()
 
 	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
@@ -753,6 +753,41 @@ func _test_damage() -> void:
 	truck = _truck(me)
 	_check(truck.damage.lost_parts().is_empty() and truck.damage.wheel_state(3) == DotVehicleDamage.Wheel.INTACT,
 		"a new trip's truck is whole", str(truck.damage.describe()))
+	game.end_trip(&"t")
+	_finished_section()
+
+
+## A truck driven at a wall: the contact path (not a direct hit() call) must reach the breakage.
+func _test_crash() -> void:
+	_section("a wall strike reaches the breakage as a real contact")
+	_use_test_routes([FLAT])
+	var me := _set_off(&"box_truck", &"crates", &"t_flat")
+	await _seconds(0.6)
+	var truck := _truck(me)
+	var ahead := -truck.global_basis.z.normalized()
+	var wall := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(14.0, 6.0, 1.0)
+	shape.shape = box
+	wall.add_child(shape)
+	wall.collision_layer = 1
+	game.add_child(wall)
+	wall.global_position = truck.global_position + ahead * 30.0 + Vector3(0, 2.5, 0)
+	wall.look_at(wall.global_position + ahead)
+
+	var knocks: Array[Vector4] = []
+	truck.breakage.impact.connect(func(at: Vector3, dv: float) -> void: knocks.append(Vector4(at.x, at.y, at.z, dv)))
+	truck.linear_velocity = ahead * 26.0
+	_drive(me, 1.0)
+	await _seconds(3.0)
+	_check(not knocks.is_empty() and knocks[0].w >= 5.0, "a 94 km/h wall strike reaches the breakage as a real contact knock",
+		"%s" % [knocks])
+	_check(truck.linear_velocity.length() < 8.0 and truck.global_position.distance_to(wall.global_position) < 6.0,
+		"and the wall stops the truck at its nose", "%.1f m/s, %.1f m from the wall" % [truck.linear_velocity.length(), truck.global_position.distance_to(wall.global_position)])
+	# Known gap (nightly dd-crash-contact-1): the contact is reported at the rear corner and
+	# as 9.4 m/s of about 20, so no part comes off; checked here only once that is fixed.
+	wall.queue_free()
 	game.end_trip(&"t")
 	_finished_section()
 
