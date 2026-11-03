@@ -21,8 +21,7 @@ var _message: Label = null
 var _keys: Label = null
 var _speed_plate: PanelContainer = null
 ## What E does here, bottom middle; hidden when it does nothing.
-var _prompt: Label = null
-var _prompt_plate: PanelContainer = null
+var _prompt: DotKeyPrompt = null
 var _message_left: float = 0.0
 
 ## The plates behind the strip and the three corners, restyled from the theme's `plate` and
@@ -159,15 +158,15 @@ func _build_corner_plates() -> void:
 	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
 
 	# What the use key does where the player stands: buy from a salesperson, get in, accept.
-	_prompt_plate = _plate(self)
-	_prompt_plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_prompt_plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_prompt_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_prompt_plate.offset_top = -150.0
-	_prompt_plate.offset_bottom = -100.0
-	_prompt = _label(_prompt_plate, "", 22, HORIZONTAL_ALIGNMENT_CENTER)
-	_prompt.add_theme_color_override("font_color", AMBER)
-	_prompt_plate.visible = false
+	_prompt = DotKeyPrompt.new()
+	_prompt.name = "Prompt"
+	_prompt.font_size = 22
+	_prompt.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_prompt.offset_top = -150.0
+	_prompt.offset_bottom = -110.0
+	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_prompt)
+	_prompt.clear()
 
 	# A line in the middle for a checkpoint, a fall, a delivery.
 	_message = _label(self, "", 36, HORIZONTAL_ALIGNMENT_CENTER)
@@ -283,12 +282,20 @@ func show_prompt(text: String) -> void:
 	if _prompt == null:
 		return
 
-	_prompt.text = text
-	_prompt_plate.visible = text != ""
+	var parts := prompt_parts(text)
+	_prompt.show_prompt(parts[0], parts[1])
+
+
+## "E  Get out" as `["Get out", "E"]`: a short word before two spaces is the key; a sentence has none.
+static func prompt_parts(text: String) -> Array:
+	var at := text.find("  ")
+	if at < 1 or at > 4:
+		return [text, ""]
+	return [text.substr(at + 2), text.substr(0, at)]
 
 
 func prompt() -> String:
-	return _prompt.text if _prompt_plate != null and _prompt_plate.visible else ""
+	return _prompt.text() if _prompt != null else ""
 
 
 func show_money(amount: int) -> void:

@@ -5,7 +5,7 @@ extends "res://examples/headless_run_base.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 32
-const CHECKS := 261
+const CHECKS := 263
 
 
 
@@ -1146,6 +1146,11 @@ func _test_walking_client() -> void:
 	await _seconds(0.1)
 	var said: String = client.call("use_prompt")
 	_check(said.begins_with("E") and said.contains("Drive your"), "beside a salesperson the HUD says what E does", said)
+	var shown: String = client.hud.call("prompt")
+	_check(shown.contains("Drive your") and shown.ends_with("E"), "the prompt is a key plate: words, then the E key", shown)
+	var hud_script: GDScript = load("res://game/dd_hud.gd")
+	var plain: Array = hud_script.call("prompt_parts", "The Box Truck is $9; you have $0")
+	_check(plain[1] == "" and (hud_script.call("prompt_parts", "E  Get out") as Array) == ["Get out", "E"], "a sentence has no key; a short word before two spaces is one")
 	var e_key := InputEventKey.new()
 	e_key.physical_keycode = KEY_E
 	e_key.keycode = KEY_E
