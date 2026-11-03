@@ -13,8 +13,8 @@ routes=("$@")
 [ ${#routes[@]} -gt 0 ] || routes=(dd_foothills dd_river_cut dd_slate_quarry dd_snowline dd_wind_ridge dd_devils_spine)
 status=0
 for r in "${routes[@]}"; do
-    line=$(ROUTE="$r" SECS="${SECS:-600}" timeout 600 "${GODOT:-godot}" --headless --fixed-fps 60 --path . res://tools/drive.tscn 2>&1 | grep -E '^END')
-    echo "$r: ${line:-no result}"
+    line=$(ROUTE="$r" SECS="${SECS:-600}" timeout 600 "${GODOT:-godot}" --headless --fixed-fps 60 --path . res://tools/drive.tscn 2>&1 | grep -E "^(END|PARTS)")
+    echo "$r: ${line//$'\n'/ | }"
     [[ "$line" == *delivered* ]] || status=1
 done
 exit $status
