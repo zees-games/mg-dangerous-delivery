@@ -4,7 +4,7 @@ examples/dedicated.gd::_test_a_covered_seat_is_not_harmed	86
 examples/dedicated.gd::_test_rotation_file	93
 examples/dedicated.gd::_test_the_mountain_vote	93
 examples/handling.gd::_test_hairpins	87
-examples/headless_run.gd	1558
+examples/headless_run.gd	1456
 examples/headless_run.gd::_test_mountain	87
 examples/headless_run.gd::_test_roads_and_gates	131
 examples/headless_run.gd::_test_the_client_settings	99
