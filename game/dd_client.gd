@@ -183,6 +183,10 @@ func _build_gate() -> void:
 	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
 	# and uncover half of them.
 	gate.timeout_sec = 120.0
+	# Under a shell's cover (solo) a gate before dot-core v0.1.41 never lifts a cover it did not show.
+	gate.opened.connect(func() -> void:
+		if is_instance_valid(loading) and not loading.is_queued_for_deletion():
+			loading.hide_cover())
 
 	_cover_world()
 

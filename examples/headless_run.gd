@@ -4,8 +4,8 @@ extends "res://examples/headless_run_hazards.gd"
 ##   godot --headless --path . res://examples/headless_run.tscn
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
-const SECTIONS := 32
-const CHECKS := 263
+const SECTIONS := 33
+const CHECKS := 267
 
 
 
@@ -52,6 +52,7 @@ func _ready() -> void:
 	await _test_a_trailer()
 	await _test_the_client_settings()
 	await _test_walking_client()
+	await _test_solo_in_a_shell()
 	await _test_the_lot_makes_room()
 	await _test_sound_and_effects()
 	await _test_road_hazards()
