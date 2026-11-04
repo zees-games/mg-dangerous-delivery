@@ -3,8 +3,8 @@ extends "headless_net_base.gd"
 ## A server and a client in one process, over the link's loopback, each in its own physics world.
 ##   godot --headless --path . res://examples/headless_net.tscn
 
-const SECTIONS := 21
-const CHECKS := 99
+const SECTIONS := 22
+const CHECKS := 108
 
 
 func _ready() -> void:
@@ -31,6 +31,7 @@ func _ready() -> void:
 		await _test_the_lot_toys()
 	await _test_voice()
 	await _test_a_trailer()
+	await _test_trailer_damage_wire()
 	await _test_another_mountain()
 	await _test_bridge_decks()
 	_test_the_remote_workbench()

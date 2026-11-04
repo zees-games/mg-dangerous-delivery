@@ -8,28 +8,45 @@ const DdTrucks := preload("res://game/dd_trucks.gd")
 const DdTruck := preload("res://game/dd_truck.gd")
 const DdCargo := preload("res://game/dd_cargo.gd")
 const DdWalker := preload("res://game/dd_walker.gd")
+const DdTrailer := preload("res://game/dd_trailer.gd")
 
 var out := "screenshots/crash"
+var with_trailer := false
+var trailer: DdTrailer = null
 
 
 func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			out = arg.trim_prefix("--out=")
+		elif arg == "--trailer":
+			with_trailer = true
 
 	var built := _build_set()
 	var debris: DotVehicleDebris = built[0]
 	var ragdolls: DotPlayerRagdolls = built[1]
 
 	var trucks := DdTrucks.new()
+	var truck_id: StringName = &"semi" if with_trailer else &"box_truck"
 	var crates: Dictionary = DdCargo.new().get_load(&"crates")
 	var truck := DdTruck.new()
-	var made := truck.configure(&"box_truck", trucks.effective(&"box_truck"), trucks.tunables_for(&"box_truck", {}, crates), true, crates)
+	var made := truck.configure(truck_id, trucks.effective(truck_id), trucks.tunables_for(truck_id, {}, crates), true, crates)
 	assert(made.ok)
 	add_child(truck)
 	truck.place(Transform3D(Basis(), Vector3(0, truck.ride_height(), 12)))
 	truck.breakage.debris = debris
 	truck.wreck.fuse = 7.0
+
+	if with_trailer:
+		trailer = DdTrailer.new()
+		var spec: Dictionary = (trucks.get_truck(truck_id)["trailer"] as Dictionary).duplicate()
+		spec["load"] = {"units": 6, "each": 20.0, "strength": 9.0}
+		trailer.configure(spec, truck.half_length, 2.5, true, truck.rear_axle_z())
+		add_child(trailer)
+		trailer.place_behind(truck.global_transform)
+		trailer.hitch(truck)
+		trailer.breakage.debris = debris
+		trailer.wreck.fuse = 7.0
 	var boom: Array = [null]
 	truck.damaged.connect(func(e: Dictionary) -> void:
 		if str(e.get("kind", "")) == "wrecked":
@@ -62,6 +79,8 @@ func _ready() -> void:
 			truck.drive(c, 1.0 / 60.0)
 		if truck.global_position.z < -8.0 and not truck.wreck.is_wrecked():
 			truck.begin_crash(1 << 19)
+			if trailer != null:
+				trailer.begin_crash(1 << 19)
 		var at := truck.global_position
 		cam.look_at_from_position(at + Vector3(55, 6, 8), at)
 		await get_tree().physics_frame

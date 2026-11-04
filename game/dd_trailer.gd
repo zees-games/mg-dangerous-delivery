@@ -34,6 +34,12 @@ var breakage: DotVehicleBreakage = null
 var damage: DotVehicleDamage:
 	get:
 		return breakage.damage if breakage != null else null
+## Its tumble and explosion, as the tractor's; null with no breakage.
+var wreck: DotVehicleWreck = null
+
+## The breakable load as configured ({units, each, strength}), so a joiner can build the same units.
+var load_spec: Dictionary = {}
+var _mask_before: int = 1
 
 
 ## Builds it from [param spec] ({length, mass, colour}); [param draws] adds the mesh.
@@ -132,10 +138,16 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 		add_child(stripe)
 
 	var loads: Dictionary = spec.get("load", {})
+	load_spec = loads
 	var box := AABB(collider.position - shape.size * 0.5, shape.size)
 	breakage = DdTrailerDamage.build(self, box, get_node_or_null("Model") as Node3D, float(spec.get("toughness", 1.0)), loads)
 	if breakage != null:
 		breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
+		wreck = DotVehicleWreck.new()
+		wreck.name = "Wreck"
+		wreck.draws = draws
+		add_child(wreck)
+		DotLog.result(CHANNEL, "the trailer's wreck", wreck.setup(self, breakage))
 
 	if draws and lead > 0.05:
 		var bar := MeshInstance3D.new()
@@ -248,12 +260,27 @@ func set_grip(grip: float) -> void:
 func repair() -> void:
 	if breakage == null:
 		return
+	if wreck != null and wreck.is_wrecked():
+		wreck.reset()
+		collision_mask = _mask_before
+		breakage.repair()
+		damaged.emit({})
+		return
 	var worn := not damage.lost_parts().is_empty() or damage.distress() > 0.0
 	for i in damage.wheels.size():
 		worn = worn or damage.wheel_state(i) != DotVehicleDamage.Wheel.INTACT
 	if worn:
 		breakage.repair()
 		damaged.emit({})
+
+
+## Over the edge with its tractor: it tumbles on the mountain's layer [param ground] and explodes.
+func begin_crash(ground: int) -> void:
+	if wreck == null or wreck.is_wrecked():
+		return
+	_mask_before = collision_mask
+	collision_mask |= ground
+	wreck.crash()
 
 
 func describe() -> Dictionary:

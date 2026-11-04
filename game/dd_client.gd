@@ -336,7 +336,8 @@ func _on_truck_damaged(_key: StringName, event: Dictionary) -> void:
 		"wrecked":
 			var _boom := DotVehicleExplosion.spawn(game, event["at"] as Vector3, 1.5)
 			effects.shake_at(&"rock", event["at"] as Vector3, ROCK_SHAKE_FALLOFF * 2.0)
-			_throw_out_driver(_key, event["at"] as Vector3, event.get("velocity", Vector3.ZERO) as Vector3)
+			if str(event.get("body", "")) != "trailer":
+				_throw_out_driver(_key, event["at"] as Vector3, event.get("velocity", Vector3.ZERO) as Vector3)
 
 
 ## The driver of a truck that exploded, thrown clear and left to tumble down the mountain.

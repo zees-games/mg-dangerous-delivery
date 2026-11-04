@@ -6,6 +6,8 @@ const DdConfig := preload("res://game/dd_config.gd")
 const DdGame := preload("res://game/dd_game.gd")
 const DdNetBridge := preload("res://game/net/dd_net_bridge.gd")
 const DdTruck := preload("res://game/dd_truck.gd")
+const DdTrailer := preload("res://game/dd_trailer.gd")
+const DdRoute := preload("res://game/dd_route.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 const DdEvent := preload("res://game/net/dd_event.gd")
@@ -295,6 +297,57 @@ func _test_a_trailer() -> void:
 	_client_net.interpolate_frame(1.0)
 	_check(server_trailer != null and (mirror.trailer as Node3D).global_position.distance_to(server_trailer.global_position) < 1.0,
 		"where the server's is")
+	_finished_section()
+
+
+## The Semi's trailer breaks over the wire: tagged events, a joiner's state, the pay, and its wreck.
+func _test_trailer_damage_wire() -> void:
+	_section("the trailer's damage and wreck over the wire")
+	var driver: DdGame.Driver = _server_game.drivers[_key]
+	var trailer := driver.trailer as DdTrailer
+	var mirror := (_client_game.drivers[_key] as DdGame.Driver).trailer as DdTrailer
+	_check(trailer != null and mirror != null and trailer.damage != null and mirror.damage != null, "both ends have a trailer with a damage state")
+
+	var seen: Array = []
+	var on_hurt := func(_k: StringName, e: Dictionary) -> void: seen.append(e)
+	_server_game.truck_damaged.connect(on_hurt)
+	var _d: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_door_left"] as DotVehicleDamage.Part).centre, 8.0)
+	var pay: float = driver.trip.cargo
+	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as DotVehicleDamage.Part).centre, 12.0)
+	var _w: Variant = trailer.damage.lose_wheel(1)
+	trailer.breakage._show(_w, Vector3.ZERO, 0.0)
+	_exchange()
+	await _steps(2)
+	_server_game.truck_damaged.disconnect(on_hurt)
+	var parts := seen.filter(func(e: Dictionary) -> bool: return str(e.get("kind", "")) == "part")
+	_check(parts.size() >= 2 and parts.all(func(e: Dictionary) -> bool: return e.get("body") == "trailer" and str(e.get("id", "")).begins_with("trailer_")),
+		"a trailer hit is announced with body trailer and trailer_ part ids", str(seen))
+	_check(driver.trip.cargo < pay, "and a unit of the load lost costs pay", "%.2f -> %.2f" % [pay, driver.trip.cargo])
+	_check(mirror.damage.lost_parts().has(&"trailer_door_left") and mirror.damage.lost_parts().size() == trailer.damage.lost_parts().size()
+		and mirror.damage.lost_parts().filter(func(id: StringName) -> bool: return String(id).begins_with("trailer_cargo_")).size() > 0
+		and mirror.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST and not (_client_game.drivers[_key].truck as DdTruck).damage.lost_parts().has(&"trailer_door_left"),
+		"the client's trailer lost the same door, unit and wheel, and its tractor none of them", "%s vs server %s; seen %s" % [mirror.damage.lost_parts(), trailer.damage.lost_parts(), seen])
+
+	var body := _server_bridge._driver_body(_key)
+	_check(body.get("trailer_damage") is Dictionary and ((body["trailer_damage"] as Dictionary).get("lost", []) as Array).has("trailer_door_left"),
+		"a late joiner's DRIVER body carries the trailer's damage", str((body.get("trailer_damage", {}) as Dictionary).get("lost", [])))
+	_client_bridge._drop_mirror_truck(_key)
+	_client_bridge._apply_driver(body)
+	var joined := (_client_game.drivers[_key] as DdGame.Driver).trailer as DdTrailer
+	_check(joined != null and joined != mirror and joined.damage.lost_parts().has(&"trailer_door_left") and joined.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST,
+		"and the rebuilt mirror starts as battered as the server's trailer")
+
+	trailer.begin_crash(DdRoute.CAMERA_LAYER)
+	trailer.wreck.explode()
+	_exchange()
+	await _steps(2)
+	_check(joined.wreck.is_wrecked() and joined.damage.lost_parts().size() == joined.damage.parts.size(),
+		"a wrecked trailer is wrecked and stripped on the client too", "%d of %d" % [joined.damage.lost_parts().size(), joined.damage.parts.size()])
+	_check(bool(_server_bridge._driver_body(_key).get("trailer_wrecked", false)), "and a joiner is told it is a wreck")
+	trailer.repair()
+	_exchange()
+	await _steps(2)
+	_check(not joined.wreck.is_wrecked() and joined.damage.lost_parts().is_empty(), "a put-back mends it on both ends")
 	_finished_section()
 
 

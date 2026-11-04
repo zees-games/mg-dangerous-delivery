@@ -418,6 +418,7 @@ func _driver_body(key: StringName) -> Dictionary:
 
 		if driver.trailer != null:
 			body["trailer_net_id"] = int(_net_of.get(driver.trailer, 0))
+			body["trailer_load"] = (driver.trailer as DdTrailer).load_spec
 
 		# A joiner's mirror starts as battered as the server's truck is (no pieces thrown).
 		if truck.damage != null:
@@ -425,6 +426,7 @@ func _driver_body(key: StringName) -> Dictionary:
 
 		if driver.trailer != null and (driver.trailer as DdTrailer).damage != null:
 			body["trailer_damage"] = (driver.trailer as DdTrailer).damage.to_dict()
+			body["trailer_wrecked"] = (driver.trailer as DdTrailer).wreck != null and (driver.trailer as DdTrailer).wreck.is_wrecked()
 
 	return body
 
@@ -972,7 +974,7 @@ func _apply_driver(data: Dictionary) -> void:
 	elif current == null or int(_net_of.get(current, 0)) != net_id:
 		_drop_mirror_truck(key)
 		_mirror_truck(driver, net_id, StringName(str(data.get("truck_id", ""))), data.get("def", {}))
-		_mirror_trailer(driver, int(data.get("trailer_net_id", 0)), data.get("def", {}))
+		_mirror_trailer(driver, int(data.get("trailer_net_id", 0)), data.get("def", {}), data.get("trailer_load", {}))
 
 		var mirror := driver.truck as DdTruck
 		if mirror != null and mirror.breakage != null and data.get("damage") is Dictionary:
@@ -981,6 +983,8 @@ func _apply_driver(data: Dictionary) -> void:
 		var shown_trailer := driver.trailer as DdTrailer
 		if shown_trailer != null and shown_trailer.breakage != null and data.get("trailer_damage") is Dictionary:
 			var _shown_t := shown_trailer.breakage.apply_state(data["trailer_damage"])
+			if bool(data.get("trailer_wrecked", false)):
+				shown_trailer.breakage.broke.emit({"kind": "wrecked", "at": shown_trailer.global_position, "velocity": Vector3.ZERO})
 
 	driver_changed.emit(key)
 
@@ -1047,7 +1051,18 @@ func _apply_trailer_damage(trailer: DdTrailer, data: Dictionary) -> void:
 			if v is Array and (v as Array).size() == 3:
 				velocities[str(k)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
 
+	if (state.get("lost", []) as Array).is_empty() and not (state.get("wheels", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0) and not (state.get("wear", []) as Array).any(func(w: Variant) -> bool: return int(w) != 0):
+		trailer.repair()
+		return
+
 	var _shown := trailer.breakage.apply_state(state, velocities)
+
+	if str(data.get("event", "")) == "wrecked":
+		var at: Variant = data.get("at", [])
+		var moving: Variant = data.get("velocity", [])
+		trailer.breakage.broke.emit({"kind": "wrecked",
+			"at": Vector3(float(at[0]), float(at[1]), float(at[2])) if at is Array and (at as Array).size() == 3 else trailer.global_position,
+			"velocity": Vector3(float(moving[0]), float(moving[1]), float(moving[2])) if moving is Array and (moving as Array).size() == 3 else Vector3.ZERO})
 
 	for c: Variant in data.get("crates", []):
 		if c is Array and (c as Array).size() == 6:
@@ -1085,7 +1100,7 @@ func _mirror_truck(driver: DdGame.Driver, net_id: int, truck_id: StringName, def
 
 
 ## The trailer, mirrored: drawn where the server's is, frozen like every mirrored body.
-func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
+func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant, load_def: Variant = {}) -> void:
 	if net_id == 0 or not (def is Dictionary) or not ((def as Dictionary).get("trailer") is Dictionary):
 		return
 
@@ -1093,7 +1108,9 @@ func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
 	# The hitch where the server put it (over the tractor's rear axle), or the box is drawn a
 	# drawbar's length out of place on the replicated body.
 	var tractor := driver.truck as DdTruck
-	trailer.configure((def as Dictionary)["trailer"], tractor.half_length if tractor != null else 2.8, 2.5, game.draws,
+	var spec: Dictionary = ((def as Dictionary)["trailer"] as Dictionary).duplicate()
+	spec["load"] = load_def if load_def is Dictionary else {}
+	trailer.configure(spec, tractor.half_length if tractor != null else 2.8, 2.5, game.draws,
 		tractor.rear_axle_z() if tractor != null else INF)
 	trailer.freeze = true
 	trailer.name = "Trailer_%s" % String(driver.key)
@@ -1104,7 +1121,10 @@ func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
 		var key := driver.key
 		trailer.breakage.simulate = false
 		trailer.breakage.debris = game.debris()
-		trailer.damaged.connect(func(e: Dictionary) -> void: game.truck_damaged.emit(key, e))
+		trailer.damaged.connect(func(e: Dictionary) -> void:
+			var tagged := e.duplicate()
+			tagged["body"] = "trailer"
+			game.truck_damaged.emit(key, tagged))
 		trailer.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: game.truck_scraping.emit(key, at, speed))
 	var behaviour := DdBodyNet.new()
 	behaviour.name = "Net"

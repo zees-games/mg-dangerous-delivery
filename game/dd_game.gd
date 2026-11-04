@@ -1872,6 +1872,8 @@ func _step_driver(driver: Driver, delta: float) -> void:
 	if truck.wreck != null and (truck.wreck.is_wrecked() or (config.crash_depth > 0.0 and below > config.crash_depth)):
 		if not truck.wreck.is_wrecked():
 			truck.begin_crash(DdRoute.CAMERA_LAYER)
+			if driver.trailer != null:
+				(driver.trailer as DdTrailer).begin_crash(DdRoute.CAMERA_LAYER)
 
 			if road.terrain == null:
 				_lay_crash_floor(road, truck.global_position)
