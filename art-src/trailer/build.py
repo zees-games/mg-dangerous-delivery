@@ -66,19 +66,24 @@ b(-0.9, 0.9, -L - 0.07, -L - 0.04, ROOF - 0.35, ROOF - 0.20, T.DARK)
 for x in (-0.7, -0.35, 0.0, 0.35, 0.7):
     b(x - 0.06, x + 0.06, -L - 0.09, -L - 0.07, ROOF - 0.31, ROOF - 0.24, T.AMBER)
 b(-0.3, 0.3, -L - 0.10, -L - 0.04, -0.20, -0.05, T.DARK)
-# Rear doors: two leaves with a dark seam, hinges, latch bars and tail lamps.
-b(-W, W, L, L + 0.04, FLOOR + 0.1, ROOF, T.TEAL)
-b(-0.03, 0.03, L + 0.03, L + 0.06, FLOOR + 0.1, ROOF - 0.07, T.DARK)
-for x in (-1.2, -0.62, 0.62, 1.2):
-    b(x - 0.03, x + 0.03, L + 0.03, L + 0.06, -0.35, 0.8, T.DARK)
-for sx in (-1, 1):
+# Rear doors: two leaves (each its own node, hinged at the outer edge) with a dark seam, latch bars and tail lamps.
+for name, sx in (("trailer_door_left", -1), ("trailer_door_right", 1)):
+    k.begin_part(name, (sx * W, -(L + 0.02), 0.2))
+    xa, xb = (0.0, W) if sx > 0 else (-W, 0.0)
+    b(xa, xb, L, L + 0.04, FLOOR + 0.1, ROOF, T.TEAL)
+    for x in (sx * 0.62, sx * 1.2):
+        b(x - 0.03, x + 0.03, L + 0.03, L + 0.06, -0.35, 0.8, T.DARK)
     b(sx * 0.95 - 0.12, sx * 0.95 + 0.12, L + 0.04, L + 0.08, -0.45, -0.25, T.RED)
     b(sx * 0.95 - 0.12, sx * 0.95 + 0.12, L + 0.04, L + 0.08, -0.22, -0.14, T.AMBER)
+    k.end_part()
+b(-0.03, 0.03, L + 0.03, L + 0.06, FLOOR + 0.1, ROOF - 0.07, T.DARK)
 # Rear impact bar with red and white conspicuity tape, under the doors.
+k.begin_part("trailer_bumper", (0.0, -(L + 0.1), -0.7))
 b(-1.15, 1.15, L - 0.05, L + 0.18, -0.78, -0.62, T.PALE)
 for i in range(10):
     x = -1.15 + i * 0.23
     b(x, x + 0.23, L + 0.18, L + 0.20, -0.77, -0.63, T.RED if i % 2 == 0 else T.WHITE)
+k.end_part()
 # Side marker lamps and a side-skirt.
 for sx in (-1, 1):
     xa, xb = (W, W + 0.03) if sx > 0 else (-W - 0.03, -W)

@@ -58,4 +58,5 @@ for x in (-0.32, -0.12, 0.08, 0.28):
 for sx in (-1, 1):
     k.box(0.5 * sx - 0.12, 0.5 * sx + 0.12, 1.12, 1.15, 0.2, 0.55, T.DARK)
 
+k.damage_parts()
 k.finish("flatbed.glb")

@@ -18,70 +18,29 @@
 #  * Added: a dark frame (corner posts, roof rim, roof ribs) , a hazard chevron band down both
 #    sides, red tail lamps and a reflector bar on the rear, an amber beacon bar on the cab
 #    roof, mudflaps behind the rear wheels and .
-import bpy
-import bmesh
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import bmesh
+import bpy
+import truck_lib as T
 from mathutils import Vector
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SRC = os.path.join(ROOT, "assets", "kenney", "trucks", "delivery.glb")
-TEX = os.path.join(ROOT, "assets", "kenney", "trucks", "Textures", "colormap.png")
-OUT = os.path.join(ROOT, "assets", "models", "delivery_truck.glb")
 
 INSET = 0.03     # how far the cargo box's sides, top and rear are pulled in
 BOX_FRONT = -0.52  # y (Blender, front is -Y) where the cargo box starts
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.gltf(filepath=SRC)
-body = bpy.data.objects["body"]
-img = bpy.data.images.load(TEX)
-W, H = img.size
-px = list(img.pixels)
-
-
-def texel(rgb):
-    """A pixel in the middle of a solid block of exactly this colour, as a UV."""
-    want = tuple(c / 255.0 for c in rgb)
-    for y in range(3, H - 3, 5):
-        for x in range(3, W - 3, 5):
-            ok = True
-            for dy in (-3, 0, 3):
-                for dx in (-3, 0, 3):
-                    i = ((y + dy) * W + (x + dx)) * 4
-                    if max(abs(px[i + k] - want[k]) for k in range(3)) > 0.006:
-                        ok = False
-            if ok:
-                return ((x + 0.5) / W, (y + 0.5) / H)
-    raise RuntimeError("no block of %s" % (rgb,))
+k = T.Kit("delivery.glb")
+bm, mesh, uvl, body = k.bm, k.mesh, k.uvl, k.body
+lo, hi = k.lo, k.hi
+DARK, ORANGE, AMBER, RED, WHITE = T.DARK, T.ORANGE, T.AMBER, T.RED, T.WHITE
 
 
 def colour_at(uv):
-    x = min(W - 1, max(0, int(uv[0] * W)))
-    y = min(H - 1, max(0, int(uv[1] * H)))
-    i = (y * W + x) * 4
-    return tuple(int(round(px[i + k] * 255)) for k in range(3))
+    x = min(k.W - 1, max(0, int(uv[0] * k.W)))
+    y = min(k.H - 1, max(0, int(uv[1] * k.H)))
+    i = (y * k.W + x) * 4
+    return tuple(int(round(k.px[i + c] * 255)) for c in range(3))
 
-
-DARK = texel((56, 56, 61))
-ORANGE = texel((255, 126, 68))
-AMBER = texel((255, 194, 20))
-RED = texel((222, 67, 62))
-WHITE = texel((255, 255, 255))
-
-# Everything below is in the body's own space, so bake its object transform in first.
-# Only the body: transform_apply on the wheels would zero their nodes' positions, which DdTruck reads.
-bpy.ops.object.select_all(action="DESELECT")
-bpy.context.view_layer.objects.active = body
-body.select_set(True)
-bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-mesh = body.data
-bm = bmesh.new()
-bm.from_mesh(mesh)
-uvl = bm.loops.layers.uv.active
-
-lo = Vector((min(v.co.x for v in bm.verts), min(v.co.y for v in bm.verts), min(v.co.z for v in bm.verts)))
-hi = Vector((max(v.co.x for v in bm.verts), max(v.co.y for v in bm.verts), max(v.co.z for v in bm.verts)))
-print("BOUNDS BEFORE", tuple(lo), tuple(hi))
 
 # 1. Repaint: faces whose texel is the kit's green go to hazard orange.
 repainted = 0
@@ -89,7 +48,7 @@ for f in bm.faces:
     c = colour_at(f.loops[0][uvl].uv)
     if c[1] > c[0] + 40 and c[1] > c[2] + 20:
         for l in f.loops:
-            l[uvl].uv = ORANGE
+            l[uvl].uv = k.texel(ORANGE)
         repainted += 1
 print("REPAINTED", repainted)
 
@@ -110,16 +69,7 @@ for v in bm.verts:
 print("PULLED", pulled)
 
 
-def box(x0, x1, y0, y1, z0, z1, uv):
-    """An axis-aligned slab, all six faces on one texel."""
-    r = bmesh.ops.create_cube(bm, size=1.0)
-    verts = r["verts"]
-    for v in verts:
-        v.co = Vector((x1 if v.co.x > 0 else x0, y1 if v.co.y > 0 else y0, z1 if v.co.z > 0 else z0))
-    faces = {f for v in verts for f in v.link_faces}
-    for f in faces:
-        for l in f.loops:
-            l[uvl].uv = uv
+box = k.box
 
 
 X, Y, Z = hi.x, hi.y, hi.z
@@ -167,15 +117,5 @@ for sx in (-1, 1):
     xc = 0.60 * sx
     box(xc - 0.15, xc + 0.15, 0.95, 0.98, lo.z + 0.01, 0.42, DARK)
 
-bm.normal_update()
-bm.to_mesh(mesh)
-bm.free()
-
-hi2 = Vector((max(v.co.x for v in mesh.vertices), max(v.co.y for v in mesh.vertices), max(v.co.z for v in mesh.vertices)))
-lo2 = Vector((min(v.co.x for v in mesh.vertices), min(v.co.y for v in mesh.vertices), min(v.co.z for v in mesh.vertices)))
-print("BOUNDS AFTER", tuple(lo2), tuple(hi2))
-assert (hi2 - hi).length < 1e-3 and (lo2 - lo).length < 1e-3, "bounds moved"
-
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
-bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_yup=True, export_apply=True)
-print("WROTE", OUT)
+k.damage_parts(door_z=(0.17, 0.32), mirror_z=0.2, door_y=(0.3, 0.6), mirror_y=(0.45, 0.6))
+k.finish("delivery_truck.glb")

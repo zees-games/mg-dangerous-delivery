@@ -63,4 +63,5 @@ for x in (-0.34, -0.14, 0.06, 0.26):
 for sx in (-1, 1):
     k.box(0.5 * sx - 0.12, 0.5 * sx + 0.12, 1.12, 1.15, 0.2, 0.55, T.DARK)
 
+k.damage_parts()
 k.finish("semi.glb")

@@ -70,4 +70,5 @@ k.box(-0.55, 0.55, -1.75, -1.67, 0.40, 0.48, T.PALE)
 for sx in (-1, 1):
     k.box(0.5 * sx - 0.12, 0.5 * sx + 0.12, 0.85, 0.88, 0.2, 0.55, T.DARK)
 
+k.damage_parts()
 k.finish("bulk.glb")
