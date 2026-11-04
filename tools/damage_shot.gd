@@ -13,17 +13,29 @@ var out := "screenshots/damage.png"
 ## Where the camera sits, in the truck's frame (x right, y up, z back), and what it looks at.
 var eye := Vector3(-6.0, 2.6, 5.5)
 var look := Vector3(0, 0.6, 2.5)
+## --lose=a,b: only these parts come off, the truck stays put (to check which side a part was on).
+var lose: Array = []
 
 
-func _ready() -> void:
+func _parse_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--truck="):
 			truck_id = arg.trim_prefix("--truck=")
 		elif arg.begins_with("--out="):
 			out = arg.trim_prefix("--out=")
+		elif arg.begins_with("--lose="):
+			lose = arg.trim_prefix("--lose=").split(",")
+		elif arg.begins_with("--eye="):
+			eye = _vec(arg.trim_prefix("--eye="))
+		elif arg.begins_with("--look="):
+			look = _vec(arg.trim_prefix("--look="))
 		elif arg == "--front":
 			eye = Vector3(-4.5, 1.4, -4.0)
 			look = Vector3(-0.8, 0.4, -1.2)
+
+
+func _ready() -> void:
+	_parse_args()
 
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
@@ -82,21 +94,24 @@ func _ready() -> void:
 		await get_tree().physics_frame
 
 	var b := truck.breakage
-	b._show(b.damage.pop(0), Vector3.ZERO, 0.0)
-	b._show(b.damage.lose_wheel(3), Vector3.ZERO, 0.0)
+	if lose.is_empty():
+		b._show(b.damage.pop(0), Vector3.ZERO, 0.0)
+		b._show(b.damage.lose_wheel(3), Vector3.ZERO, 0.0)
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color(0.62, 0.45, 0.25)
 	b.broke.connect(func(e: Dictionary) -> void:
 		if str(e.get("id", "")).begins_with("cargo_"):
 			var _c := debris.spawn_box(Transform3D(truck.global_basis, e["at"]), Vector3(0.9, 0.7, 0.9), wood, e["velocity"], Vector3(1.5, 0.5, -1.0), 60.0))
-	for id: StringName in [&"door_left", &"mirror_left", &"cargo_3", &"bumper_rear"]:
+	var ids: Array = [&"door_left", &"mirror_left", &"cargo_3", &"bumper_rear"] if lose.is_empty() else lose
+	for id: StringName in ids:
 		if b.damage.parts.has(id):
 			b._show(b.damage.lose_part(id), (b.damage.parts[id] as DotVehicleDamage.Part).centre, 5.0)
 
 	# Rolls on a little, dragging its hub, so the wheel lies behind it and the corner sits down.
-	for i in 150:
+	for i in (150 if lose.is_empty() else 40):
 		var c := DotVehicleCommand.new()
-		c.throttle = 1.0
+		c.throttle = 1.0 if lose.is_empty() else 0.0
+		c.brake = 0.0 if lose.is_empty() else 1.0
 		truck.drive(c, 1.0 / 60.0)
 		cam.look_at_from_position(truck.global_position + truck.global_basis * eye, truck.global_position + truck.global_basis * look)
 		await get_tree().physics_frame
@@ -113,3 +128,8 @@ func _spark(at: Vector3) -> void:
 	var fx := (load("res://effects/sparks.tscn") as PackedScene).instantiate() as Node3D
 	add_child(fx)
 	fx.global_position = at
+
+
+func _vec(text: String) -> Vector3:
+	var p := text.split(",")
+	return Vector3(float(p[0]), float(p[1]), float(p[2]))
