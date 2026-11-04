@@ -130,7 +130,7 @@ func _game_load() -> DotResult:
 
 	world.bank.store = DdBank.SqlStore.new(bank_driver) if bank_driver != null else DdBank.JsonStore.new(bank_file)
 
-	# Routes from the map packs cfg/content.yml names, beside routes/; built before anybody joins.
+	# Routes from the map packs cfg/content.yml names, beside routes/.
 	var delivered := 0
 
 	for root in await DotGameContent.map_dirs(server, "routes"):
@@ -148,12 +148,53 @@ func _game_load() -> DotResult:
 		var peer := int((bridge as DdNetBridge).peer_of(driver_key))
 		return peer <= 0 or can_peer_be_harmed(peer)
 
+	_bind_commands(world)
+
+	# Stand-ins: dot-server's DotBotQuota, defaulting to the config's `bots` in fill mode.
+	_quota = DotBotQuota.install(self, world.config.bots)
+
+	# dot-bot's `bot_difficulty` and bundled `bot_*` settings; a road reads `bot_aggression` and `bot_reaction` ([method DdGame.tune_stand_in]).
+	var _bot_cvars := DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)
+
+	_bind_view_cvars(world)
+
+	_bind_tunables(world)
+
+	# mp_solidplayers, REPLICATED: a client follows it with the block rules.
+	var _bodies := world.body_rules.bind_cvars(
+		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+
+	# dd_ambient*: REPLICATED (each client plays its own ambience); the directory cvar stays local.
+	var _ambient := world.ambient_rules.bind_cvars(
+		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED,
+		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY)
+
+	var configured := _bind_config(world)
+	if not configured.ok:
+		return configured
+
+	if bridge != null:
+		bridge.connect("say_requested", _on_say_requested)
+
+	# The real name arrives after the seat (`player_admitted`), or from an operator (`player_renamed`).
+	hook_post("player_admitted", _on_profile)
+	hook_post("player_renamed", _on_profile)
+
+	_build_progress(world)
+	_build_vote(world)
+
+	_wire_map(world)
+	world.mountain_changed.connect(_on_mountain_changed)
+	return DotResult.success(null)
+
+
+## The dd_* commands and the rotation file cvar.
+func _bind_commands(world: DdGame) -> void:
 	add_command("dd_status", _cmd_status, "Show the routes and who is driving where")
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
 	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", DotAdminFlags.CHANGEMAP)
 	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
-	# maps.yml (read when the world was built): its `commands: names:` block renames the game's own
-	# map command as it does dot-vote's, by the role "dd_mountain".
+	# maps.yml's `commands: names:` renames the map command by the role "dd_mountain".
 	add_command(world.command_name("dd_mountain", "dd_mountain"), _cmd_mountain,
 		"Show the mountains, or move the server to one now: dd_mountain [id] (an unlisted one too)", DotAdminFlags.CHANGEMAP)
 	add_command("dd_rotation", _cmd_rotation, "dd_rotation [name]: switch to a rotation in maps.yml, or list them", DotAdminFlags.CHANGEMAP)
@@ -168,23 +209,15 @@ func _game_load() -> DotResult:
 				vote.refresh_mountains()
 	)
 
-	# How many stand-ins is dot-server's DotBotQuota (`bot_quota`, `bot_quota_mode`); the default is
-	# the config's `bots` in fill mode, so an unchanged server drives the same mountain.
-	_quota = DotBotQuota.install(self, world.config.bots)
 
-	# How well the stand-ins drive: dot-bot's `bot_difficulty` (easy, medium, hard, nightmare;
-	# medium by default) and the `bot_*` settings it bundles, held on the game. A road reads two
-	# of them, `bot_aggression` and `bot_reaction` (see [method DdGame.tune_stand_in]).
-	var _bot_cvars := DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)
-
-	# The lot's toys: dot-props' sv_toys* set. REPLICATED, because a client hides the toys the
-	# server took away.
+## The lot's toys, the camera rule and the deprecated dd_bots, all cvars.
+func _bind_view_cvars(world: DdGame) -> void:
+	# The lot's toys: dot-props' sv_toys* set, REPLICATED so a client hides what the server took away.
 	var _toys := world.toy_rules.bind_cvars(
 		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
 	)
 
-	# The family's `mp_forceview` (dot-player-controller's numbering, bound here because it covers
-	# the cab too): 0 any camera, 1 first person only, 2 chase and high only. REPLICATED.
+	# `mp_forceview` (dot-player-controller's numbering): 0 any camera, 1 cab only, 2 chase and high only. REPLICATED.
 	var _view := add_cvar("mp_forceview", "0",
 		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
 		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
@@ -198,37 +231,6 @@ func _game_load() -> DotResult:
 		_bots.changed.connect(func(_old: String, _new: String) -> void:
 			if _quota != null and _quota.quota_cvar != null:
 				var _set := _quota.quota_cvar.set_value(str(maxi(_bots.get_int(), 0))))
-
-	_bind_tunables(world)
-
-	# mp_solidplayers, REPLICATED: a client follows it with the block rules.
-	var _bodies := world.body_rules.bind_cvars(
-		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
-
-	# dd_ambient*: REPLICATED, because each client plays its own ambience under the server's intent; the directory cvar stays local.
-	var _ambient := world.ambient_rules.bind_cvars(
-		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED,
-		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY)
-
-	# After the hand cvars above: the binder skips a name that is taken.
-	var configured := _bind_config(world)
-	if not configured.ok:
-		return configured
-
-	if bridge != null:
-		bridge.connect("say_requested", _on_say_requested)
-
-	# Admission finishes after the seat, so the real name arrives as `player_admitted`; an
-	# operator's `platform_name` is `player_renamed`. Both are a DRIVER again.
-	hook_post("player_admitted", _on_profile)
-	hook_post("player_renamed", _on_profile)
-
-	_build_progress(world)
-	_build_vote(world)
-
-	_wire_map(world)
-	world.mountain_changed.connect(_on_mountain_changed)
-	return DotResult.success(null)
 
 
 ## The dd_* cvars that edit one config field or one weather number.
@@ -416,23 +418,40 @@ func _game_unload() -> void:
 	noblock = null
 
 
-## The players' vote for the next mountain, over dot-vote: `!vote`, `!rtv`, `!nominate`, on dot-vote's own clock (no rounds here).
-## A server owner reshapes it in `user://cfg/delivery_vote.json` or `game.yml`'s `metadata: mountain_vote:`.
-## A vote that cannot be built is logged and the server stays on its mountain.
+## The players' vote for the next mountain, over dot-vote (`!vote`, `!rtv`, `!nominate`), on its own clock; reshaped in `user://cfg/delivery_vote.json` or `game.yml`'s `metadata: mountain_vote:`. A vote that cannot be built is logged and the server stays put.
 func _build_vote(world: DdGame) -> void:
 	vote = DdVote.new()
 	vote.name = "MountainVote"
 	vote.minutes = world.config.mountain_minutes
 	vote.commands_spec_fn = world.rotation_commands
+	_wire_vote_callbacks(world)
+
+	# The haul is this game's round.
+	vote.round_in_progress_fn = _anyone_hauling
+
+	add_child(vote)
+	var made := vote.setup()
+
+	if not made.ok:
+		DotLog.result(CHANNEL, "the mountain vote; the server stays on its mountain", made)
+		vote.queue_free()
+		vote = null
+		return
+
+	var commanded := vote.install_commands(self)
+	DotLog.result(CHANNEL, "the mountain vote's commands", commanded)
+
+	_wire_vote_menu(world)
+
+## What the vote asks of the world and the server: rotation, voters, announcements, the ballot.
+func _wire_vote_callbacks(world: DdGame) -> void:
 	vote.in_rotation_fn = func(id: StringName) -> bool: return world.in_rotation(id)
 	vote.rotation_order_fn = func() -> Array:
 		return world.rotation_mountains().map(func(m: Dictionary) -> StringName: return StringName(str(m["id"])))
 	vote.mountains_fn = func() -> Array:
 		var out: Array = []
 
-		# The game's own only: the Workshop's come from the source's own follow, which reads
-		# the index on every ballot and so shows none of them online.
-		# maps.yml: a mountain outside the active rotation is not balloted or nominated.
+		# The game's own only (the Workshop's come from the source's own follow), and only those in maps.yml's active rotation.
 		for mountain in world.rotation_mountains():
 			if not world.is_workshop(mountain["id"]):
 				out.append([mountain["id"], mountain["name"]])
@@ -440,7 +459,6 @@ func _build_vote(world: DdGame) -> void:
 		return out
 	vote.apply_fn = func(id: StringName) -> DotResult:
 		return _change_mountain(id)
-	# People only, by session: a stand-in is not a voter.
 	vote.voters_fn = func() -> Array:
 		var out: Array = []
 
@@ -459,7 +477,6 @@ func _build_vote(world: DdGame) -> void:
 	vote.is_admin_fn = func(voter: StringName) -> bool:
 		var session := server.session_by_userid(String(voter).to_int()) if server != null else null
 		return session != null and session.has_permission(DotAdminFlags.CHANGEMAP)
-	# A votekick on screen: the mountain ballot waits rather than fighting it for the keys.
 	vote.busy_fn = func() -> bool:
 		return server != null and server.votes != null and server.votes.is_active()
 	vote.ballot_fn = func(state: Dictionary) -> void:
@@ -481,30 +498,15 @@ func _build_vote(world: DdGame) -> void:
 		var avatar: Variant = session.identity.get("avatar_url") if session.identity != null else ""
 		return {"name": session.display_name, "avatar": avatar if avatar is String else ""}
 
-	# The haul is this game's round: a road with no person on it has nothing to wait for.
-	vote.round_in_progress_fn = _anyone_hauling
 
-	add_child(vote)
-	var made := vote.setup()
-
-	if not made.ok:
-		DotLog.result(CHANNEL, "the mountain vote; the server stays on its mountain", made)
-		vote.queue_free()
-		vote = null
-		return
-
-	var commanded := vote.install_commands(self)
-	DotLog.result(CHANNEL, "the mountain vote's commands", commanded)
-
-	# The map menu (M), dot-vote's: a player holding the owner's `sv_map_menu_flag` moves the
-	# world to another mountain now, and sees the same rows a solo player does. Read by name,
-	# because a server on a dot-vote older than the menu has no `map_menu` and runs without it.
+## The map menu (M), the vote-minutes cvar and the voter forgetting on disconnect.
+func _wire_vote_menu(world: DdGame) -> void:
+	# The map menu (M), dot-vote's: `sv_map_menu_flag` moves the world now. By name: an older dot-vote has no `map_menu`.
 	var menu_half: Variant = vote.commands.get(&"map_menu") if vote.commands != null else null
 	if menu_half is Object:
 		(menu_half as Object).set(&"change_fn", _change_mountain)
 		(menu_half as Object).set(&"rows_fn", func(_rows: Array) -> Array: return world.mountain_rows())
 
-	# From the next mountain on: the clock running now keeps the limit it started with.
 	var minutes := add_cvar("dd_vote_minutes", str(world.config.mountain_minutes),
 		"Minutes a mountain is played before the vote for the next one (0: rock the vote only). From the next mountain on.")
 

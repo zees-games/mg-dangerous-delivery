@@ -43,11 +43,7 @@ func _ready() -> void:
 		client.autopilot = true
 
 	add_child(client)
-	for _i in 600:
-		if client.gate.is_open():
-			break
-
-		await get_tree().physics_frame
+	await _wait_gate(client)
 	client.game.config.levels_unlock_in_order = false
 
 	if not action.is_empty():
@@ -67,11 +63,7 @@ func _ready() -> void:
 		client._frame_garage_camera()
 
 		# The new mountain is covered until it is laid.
-		for _i in 600:
-			if client.gate.is_open():
-				break
-
-			await get_tree().physics_frame
+		await _wait_gate(client)
 
 	var truck := str(_args.get("truck", ""))
 
@@ -111,21 +103,7 @@ func _ready() -> void:
 			at_m = float(ledged.ledges[0]["d"]) - 14.0
 
 	if at_m > 0.0 and not on_foot:
-		await get_tree().physics_frame
-		var me = client.game.drivers[client.local_key]
-		var road = client.game.routes[me.trip.route_id]
-		var where: Transform3D = road.transform_at(at_m, 0.8)
-		where.origin += road.position
-		me.truck.place(where)
-
-		# Re-hitched, as the game does on every teleport: a joint whose two bodies jumped
-		# apart yanks them back together (the first render: the truck dragged back to its
-		# trailer at the lot, 43% of the load gone).
-		if me.trailer != null:
-			me.trailer.rehitch(me.truck)
-		me.trip.distance = at_m
-		me.trip.hint = road.index_at_distance(at_m)
-		me.autopilot.set_route(client.game._global_points(me.trip.route_id, at_m))
+		await _place_along(client, at_m)
 
 	if deck != null:
 		deck.call("_collapse")
@@ -134,29 +112,11 @@ func _ready() -> void:
 	var hazard := str(_args.get("hazard", ""))
 
 	if hazard != "" and not on_foot and client.game.disasters.linked():
-		var me2 = client.game.drivers[client.local_key]
-		var road2 = client.game.routes[me2.trip.route_id]
-		var ahead: Transform3D = road2.transform_at(me2.trip.distance + 45.0, 0.0)
-		var cfg: Dictionary = client.game.disasters.hazards[hazard]
-		var made: DotResult = client.game.disasters.manager.call("start", client.game.disasters.KINDS[StringName(hazard)], {
-			"origin": road2.position + ahead.origin, "heading": atan2(ahead.basis.x.x, ahead.basis.x.z),
-			"intensity": float(cfg["intensity"]) * float(_args.get("boost", "1")), "duration": float(cfg["duration"]),
-			"radius": float(cfg["radius"]),
-		})
-		# Elapsed set, not stepped: a step that long would apply fifteen seconds of push at once.
-		if made.ok:
-			(made.value as Object).set("elapsed", float(cfg["duration"]) * 0.5)
-			await get_tree().physics_frame
+		await _start_hazard(client, hazard)
 
 	# Other people on foot, walking to the showroom and round it: what a player sees of
 	# everybody else in the lot (the client draws each one; offline they are the world's).
-	var people := int(_args.get("people", "0"))
-	var walkers: Array = []
-
-	for i in people:
-		var key := StringName("person%d" % i)
-		var _who = client.game.join(key, ["Ana", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal"][i % 8])
-		walkers.append(key)
+	var walkers := _add_people(client, int(_args.get("people", "0")))
 
 	if not walkers.is_empty():
 		_walk_people(client, walkers)
@@ -188,6 +148,66 @@ func _ready() -> void:
 
 	_place_view_camera(client, view)
 
+	await _capture(client, view)
+
+## Put the truck at_m metres along its route, trailer re-hitched.
+func _place_along(client: DdClient, at_m: float) -> void:
+	await get_tree().physics_frame
+	var me = client.game.drivers[client.local_key]
+	var road = client.game.routes[me.trip.route_id]
+	var where: Transform3D = road.transform_at(at_m, 0.8)
+	where.origin += road.position
+	me.truck.place(where)
+
+	# Re-hitched, as the game does on every teleport: a joint whose two bodies jumped
+	# apart yanks them back together (the first render: the truck dragged back to its
+	# trailer at the lot, 43% of the load gone).
+	if me.trailer != null:
+		me.trailer.rehitch(me.truck)
+	me.trip.distance = at_m
+	me.trip.hint = road.index_at_distance(at_m)
+	me.autopilot.set_route(client.game._global_points(me.trip.route_id, at_m))
+
+
+## A stage hazard a short way up the road, at its mid-life.
+func _start_hazard(client: DdClient, hazard: String) -> void:
+	var me2 = client.game.drivers[client.local_key]
+	var road2 = client.game.routes[me2.trip.route_id]
+	var ahead: Transform3D = road2.transform_at(me2.trip.distance + 45.0, 0.0)
+	var cfg: Dictionary = client.game.disasters.hazards[hazard]
+	var made: DotResult = client.game.disasters.manager.call("start", client.game.disasters.KINDS[StringName(hazard)], {
+		"origin": road2.position + ahead.origin, "heading": atan2(ahead.basis.x.x, ahead.basis.x.z),
+		"intensity": float(cfg["intensity"]) * float(_args.get("boost", "1")), "duration": float(cfg["duration"]),
+		"radius": float(cfg["radius"]),
+	})
+	# Elapsed set, not stepped: a step that long would apply fifteen seconds of push at once.
+	if made.ok:
+		(made.value as Object).set("elapsed", float(cfg["duration"]) * 0.5)
+		await get_tree().physics_frame
+
+
+## Other people on foot, as join() makes them; returns their keys.
+func _add_people(client: DdClient, people: int) -> Array:
+	var walkers: Array = []
+
+	for i in people:
+		var key := StringName("person%d" % i)
+		var _who = client.game.join(key, ["Ana", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal"][i % 8])
+		walkers.append(key)
+
+	return walkers
+
+
+func _wait_gate(client: DdClient) -> void:
+	for _i in 600:
+		if client.gate.is_open():
+			break
+
+		await get_tree().physics_frame
+
+
+## The extras on the view (ballot, maps menu, chat), then the frame saved and the shot's sequence recorded.
+func _capture(client: DdClient, view: String) -> void:
 	if str(_args.get("ballot", "0")) == "1":
 		await _show_ballot(client.game)
 

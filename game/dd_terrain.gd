@@ -126,9 +126,8 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	var started := Time.get_ticks_usec()
 
-				# Per sample: half width, bank drop and how much cliff stands on each side. The cliff tapers
-				# INSIDE the wall's stretch (eroded, then smoothed), never past it: dilated, the mountain
-				# began before its wall, a hillside with no collision under it.
+	# Per sample: half width, bank drop, cliff on each side. The cliff tapers inside the wall's stretch
+	# (eroded, smoothed), never past it: dilated, the mountain began before its wall, with no collision.
 	var half := PackedFloat32Array()
 	var bank_drop := PackedFloat32Array()
 	var raw_left := PackedFloat32Array()
@@ -158,7 +157,58 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 	var cliff_left := _smooth(_erode(raw_left, 6), 6)
 	var cliff_right := _smooth(_erode(raw_right, 6), 6)
 
-	# The grid: every sample and both pads, plus the margin.
+	_size_grid(points, pads, pad_half)
+	var count := nx * nz
+
+	await _pause()
+	_nearest_samples(points)
+	await _pause()
+	_second_samples(points)
+	await _pause()
+
+	heights.resize(count)
+	beyond.resize(count)
+
+	_yaws = yaws
+	_half = half
+	_cliff_left = cliff_left
+	_cliff_right = cliff_right
+	_wall_height = wall_height
+	_slab = slab
+	_drop_slope = drop_slope
+
+	_wish_all(count)
+
+	# Where two stretches of road meet in the grid (either leg of a switchback) their wishes
+	# disagree by tens of metres across one cell. Smoothed before the band is applied, so the
+	# smoothing never drags the band's trench up out from under the road.
+	await _pause()
+
+	for _pass in 3:
+		_blur()
+		await _pause()
+
+	_roughen(count)
+
+	await _pause()
+
+	# The lot and the depot stand on ground: a bank under each, out to EMBANKMENT metres. The
+	# mountain gives way past the road's ends, and without this both pads stood on nothing at
+	# the edge of the lake, a slab in the air seen from every hairpin above them.
+	for pad: Dictionary in pads:
+		_bank_up_pad(pad["centre"], pad["basis"], pad_half, (pad["centre"] as Vector3).y - slab - CLEARANCE)
+
+	await _pause()
+
+	_hold_bands(points, half, bank_drop, pads, pad_half, slab, keep)
+
+	await _pause()
+	_normals()
+	DotLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})
+
+
+## The grid's origin and size: every sample and both pads, plus the margin.
+func _size_grid(points: PackedVector3Array, pads: Array, pad_half: Vector2) -> void:
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 
@@ -175,27 +225,10 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 	origin = lo - Vector2(MARGIN, MARGIN)
 	nx = int(ceil((hi.x - lo.x + MARGIN * 2.0) / CELL)) + 1
 	nz = int(ceil((hi.y - lo.y + MARGIN * 2.0) / CELL)) + 1
-	var count := nx * nz
 
-	await _pause()
-	_nearest_samples(points)
-	await _pause()
-	_second_samples(points)
-	await _pause()
 
-	# What the ground wants to be: the nearest sample's cliff side climbs, its drop side falls
-	# under the drop's rock slope to the water.
-	heights.resize(count)
-	beyond.resize(count)
-
-	_yaws = yaws
-	_half = half
-	_cliff_left = cliff_left
-	_cliff_right = cliff_right
-	_wall_height = wall_height
-	_slab = slab
-	_drop_slope = drop_slope
-
+## What the ground wants to be: the nearest sample's cliff side climbs, its drop side falls under the drop's rock slope to the water.
+func _wish_all(count: int) -> void:
 	for k in count:
 		var v := Vector2(origin.x + float(k % nx) * CELL, origin.y + float(k / nx) * CELL)
 		var near := _wish(nearest[k], v)
@@ -211,15 +244,9 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 			var w_other := 1.0 / pow(maxf(other.y + _half[second[k]], 1.0), 3.0)
 			heights[k] = (near.x * w_near + other.x * w_other) / (w_near + w_other)
 
-	# Where two stretches of road meet in the grid (either leg of a switchback) their wishes
-	# disagree by tens of metres across one cell. Smoothed before the band is applied, so the
-	# smoothing never drags the band's trench up out from under the road.
-	await _pause()
 
-	for _pass in 3:
-		_blur()
-		await _pause()
-
+## Rough ground, rougher the further from the road, and down to the water at the grid's edge.
+func _roughen(count: int) -> void:
 	for k in count:
 		var x := origin.x + float(k % nx) * CELL
 		var z := origin.y + float(k / nx) * CELL
@@ -233,18 +260,10 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 		var edge := float(mini(mini(gx, nx - 1 - gx), mini(gz, nz - 1 - gz))) * CELL
 		heights[k] = lerpf(water_y - 8.0, heights[k], smoothstep(0.0, FALLOFF, edge))
 
-	await _pause()
 
-	# The lot and the depot stand on ground: a bank under each, out to EMBANKMENT metres. The
-	# mountain gives way past the road's ends, and without this both pads stood on nothing at
-	# the edge of the lake, a slab in the air seen from every hairpin above them.
-	for pad: Dictionary in pads:
-		_bank_up_pad(pad["centre"], pad["basis"], pad_half, (pad["centre"] as Vector3).y - slab - CLEARANCE)
-
-	await _pause()
-
-	# The band, last: nothing above may undo it.
-	for i in n:
+## The band, last: nothing above may undo it.
+func _hold_bands(points: PackedVector3Array, half: PackedFloat32Array, bank_drop: PackedFloat32Array, pads: Array, pad_half: Vector2, slab: float, keep: PackedVector3Array) -> void:
+	for i in points.size():
 		_hold_under(Vector2(points[i].x, points[i].z), half[i] + BAND, points[i].y - bank_drop[i] - slab - CLEARANCE)
 
 	for pad: Dictionary in pads:
@@ -252,10 +271,6 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	for p in keep:
 		_hold_under(Vector2(p.x, p.z), KEEP_HALF + BAND, p.y - slab - CLEARANCE)
-
-	await _pause()
-	_normals()
-	DotLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})
 
 
 ## One frame back to the engine when [member tree] is set; nothing otherwise.
