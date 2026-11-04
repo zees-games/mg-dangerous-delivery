@@ -12,7 +12,6 @@ game/dd_client.gd::use_choice::string_build	1
 game/dd_client.gd::use_prompt::string_build	1
 game/dd_game.gd::_deliver::string_build	1
 game/dd_game.gd::_drop_boulder::string_build	3
-game/dd_game.gd::_make_truck::connect_unguarded	2
 game/dd_game.gd::_make_truck::duplicate	1
 game/dd_game.gd::_make_truck::string_build	2
 game/dd_game.gd::_park::alloc_array	1

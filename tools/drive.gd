@@ -51,8 +51,7 @@ func _physics_process(delta: float) -> void:
 		print("t=%.0f %s speed=%.1f" % [t, d.trip.describe() if d.trip else "garage", game.truck_speed(d)])
 	if t > float(OS.get_environment("SECS") if OS.get_environment("SECS") != "" else "120") or (d.trip and d.trip.state == 3):
 		var lost: Array = tr_lost(d)
-		print("PARTS lost=%d %s" % [lost.size(), lost])
-		print("TILT max_tilt=%.1f max_pitch=%.1f flips=%d" % [max_roll, max_pitch, flips])
+		print("PARTS lost=%d %s\nTILT max_tilt=%.1f max_pitch=%.1f flips=%d" % [lost.size(), lost, max_roll, max_pitch, flips])
 		print("END t=%.0f %s paid=%d money=%d" % [t, d.trip.describe() if d.trip else "-", d.trip.paid if d.trip else -1, game.bank.money(&"bot1")])
 		get_tree().quit()
 

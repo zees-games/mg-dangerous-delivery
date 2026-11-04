@@ -737,6 +737,14 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 
 ## Builds [param driver]'s truck [param truck_id] with [param load_def] (empty for none), and
 ## its trailer when [param with_trailer] and the truck pulls one. Not placed.
+## Reports a part's damage and scraping to the world; guarded so a part is wired once.
+func _wire_damage(part: Node, damaged: Signal, on_damaged: Callable, key: StringName) -> void:
+	if damaged.is_connected(on_damaged):
+		return
+	damaged.connect(on_damaged)
+	part.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
+
+
 func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, with_trailer: bool) -> DotResult:
 	var truck := DdTruck.new()
 	truck.owner_key = driver.key
@@ -755,8 +763,7 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 		var key := driver.key
 		truck.breakage.debris = debris()
 		truck.breakage.harm_gate = func() -> bool: return can_be_harmed(key)
-		truck.damaged.connect(_on_truck_damaged.bind(key))
-		truck.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
+		_wire_damage(truck, truck.damaged, _on_truck_damaged.bind(key), key)
 	var trailer_spec: Variant = trucks.get_truck(truck_id).get("trailer")
 
 	if with_trailer and config.trailers and trailer_spec is Dictionary:
@@ -777,8 +784,7 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 			var key := driver.key
 			trailer.breakage.debris = debris()
 			trailer.breakage.harm_gate = func() -> bool: return can_be_harmed(key)
-			trailer.damaged.connect(_on_trailer_damaged.bind(key))
-			trailer.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
+			_wire_damage(trailer, trailer.damaged, _on_trailer_damaged.bind(key), key)
 
 	truck_made.emit(driver.key)
 	return DotResult.success(truck)
