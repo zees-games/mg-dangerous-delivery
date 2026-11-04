@@ -5,6 +5,7 @@ extends DotGameCheckSuite
 
 const DdModule := preload("res://game/dd_module.gd")
 const CHECKS := 8
+const SECTIONS := 1
 
 
 func _ready() -> void:
@@ -14,6 +15,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	print("mg-dangerous-delivery: per-mountain cvars from cfg/game/mg-dangerous-delivery/dot_map/map")
+	var entered := 1
 	var module := DdModule.new()
 	var keys := module._map_config_keys()
 	_check(keys.has("dd_weather_storms") and keys.has("mp_forceview"), "the whitelist names the weather and the view rule")
@@ -48,4 +50,4 @@ func _run() -> void:
 	_check(console.find_cvar("mp_forceview").get_int() == 0, "the view rule is back too")
 	DirAccess.remove_absolute(map_dir.path_join("blizzard_pass.yml"))
 
-	_report(CHECKS)
+	_report_sections(entered, 1, SECTIONS, CHECKS)

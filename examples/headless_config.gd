@@ -11,6 +11,10 @@ const DdWeatherRef := preload("../game/dd_weather.gd")
 const ROOT := "user://dd_cfgtest"
 const GAME := "mg-dangerous-delivery"
 const CHECKS := 42
+const SECTIONS := 5
+
+var _entered := 0
+var _finished := 0
 
 
 func _ready() -> void:
@@ -30,6 +34,7 @@ func _run() -> void:
 		_probe()
 		return
 	print("mg-dangerous-delivery: config binder")
+	_entered += 1
 	var config := DdConfig.new()
 	var binder := DdConfig.make_binder(config)
 	binder.strict = true
@@ -71,9 +76,9 @@ func _run() -> void:
 
 	_layers()
 	_templates(binder)
-
 	_weather_period()
 	_profiles_and_prices(config)
+	_finished += 4
 
 	var wb := DotGameWorkbench.new()
 	wb.panel_mode = 1
@@ -101,9 +106,11 @@ func _run() -> void:
 
 	wb.free()
 	console.free()
-	_report(CHECKS)
+	_finished += 1
+	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 func _weather_period() -> void:
+	_entered += 1
 	# A longer weather period holds a draw longer.
 	var zone := {"snow": 0.5, "rain": 0.5}
 	var same := true
@@ -112,6 +119,7 @@ func _weather_period() -> void:
 	_check(same, "weather_period_sec: one long draw holds across the minute")
 
 func _profiles_and_prices(config: DdConfig) -> void:
+	_entered += 1
 	# Truck and cargo profiles.
 	var trucks := DdTrucks.new()
 	var cargo := DdCargo.new()
@@ -182,6 +190,7 @@ func _child() -> String:
 
 ## A value set in a cfg file, the environment and argv each reaches the live config, and later layers win.
 func _layers() -> void:
+	_entered += 1
 	_write_root("game/%s/config_trips/game.yml" % GAME, "start_hold_seconds: 9.0\nfall_depth: 40.0\n")
 	OS.set_environment("DD_FALL_DEPTH", "33.0")
 	var text := _child()
@@ -198,6 +207,7 @@ func _layers() -> void:
 
 ## The shipped cfg files hold every key, in step with DdConfig, and change nothing as they are.
 func _templates(binder: DotGameConfigBinder) -> void:
+	_entered += 1
 	var files := binder.template_files()
 	_check(files.size() == 3, "three shipped cfg files", str(files.size()))
 	var stale := PackedStringArray()
