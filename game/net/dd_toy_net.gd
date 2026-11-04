@@ -13,11 +13,11 @@ var net_count: int = 0
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated()
+	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
 	# Nine bits an element, under a degree: nobody lines a ball up to a degree.
-	replicate(&"net_rotation", DotNetVar.Type.QUATERNION).bits(9).interpolated()
-	replicate(&"net_on", DotNetVar.Type.BOOL)
-	replicate(&"net_count", DotNetVar.Type.UINT).bits(8)
+	replicate(&"net_rotation", DotNetVar.Type.QUATERNION).bits(9).interpolated().server_driven()
+	replicate(&"net_on", DotNetVar.Type.BOOL).server_driven()
+	replicate(&"net_count", DotNetVar.Type.UINT).bits(8).server_driven()
 
 
 ## Authority only: the toy's state into the replicated fields.
