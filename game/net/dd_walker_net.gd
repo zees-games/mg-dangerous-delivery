@@ -11,8 +11,8 @@ var net_yaw: float = 0.0
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated()
-	replicate(&"net_yaw", DotNetVar.Type.ANGLE).bits(10).interpolated()
+	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
+	replicate(&"net_yaw", DotNetVar.Type.ANGLE).bits(10).interpolated().server_driven()
 
 
 func pull() -> void:

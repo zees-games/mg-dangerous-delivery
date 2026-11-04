@@ -9,8 +9,8 @@ var net_speed: int = 0
 
 func _register_net_vars() -> void:
 	super._register_net_vars()
-	replicate(&"net_steering", DotNetVar.Type.INT).bits(8)
-	replicate(&"net_speed", DotNetVar.Type.INT).bits(10)
+	replicate(&"net_steering", DotNetVar.Type.INT).bits(8).server_driven()
+	replicate(&"net_speed", DotNetVar.Type.INT).bits(10).server_driven()
 
 
 func pull() -> void:

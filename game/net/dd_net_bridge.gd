@@ -784,6 +784,9 @@ func client_tick(tick: int, command: DotVehicleCommand) -> void:
 
 	_tick = tick
 	game.tick = tick
+	# Nothing is predicted, but the tick still goes through the predictor: it flushes the reconcile and
+	# remembers the tick, so a snapshot can match it (skip_matching_replays).
+	net.predict_tick(tick)
 	game.step(net.clock.tick_duration())
 
 	if link != null and command != null and local_key != &"":
