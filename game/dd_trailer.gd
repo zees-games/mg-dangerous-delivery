@@ -6,6 +6,10 @@ extends VehicleBody3D
 
 const CHANNEL := "delivery.trailer"
 const DdTrucks := preload("dd_trucks.gd")
+const DdTrailerDamage := preload("dd_trailer_damage.gd")
+
+## Something came off (the event is [signal DotVehicleBreakage.broke]'s), or it was put right (empty).
+signal damaged(event: Dictionary)
 
 ## The size art-src/trailer/build.py draws the trailer at.
 const MODEL_LENGTH := 6.5
@@ -24,6 +28,12 @@ var joint: Generic6DOFJoint3D = null
 ## Metres from the hitch to where the box's drawbar meets it: the tractor's tail overhang.
 var lead: float = 0.0
 var _wheels: Array[VehicleWheel3D] = []
+
+## Parts, load and wheels that come off; null until [method configure] has built them.
+var breakage: DotVehicleBreakage = null
+var damage: DotVehicleDamage:
+	get:
+		return breakage.damage if breakage != null else null
 
 
 ## Builds it from [param spec] ({length, mass, colour}); [param draws] adds the mesh.
@@ -121,6 +131,12 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 		stripe.material_override = red
 		add_child(stripe)
 
+	var loads: Dictionary = spec.get("load", {})
+	var box := AABB(collider.position - shape.size * 0.5, shape.size)
+	breakage = DdTrailerDamage.build(self, box, get_node_or_null("Model") as Node3D, float(spec.get("toughness", 1.0)), loads)
+	if breakage != null:
+		breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
+
 	if draws and lead > 0.05:
 		var bar := MeshInstance3D.new()
 		var beam := BoxMesh.new()
@@ -184,6 +200,7 @@ func rehitch(truck: VehicleBody3D) -> void:
 	DotLog.debug(CHANNEL, "the trailer was re-hitched", {"at": truck.global_position})
 	place_behind(truck.global_transform)
 	hitch(truck)
+	repair()
 
 
 ## The angle between truck and trailer, degrees: what a jack-knife is.
@@ -225,6 +242,18 @@ const BRAKE_DECEL := 5.0
 func set_grip(grip: float) -> void:
 	for wheel in _wheels:
 		wheel.wheel_friction_slip = 3.0 * grip
+
+
+## Everything back on (a put-back).
+func repair() -> void:
+	if breakage == null:
+		return
+	var worn := not damage.lost_parts().is_empty() or damage.distress() > 0.0
+	for i in damage.wheels.size():
+		worn = worn or damage.wheel_state(i) != DotVehicleDamage.Wheel.INTACT
+	if worn:
+		breakage.repair()
+		damaged.emit({})
 
 
 func describe() -> Dictionary:

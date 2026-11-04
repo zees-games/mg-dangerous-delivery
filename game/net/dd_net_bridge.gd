@@ -423,6 +423,9 @@ func _driver_body(key: StringName) -> Dictionary:
 		if truck.damage != null:
 			body["damage"] = truck.damage.to_dict()
 
+		if driver.trailer != null and (driver.trailer as DdTrailer).damage != null:
+			body["trailer_damage"] = (driver.trailer as DdTrailer).damage.to_dict()
+
 	return body
 
 
@@ -434,7 +437,17 @@ func _on_truck_damaged(key: StringName, event: Dictionary) -> void:
 		return
 
 	var truck := driver.truck as DdTruck
-	var data := {"key": String(key), "state": truck.damage.to_dict(), "event": str(event.get("kind", ""))}
+	var of_trailer := str(event.get("body", "")) == "trailer"
+	var hurt: DotVehicleDamage = (driver.trailer as DdTrailer).damage if of_trailer and driver.trailer != null else truck.damage
+
+	if hurt == null:
+		return
+
+	var data := {"key": String(key), "state": hurt.to_dict(), "event": str(event.get("kind", ""))}
+
+	if of_trailer:
+		data["body"] = "trailer"
+
 	var v: Variant = event.get("velocity")
 	var at: Variant = event.get("at")
 
@@ -445,7 +458,7 @@ func _on_truck_damaged(key: StringName, event: Dictionary) -> void:
 		var piece := str(event.get("id", "")) if event.has("id") else "wheel%d" % int(event.get("wheel", -1))
 		data["velocities"] = {piece: [v.x, v.y, v.z]}
 
-		if at is Vector3 and str(event.get("id", "")).begins_with("cargo_"):
+		if at is Vector3 and str(event.get("id", "")).contains("cargo_"):
 			data["crates"] = [[at.x, at.y, at.z, v.x, v.y, v.z]]
 
 	_broadcast(DdEvents.Kind.DAMAGE, data)
@@ -965,6 +978,10 @@ func _apply_driver(data: Dictionary) -> void:
 		if mirror != null and mirror.breakage != null and data.get("damage") is Dictionary:
 			var _shown := mirror.breakage.apply_state(data["damage"])
 
+		var shown_trailer := driver.trailer as DdTrailer
+		if shown_trailer != null and shown_trailer.breakage != null and data.get("trailer_damage") is Dictionary:
+			var _shown_t := shown_trailer.breakage.apply_state(data["trailer_damage"])
+
 	driver_changed.emit(key)
 
 
@@ -975,6 +992,10 @@ func _apply_damage(data: Dictionary) -> void:
 	var truck := driver.truck as DdTruck if driver != null else null
 
 	if truck == null or truck.breakage == null or not (data.get("state") is Dictionary):
+		return
+
+	if str(data.get("body", "")) == "trailer":
+		_apply_trailer_damage(driver.trailer as DdTrailer, data)
 		return
 
 	var state: Dictionary = data["state"]
@@ -1009,6 +1030,28 @@ func _apply_damage(data: Dictionary) -> void:
 	for c: Variant in data.get("crates", []):
 		if c is Array and (c as Array).size() == 6:
 			game.drop_crate(truck, {"at": Vector3(float(c[0]), float(c[1]), float(c[2])), "velocity": Vector3(float(c[3]), float(c[4]), float(c[5]))})
+
+
+## The server's losses on the mirrored trailer: pieces thrown with its velocities, a repair shows all.
+func _apply_trailer_damage(trailer: DdTrailer, data: Dictionary) -> void:
+	if trailer == null or trailer.breakage == null:
+		return
+
+	var state: Dictionary = data["state"]
+	var velocities := {}
+	var sent: Variant = data.get("velocities", {})
+
+	if sent is Dictionary:
+		for k: Variant in sent:
+			var v: Variant = sent[k]
+			if v is Array and (v as Array).size() == 3:
+				velocities[str(k)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
+
+	var _shown := trailer.breakage.apply_state(state, velocities)
+
+	for c: Variant in data.get("crates", []):
+		if c is Array and (c as Array).size() == 6:
+			game.drop_crate(game.drivers[StringName(str(data.get("key", "")))].truck as DdTruck, {"at": Vector3(float(c[0]), float(c[1]), float(c[2])), "velocity": Vector3(float(c[3]), float(c[4]), float(c[5]))})
 
 
 func _mirror_truck(driver: DdGame.Driver, net_id: int, truck_id: StringName, def: Variant) -> void:
@@ -1056,6 +1099,13 @@ func _mirror_trailer(driver: DdGame.Driver, net_id: int, def: Variant) -> void:
 	trailer.name = "Trailer_%s" % String(driver.key)
 	game.add_child(trailer)
 	driver.trailer = trailer
+
+	if trailer.breakage != null:
+		var key := driver.key
+		trailer.breakage.simulate = false
+		trailer.breakage.debris = game.debris()
+		trailer.damaged.connect(func(e: Dictionary) -> void: game.truck_damaged.emit(key, e))
+		trailer.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: game.truck_scraping.emit(key, at, speed))
 	var behaviour := DdBodyNet.new()
 	behaviour.name = "Net"
 	behaviour.body = trailer

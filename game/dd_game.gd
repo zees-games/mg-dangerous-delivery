@@ -763,6 +763,8 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 		var trailer := DdTrailer.new()
 		var spec := (trailer_spec as Dictionary).duplicate()
 		spec["mass"] = trucks.trailer_mass(truck_id, load_def)
+		spec["toughness"] = float(truck.def.get("toughness", 1.0))
+		spec["load"] = _trailer_load(truck_id, load_def, float(spec["toughness"]))
 		trailer.configure(spec, truck.half_length, 2.5, draws, truck.rear_axle_z())
 
 		if truck.chassis is DdTruck.DdDrivetrain:
@@ -771,8 +773,25 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 		add_child(trailer)
 		driver.trailer = trailer
 
+		if trailer.breakage != null:
+			var key := driver.key
+			trailer.breakage.debris = debris()
+			trailer.breakage.harm_gate = func() -> bool: return can_be_harmed(key)
+			trailer.damaged.connect(_on_trailer_damaged.bind(key))
+			trailer.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
+
 	truck_made.emit(driver.key)
 	return DotResult.success(truck)
+
+
+## The trailer's load as breakable units ({units, each, strength}; empty for none or a tank's slosh).
+func _trailer_load(truck_id: StringName, load_def: Dictionary, tough: float) -> Dictionary:
+	if load_def.is_empty() or float(load_def.get("slosh", 0.0)) > 0.0:
+		return {}
+	var def := trucks.get_truck(truck_id)
+	var units := maxi(int(def.get("cargo_units", DdTrucks.CARGO_UNITS)), 1)
+	return {"units": units, "each": DdTrucks.load_mass(def, load_def) / float(units),
+		"strength": float(def.get("cargo_strength", DdTrucks.CARGO_STRENGTH)) / sqrt(maxf(float(load_def.get("fragile", 1.0)), 0.25))}
 
 
 ## Where every truck's lost pieces go: one budget for the whole mountain. Null when nothing is
@@ -806,6 +825,29 @@ func _on_truck_damaged(event: Dictionary, key: StringName) -> void:
 			drop_crate(driver.truck, event)
 
 	truck_damaged.emit(key, event)
+
+
+## The trailer lost something: a unit of the load is its share of the pay and a crate in the road;
+## the event goes out tagged `body: trailer` so the wire and the effects know which body it was.
+func _on_trailer_damaged(event: Dictionary, key: StringName) -> void:
+	var driver: Driver = drivers.get(key, null)
+	var tagged := event.duplicate()
+	tagged["body"] = "trailer"
+
+	if driver != null and driver.trailer != null and str(event.get("kind", "")) == "part":
+		var trailer := driver.trailer as DdTrailer
+		var part: DotVehicleDamage.Part = trailer.damage.parts.get(event.get("id", &""), null)
+
+		if part != null and part.kind == &"cargo":
+			var trip: DdTrip = driver.trip
+			if trip != null and not (driver.truck as DdTruck).wreck.is_wrecked():
+				var units := 0
+				for id: StringName in trailer.damage.parts:
+					units += 1 if (trailer.damage.parts[id] as DotVehicleDamage.Part).kind == &"cargo" else 0
+				trip.cargo = maxf(trip.cargo - 1.0 / float(maxi(units, 1)), 0.0)
+			drop_crate(driver.truck as DdTruck, event)
+
+	truck_damaged.emit(key, tagged)
 
 
 func _cargo_units(truck: DdTruck) -> int:

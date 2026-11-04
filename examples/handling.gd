@@ -7,13 +7,14 @@ extends DotGameCheckSuite
 const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
+const DdTrailer := preload("res://game/dd_trailer.gd")
 const DdTruck := preload("res://game/dd_truck.gd")
 const DdTrip := preload("res://game/dd_trip.gd")
 const DdDrivetrain := preload("res://game/dd_drivetrain.gd")
 const DdWeather := preload("res://game/dd_weather.gd")
 
-const SECTIONS := 13
-const CHECKS := 66
+const SECTIONS := 14
+const CHECKS := 72
 
 ## The test roads: a long flat straight and a long 8% climb, wide and railed, so only the truck
 ## decides how fast it goes.
@@ -104,6 +105,7 @@ func _ready() -> void:
 	# Last: it puts the test routes back, and the sections above expect the shipped ones.
 	if _runs(only, "damage"):
 		await _test_damage()
+		await _test_trailer_damage()
 		await _test_crash()
 
 	_report_sections(_entered, _finished, SECTIONS, CHECKS)
@@ -753,6 +755,34 @@ func _test_damage() -> void:
 	truck = _truck(me)
 	_check(truck.damage.lost_parts().is_empty() and truck.damage.wheel_state(3) == DotVehicleDamage.Wheel.INTACT,
 		"a new trip's truck is whole", str(truck.damage.describe()))
+	game.end_trip(&"t")
+	_finished_section()
+
+
+## The Semi's trailer breaks like the tractor: its own parts, load and wheels, tagged on the event.
+func _test_trailer_damage() -> void:
+	_section("the trailer loses panels, load and wheels like the tractor")
+	_use_test_routes([FLAT, CLIMB])
+	var me := _set_off(&"semi", &"crates", &"t_flat")
+	await _seconds(0.6)
+	var trailer := me.trailer as DdTrailer
+	_check(trailer != null and trailer.damage != null and trailer.damage.parts.has(&"trailer_door_left") and trailer.damage.parts.has(&"trailer_cargo_0") and trailer.damage.wheels.size() == 4,
+		"a trailer carries panels, doors, its load in units and four wheels", str(trailer.damage.describe() if trailer != null and trailer.damage != null else {}))
+	var events: Array = []
+	game.truck_damaged.connect(func(_k: StringName, e: Dictionary) -> void: events.append(e))
+	var back: Vector3 = (trailer.damage.parts[&"trailer_door_left"] as DotVehicleDamage.Part).centre
+	var _h: Variant = trailer.breakage.hit(back, 8.0)
+	_check(trailer.damage.lost_parts().has(&"trailer_door_left") and not trailer.damage.lost_parts().has(&"trailer_panel_left"),
+		"a knock at the back takes the rear door and leaves the side panel", str(trailer.damage.lost_parts()))
+	_check(events.any(func(e: Dictionary) -> bool: return e.get("body") == "trailer" and e.get("id") == &"trailer_door_left"),
+		"the loss is announced tagged as the trailer's", str(events))
+	_check(_truck(me).damage.lost_parts().is_empty(), "and the tractor lost nothing", str(_truck(me).damage.lost_parts()))
+	var before: float = me.trip.cargo
+	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as DotVehicleDamage.Part).centre, 12.0)
+	_check(me.trip.cargo < before, "a unit of the trailer's load gone costs its share of the pay", "%.2f -> %.2f" % [before, me.trip.cargo])
+	var _l: Variant = trailer.breakage.damage.lose_wheel(1)
+	trailer.breakage._show(_l, Vector3.ZERO, 0.0)
+	_check(trailer.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST, "a trailer wheel comes off", str(trailer.damage.describe()))
 	game.end_trip(&"t")
 	_finished_section()
 
