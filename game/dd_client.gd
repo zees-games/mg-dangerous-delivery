@@ -413,7 +413,7 @@ func _build_netcode() -> DotResult:
 	config.world_extent = DdGame.NET_WORLD_EXTENT
 	config.enable_prediction = false
 	config.enable_lag_compensation = false
-	config.max_entities_per_snapshot = 96
+	config.max_entities_per_snapshot = 0
 	net.config = config
 	add_child(net)
 	var started := net.setup()

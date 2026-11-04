@@ -63,7 +63,7 @@ func _net_config() -> DotNetConfig:
 	# Nothing is predicted: a truck is a rigid body (dot-vehicle's decision).
 	config.enable_prediction = false
 	config.enable_lag_compensation = false
-	config.max_entities_per_snapshot = 96
+	config.max_entities_per_snapshot = 0
 	return config
 
 
