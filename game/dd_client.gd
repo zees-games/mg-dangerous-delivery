@@ -54,6 +54,7 @@ func _ready() -> void:
 
 	_step("Setting up the lot", 0.5)
 	_make_panels(layer)
+	_build_touch()
 	DdLoad.mark("camera, weather, hud, garage, chat")
 	_step("Sound", 0.6)
 	_build_audio()
@@ -741,6 +742,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _covered():
 		return
 
+	if touch != null:
+		# The mouse a finger emulates is the finger's own event below, not a second look.
+		if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
+		if _touch_look(event):
+			return
+
 	# The mouse looks round on foot, only while it is captured (a menu or the panel frees it).
 	var motion := event as InputEventMouseMotion
 	var button := event as InputEventMouseButton
@@ -803,6 +811,66 @@ func _unhandled_input(event: InputEvent) -> void:
 		_act("garage")
 
 
+## The touch controls, on a touch device only: the buttons are [DdTouch]'s, and a finger on the bare screen looks (on foot) or orbits the view (in a truck).
+func _build_touch() -> void:
+	if not DotPlatform.has_touch():
+		return
+	touch = DdTouch.new()
+	touch.pressed_fn = _touch_pressed
+	touch.build(hud)
+
+
+## 1 while a touch button is held; 0 without touch.
+func _tv(id: StringName) -> float:
+	return touch.held(id) if touch != null and not _covered() else 0.0
+
+
+func _touch_pressed(id: StringName) -> void:
+	if _covered() or garage.visible or (chat != null and chat.is_typing()):
+		return
+	match id:
+		DdTouch.USE:
+			if use_prompt().begins_with("E") or use_action() != "":
+				_act("use")
+		DdTouch.RESPAWN:
+			_act("respawn")
+		DdTouch.LOT:
+			_act("garage")
+		DdTouch.CAMERA:
+			if _walking():
+				toggle_foot_view()
+			else:
+				cycle_camera()
+
+
+## One finger looks: it starts on bare screen and follows until it lifts. True when the event was one.
+func _touch_look(event: InputEvent) -> bool:
+	var press := event as InputEventScreenTouch
+	if press != null:
+		if press.pressed and touch.look_finger < 0 and not touch.contains_point(press.position):
+			touch.look_finger = press.index
+		elif not press.pressed and press.index == touch.look_finger:
+			touch.look_finger = -1
+		return true
+	var drag := event as InputEventScreenDrag
+	if drag == null:
+		return false
+	if drag.index != touch.look_finger:
+		return true
+	if _walking():
+		_mouse += drag.relative
+	elif _can_orbit_touch():
+		_orbit.x = wrapf(_orbit.x - drag.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+		_orbit.y = clampf(_orbit.y + drag.relative.y * MOUSE_SENSITIVITY, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX)
+	return true
+
+
+## The same test as [method _can_orbit] without the mouse pointer, which a phone does not have.
+func _can_orbit_touch() -> bool:
+	var me := _driver()
+	return me != null and me.truck != null and not _walking() and camera_mode != CameraMode.CAB
+
+
 func _say_refusal(result: DotResult) -> void:
 	if result != null and not result.ok:
 		hud.say(result.error.message, 2.0, Color(1.0, 0.7, 0.4))
@@ -857,10 +925,10 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.brake = 1.0
 		return out
 
-	var forward := Input.get_action_strength("ui_up") + _held(DdBindings.THROTTLE, KEY_W)
-	var back := Input.get_action_strength("ui_down") + _held(DdBindings.BRAKE, KEY_S)
-	var left := Input.get_action_strength("ui_left") + _held(DdBindings.LEFT, KEY_A)
-	var right := Input.get_action_strength("ui_right") + _held(DdBindings.RIGHT, KEY_D)
+	var forward := Input.get_action_strength("ui_up") + _held(DdBindings.THROTTLE, KEY_W) + _tv(DdTouch.GAS)
+	var back := Input.get_action_strength("ui_down") + _held(DdBindings.BRAKE, KEY_S) + _tv(DdTouch.BRAKE)
+	var left := Input.get_action_strength("ui_left") + _held(DdBindings.LEFT, KEY_A) + _tv(DdTouch.LEFT)
+	var right := Input.get_action_strength("ui_right") + _held(DdBindings.RIGHT, KEY_D) + _tv(DdTouch.RIGHT)
 	var speed := _speed_of(me)
 
 	# One key for slowing down and reversing, which is how every driving game does it: brake
@@ -871,7 +939,7 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.throttle = clampf(forward, 0.0, 1.0) - clampf(back, 0.0, 1.0)
 
 	out.steer = clampf(right - left, -1.0, 1.0)
-	out.handbrake = _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0
+	out.handbrake = _held(DdBindings.HANDBRAKE, KEY_SPACE) + _tv(DdTouch.HAND) > 0.0
 	return out
 
 
@@ -903,6 +971,11 @@ func _speed_of(me: DdGame.Driver) -> float:
 
 
 func _process(delta: float) -> void:
+	if touch != null and touch.right.visible == garage.visible:
+		# The lot's panel takes the screen; the buttons wait behind it with nothing held.
+		touch.right.visible = not garage.visible
+		touch.left.visible = not garage.visible
+		touch.release_all()
 	if net != null and net.is_running():
 		net.interpolate_frame(-1.0)
 
@@ -1186,13 +1259,13 @@ func _sample_walk() -> DotPlayerIntent:
 		_wheel_jump = false
 		return intent
 
-	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up")
-	var back := _held(DdBindings.BRAKE, KEY_S) + Input.get_action_strength("ui_down")
-	var left := _held(DdBindings.LEFT, KEY_A) + Input.get_action_strength("ui_left")
-	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right")
+	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up") + _tv(DdTouch.GAS)
+	var back := _held(DdBindings.BRAKE, KEY_S) + Input.get_action_strength("ui_down") + _tv(DdTouch.BRAKE)
+	var left := _held(DdBindings.LEFT, KEY_A) + Input.get_action_strength("ui_left") + _tv(DdTouch.LEFT)
+	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right") + _tv(DdTouch.RIGHT)
 	intent.move = Vector2(clampf(right - left, -1.0, 1.0), clampf(forward - back, -1.0, 1.0))
 
-	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump:
+	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump or _tv(DdTouch.JUMP) > 0.0:
 		intent.buttons |= DotPlayerIntent.Btn.JUMP
 
 	_wheel_jump = false

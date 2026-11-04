@@ -18,6 +18,7 @@ const DdTruckNet := preload("net/dd_truck_net.gd")
 const DdServices := preload("dd_services.gd")
 const DdAudio := preload("dd_audio.gd")
 const DdSettings := preload("dd_settings.gd")
+const DdTouch := preload("dd_touch.gd")
 const DdWalker := preload("dd_walker.gd")
 const DdLot := preload("dd_lot.gd")
 const DdLoad := preload("dd_load.gd")
@@ -134,6 +135,9 @@ var walker: DdWalker = null
 ## An intent to walk with instead of the keys and mouse, when set: what a suite has in place
 ## of a keyboard (the walker's [member command_override]).
 var walk_override: DotPlayerIntent = null
+
+## The phone's buttons and look finger; null off a touch device.
+var touch: DdTouch = null
 
 ## The mouse's movement since the last tick, for the walker's look.
 var _mouse := Vector2.ZERO
