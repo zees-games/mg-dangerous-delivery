@@ -126,6 +126,14 @@ func _ready() -> void:
 	_solo.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	_solo.visible = false
 
+	if DotPlatform.has_touch():
+		# The menu button holds the top left and the steering buttons the left edge, so the numbers go top right, beside a narrower strip.
+		top.offset_left = -200.0
+		top.offset_right = 200.0
+		_bar.custom_minimum_size.x = 380.0
+		left_plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+		left_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+
 	_build_corner_plates()
 	_restyle()
 
@@ -155,6 +163,8 @@ func _build_corner_plates() -> void:
 	keys_plate.offset_bottom = -82.0
 	# On a plate, in the theme's words: it is read over snow and sky, where the faded list
 	# disappeared.
+	# A phone has the buttons, and the key list sat under them.
+	keys_plate.visible = not DotPlatform.has_touch()
 	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
 
 	# What the use key does where the player stands: buy from a salesperson, get in, accept.

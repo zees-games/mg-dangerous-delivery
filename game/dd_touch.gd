@@ -22,7 +22,7 @@ static func right_layout() -> Array[Dictionary]:
 	return [
 		{"id": GAS, "label": "GAS", "offset": Vector2(96, 100), "radius": 54.0},
 		{"id": BRAKE, "label": "BRAKE", "offset": Vector2(214, 74), "radius": 40.0},
-		{"id": HAND, "label": "HAND", "offset": Vector2(60, 210), "radius": 30.0},
+		{"id": HAND, "label": "HAND", "offset": Vector2(60, 190), "radius": 30.0},
 		{"id": USE, "label": "USE", "offset": Vector2(160, 168), "radius": 34.0},
 		{"id": JUMP, "label": "JUMP", "offset": Vector2(262, 158), "radius": 28.0},
 	]
