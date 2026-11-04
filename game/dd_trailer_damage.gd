@@ -29,7 +29,9 @@ static func build(trailer: VehicleBody3D, box: AABB, model: Node3D, tough: float
 		var node_path := NodePath("")
 
 		if model != null:
-			var cut := _carve(model, id, region)
+			var cut := model.get_node_or_null(NodePath(str(id))) as Node3D
+			if cut == null:
+				cut = _carve(model, id, region)
 			if cut != null:
 				node_path = NodePath("Model/%s" % cut.name)
 
@@ -62,7 +64,7 @@ static func _frac(p: Dictionary, axis: String, end: int) -> float:
 static func _carve(model: Node3D, id: StringName, region: AABB) -> Node3D:
 	for child in model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := child as MeshInstance3D
-		if mesh.get_parent() != model or String(mesh.name).begins_with("Part_"):
+		if mesh.get_parent() != model or String(mesh.name).begins_with("Part_") or String(mesh.name).begins_with("trailer_"):
 			continue
 
 		var local := (model.transform * mesh.transform).affine_inverse() * region

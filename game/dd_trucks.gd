@@ -86,15 +86,15 @@ const DEFAULTS := [
 ]
 
 ## What comes off a truck, in the truck's frame as fractions of the body's box (x 0 left to 1
-## right, y 0 bottom, z 0 front to 1 back): triangles inside the region are carved off at load
-## ([method DotVehicleDebris.carve]). `strength` is the knock (m/s) that takes it off.
+## right, y 0 bottom, z 0 front to 1 back). A model node named like the id is the part; a model
+## without one has the triangles inside the region carved off at load ([method DotVehicleDebris.carve]). `strength` is the knock (m/s) that takes it off.
 const PARTS := [
 	{"id": "bumper_front", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.3], "z": [0.0, 0.07], "strength": 5.0, "mass": 40.0},
 	{"id": "bumper_rear", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.25], "z": [0.94, 1.0], "strength": 5.0, "mass": 40.0},
-	{"id": "mirror_left", "kind": "mirror", "x": [0.0, 0.07], "y": [0.45, 0.85], "z": [0.05, 0.3], "strength": 2.5, "mass": 6.0, "reach": 0.8},
-	{"id": "mirror_right", "kind": "mirror", "x": [0.93, 1.0], "y": [0.45, 0.85], "z": [0.05, 0.3], "strength": 2.5, "mass": 6.0, "reach": 0.8},
-	{"id": "door_left", "kind": "door", "x": [0.0, 0.08], "y": [0.2, 0.75], "z": [0.1, 0.33], "strength": 7.0, "mass": 50.0},
-	{"id": "door_right", "kind": "door", "x": [0.92, 1.0], "y": [0.2, 0.75], "z": [0.1, 0.33], "strength": 7.0, "mass": 50.0},
+	{"id": "mirror_left", "kind": "mirror", "x": [0.0, 0.07], "y": [0.55, 0.8], "z": [0.26, 0.36], "strength": 2.5, "mass": 6.0, "reach": 0.8},
+	{"id": "mirror_right", "kind": "mirror", "x": [0.93, 1.0], "y": [0.55, 0.8], "z": [0.26, 0.36], "strength": 2.5, "mass": 6.0, "reach": 0.8},
+	{"id": "door_left", "kind": "door", "x": [0.0, 0.08], "y": [0.32, 0.9], "z": [0.31, 0.52], "strength": 7.0, "mass": 50.0},
+	{"id": "door_right", "kind": "door", "x": [0.92, 1.0], "y": [0.32, 0.9], "z": [0.31, 0.52], "strength": 7.0, "mass": 50.0},
 	{"id": "panel_left", "kind": "panel", "x": [0.0, 0.07], "y": [0.25, 0.9], "z": [0.42, 0.9], "strength": 8.0, "mass": 60.0, "reach": 1.6},
 	{"id": "panel_right", "kind": "panel", "x": [0.93, 1.0], "y": [0.25, 0.9], "z": [0.42, 0.9], "strength": 8.0, "mass": 60.0, "reach": 1.6},
 ]

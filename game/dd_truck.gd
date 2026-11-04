@@ -226,13 +226,19 @@ static func _frac(p: Dictionary, axis: String, end: int) -> float:
 
 ## The drawn node for a part: a named model node, or the body's triangles inside its region.
 func _part_node(p: Dictionary, id: StringName, region: AABB) -> Node3D:
+	var named := _model.get_node_or_null(NodePath(str(p.get("node", id)))) as Node3D
+	if named != null:
+		return named
+
 	if p.has("node"):
-		return _model.get_node_or_null(NodePath(str(p["node"]))) as Node3D
+		return null
 
 	for child in _model.get_children():
 		var mesh := child as MeshInstance3D
 
-		if mesh == null or String(child.name).begins_with("wheel") or String(child.name).begins_with("Part_"):
+		if mesh == null or String(child.name).begins_with("wheel") or String(child.name).begins_with("Part_") \
+				or String(child.name).begins_with("door_") or String(child.name).begins_with("mirror_") \
+				or String(child.name).begins_with("bumper_"):
 			continue
 
 		var local := (_model.transform * mesh.transform).affine_inverse() * region
