@@ -15,13 +15,28 @@ var with_trailer := false
 var trailer: DdTrailer = null
 
 
-func _ready() -> void:
+func _add_trailer(trucks: DdTrucks, truck_id: StringName, truck: DdTruck, debris: DotVehicleDebris) -> void:
+	trailer = DdTrailer.new()
+	var spec: Dictionary = (trucks.get_truck(truck_id)["trailer"] as Dictionary).duplicate()
+	spec["load"] = {"units": 6, "each": 20.0, "strength": 9.0}
+	trailer.configure(spec, truck.half_length, 2.5, true, truck.rear_axle_z())
+	add_child(trailer)
+	trailer.place_behind(truck.global_transform)
+	trailer.hitch(truck)
+	trailer.breakage.debris = debris
+	trailer.wreck.fuse = 7.0
+
+
+func _read_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			out = arg.trim_prefix("--out=")
 		elif arg == "--trailer":
 			with_trailer = true
 
+
+func _ready() -> void:
+	_read_args()
 	var built := _build_set()
 	var debris: DotVehicleDebris = built[0]
 	var ragdolls: DotPlayerRagdolls = built[1]
@@ -38,15 +53,7 @@ func _ready() -> void:
 	truck.wreck.fuse = 7.0
 
 	if with_trailer:
-		trailer = DdTrailer.new()
-		var spec: Dictionary = (trucks.get_truck(truck_id)["trailer"] as Dictionary).duplicate()
-		spec["load"] = {"units": 6, "each": 20.0, "strength": 9.0}
-		trailer.configure(spec, truck.half_length, 2.5, true, truck.rear_axle_z())
-		add_child(trailer)
-		trailer.place_behind(truck.global_transform)
-		trailer.hitch(truck)
-		trailer.breakage.debris = debris
-		trailer.wreck.fuse = 7.0
+		_add_trailer(trucks, truck_id, truck, debris)
 	var boom: Array = [null]
 	truck.damaged.connect(func(e: Dictionary) -> void:
 		if str(e.get("kind", "")) == "wrecked":

@@ -137,28 +137,10 @@ func configure(spec: Dictionary, truck_half_length: float, truck_width: float, d
 		stripe.material_override = red
 		add_child(stripe)
 
-	var loads: Dictionary = spec.get("load", {})
-	load_spec = loads
-	var box := AABB(collider.position - shape.size * 0.5, shape.size)
-	breakage = DdTrailerDamage.build(self, box, get_node_or_null("Model") as Node3D, float(spec.get("toughness", 1.0)), loads)
-	if breakage != null:
-		breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
-		wreck = DotVehicleWreck.new()
-		wreck.name = "Wreck"
-		wreck.draws = draws
-		add_child(wreck)
-		DotLog.result(CHANNEL, "the trailer's wreck", wreck.setup(self, breakage))
+	_build_breakage(spec, AABB(collider.position - shape.size * 0.5, shape.size), draws)
 
 	if draws and lead > 0.05:
-		var bar := MeshInstance3D.new()
-		var beam := BoxMesh.new()
-		beam.size = Vector3(0.35, 0.25, lead + 0.45)
-		bar.mesh = beam
-		bar.position = Vector3(0, 0.95, (lead + 0.45) * 0.5)
-		var dark := StandardMaterial3D.new()
-		dark.albedo_color = Color(0.12, 0.12, 0.13)
-		bar.material_override = dark
-		add_child(bar)
+		_add_drawbar(lead)
 
 
 ## Hitches it to [param truck], both already in the tree and placed.
@@ -272,6 +254,31 @@ func repair() -> void:
 	if worn:
 		breakage.repair()
 		damaged.emit({})
+
+
+func _add_drawbar(lead: float) -> void:
+	var bar := MeshInstance3D.new()
+	var beam := BoxMesh.new()
+	beam.size = Vector3(0.35, 0.25, lead + 0.45)
+	bar.mesh = beam
+	bar.position = Vector3(0, 0.95, (lead + 0.45) * 0.5)
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.12, 0.12, 0.13)
+	bar.material_override = dark
+	add_child(bar)
+
+
+func _build_breakage(spec: Dictionary, box: AABB, draws: bool) -> void:
+	load_spec = spec.get("load", {})
+	breakage = DdTrailerDamage.build(self, box, get_node_or_null("Model") as Node3D, float(spec.get("toughness", 1.0)), load_spec)
+	if breakage == null:
+		return
+	breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
+	wreck = DotVehicleWreck.new()
+	wreck.name = "Wreck"
+	wreck.draws = draws
+	add_child(wreck)
+	DotLog.result(CHANNEL, "the trailer's wreck", wreck.setup(self, breakage))
 
 
 ## Over the edge with its tractor: it tumbles on the mountain's layer [param ground] and explodes.
