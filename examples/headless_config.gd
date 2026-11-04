@@ -10,7 +10,7 @@ const DdCargo := preload("../game/dd_cargo.gd")
 const DdWeatherRef := preload("../game/dd_weather.gd")
 const ROOT := "user://dd_cfgtest"
 const GAME := "mg-dangerous-delivery"
-const CHECKS := 42
+const CHECKS := 45
 
 
 func _ready() -> void:
@@ -101,7 +101,16 @@ func _run() -> void:
 
 	wb.free()
 	console.free()
+	_content_json()
 	_report(CHECKS)
+
+
+func _content_json() -> void:
+	var st := DotGameStandaloneContent.settings()
+	_check(st["config_file"] == DotGameStandaloneContent.CONTENT_CONFIG, "solo play reads the game's own client/content.json")
+	_check(not (st["urls"] as PackedStringArray).has(DotGameStandaloneContent.DEFAULT_URL) and st["urls"].size() > 0, "its content_urls replace the built-in prod origin")
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(DotGameStandaloneContent.CONTENT_CONFIG))
+	_check(parsed is Dictionary and (parsed["trusted_keys"] as Dictionary).has("default"), "it carries the trusted public key")
 
 func _weather_period() -> void:
 	# A longer weather period holds a draw longer.
