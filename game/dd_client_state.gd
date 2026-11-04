@@ -217,3 +217,28 @@ func _set_weather(weather: Dictionary) -> void:
 		else:
 			var _applied := _weather.apply(drawn)
 	_env.fog_density = lerpf(_env.fog_density, density, 0.02)
+
+
+## The driver of a truck that exploded, thrown clear and left to tumble down the mountain.
+func _throw_out_driver(key: StringName, at: Vector3, velocity: Vector3) -> void:
+	if _ragdolls == null:
+		_ragdolls = DotPlayerRagdolls.new()
+		_ragdolls.name = "Ragdolls"
+		_ragdolls.rules.collision_mask = 1 | DdRoute.CAMERA_LAYER
+		_ragdolls.rules.max_sim_time = 20.0
+		_ragdolls.rules.lifetime = 14.0
+		game.add_child(_ragdolls)
+
+	var person := DotHumanoidFigure.new()
+	person.name = "Thrown"
+	game.add_child(person)
+	person.build(DotHumanoidLook.stock(absi(String(key).hash())), DdWalker.HEIGHT)
+	person.global_position = at + Vector3(0.0, 1.0, 0.0)
+	var death := DotPlayerDeath.new()
+	death.reaction = DotPlayerDeathReactions.LIMP
+	death.direction = velocity.normalized() if velocity.length() > 0.1 else Vector3.FORWARD
+	death.damage = 100.0
+	var out := velocity * 0.8 + Vector3(0.0, 7.0, 0.0) + death.direction.cross(Vector3.UP) * 3.0
+	var _made := _ragdolls.spawn(person, death, out)
+	person.visible = false
+	person.queue_free()
