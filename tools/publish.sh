@@ -5,5 +5,5 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 exec "$HERE/../dot-cloud/tools/publish_pack.sh" publish --source "$HERE" --id mg-dangerous-delivery \
-    --host-addons "$HERE/../dot-server-deploy/addons.lock" --exclude-dir web --exclude-dir screenshots --exclude-dir images \
+    --host-addons "$HERE/../dot-server-deploy/addons.lock" --exclude-dir web --exclude-dir screenshots --exclude-dir images --exclude-dir tools \
     --lock "$HERE/content.lock.json" "$@"
