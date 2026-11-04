@@ -12,8 +12,8 @@ const DdTrip := preload("../game/dd_trip.gd")
 
 
 const SERVER_DIR := "user://dd_dedicated"
-const PORT := 28941
-const QUERY_PORT := 28942
+var PORT := DDTestPorts.free_port(2)
+var QUERY_PORT := PORT + 1
 const TICK_RATE := 60
 
 var _entered := 0
