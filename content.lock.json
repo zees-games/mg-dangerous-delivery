@@ -1,0 +1,15 @@
+{
+	"format": 1,
+	"mirrors": [],
+	"origin": "https://dev.dotgames.org/content",
+	"packs": [
+		{
+			"id": "gamemann/mg-dangerous-delivery",
+			"into": "",
+			"kind": "pack",
+			"manifest_sha256": "40f19927a0a1bb38ab4030cc67d70f9009ab33d75cbd552ba85bd767ba3bbd92",
+			"optional": false,
+			"version": "1.0.0"
+		}
+	]
+}

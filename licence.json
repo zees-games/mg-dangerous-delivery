@@ -1,0 +1,30 @@
+[
+  {
+    "paths": [
+      ""
+    ],
+    "licence": "MIT",
+    "author": "TMC",
+    "url": "https://github.com/zees-games/mg-dangerous-delivery",
+    "title": "mg-dangerous-delivery (original content; bundled addons carry their own licences in their repositories)"
+  },
+  {
+    "paths": [
+      "assets/kenney/",
+      "assets/models/"
+    ],
+    "licence": "CC0-1.0",
+    "author": "Kenney",
+    "url": "https://kenney.nl",
+    "title": "Kenney kits and trucks, modified (see CREDITS.md)"
+  },
+  {
+    "paths": [
+      "assets/polyhaven/"
+    ],
+    "licence": "CC0-1.0",
+    "author": "Poly Haven",
+    "url": "https://polyhaven.com/license",
+    "title": "Poly Haven textures"
+  }
+]

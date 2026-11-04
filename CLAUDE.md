@@ -97,3 +97,5 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and dot-vehicle's docs befor
 ## Not yet done
 
 Nobody has driven it, or walked the lot, in the web shell (`examples/delivery_client` in dot-server-deploy proves the pack, the socket and the driving; `tools/burst_all_games.sh delivery` the join's bytes). Publishing the pack (`tmc/delivery`) follows the family's release order, after a dot-player-char tag at API 3 (the people). The islands' mountains are not joined to the land; see [terrain](docs/terrain.md#not-done).
+
+- **Publishing**: `tools/publish.sh [--version V | --bump patch] [--site URL --token-file F]` publishes this game as the dot-cloud pack `gamemann/mg-dangerous-delivery` (host addons from the server, `licence.json` covers every shipped file); see dot-cloud/docs/cdn-publish.md.
