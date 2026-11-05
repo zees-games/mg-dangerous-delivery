@@ -106,6 +106,57 @@ static func rail(deck: Node3D, span: float, width: float) -> void:
 			deck.add_child(post)
 
 
+## Loose chunks of rock strewn round [param center] (visual only: a truck drives through them), so a cut
+## edge reads as crumbled rather than sliced. [param along] and [param across] are unit vectors on the ground.
+static func scatter(parent: Node3D, center: Vector3, along: Vector3, across: Vector3, count: int,
+		reach: Vector2, material: Material, seed_value: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	for k in count:
+		var chunk := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		var s := rng.randf_range(0.12, 0.38)
+		box.size = Vector3(s * rng.randf_range(0.8, 1.6), s * rng.randf_range(0.5, 1.0), s * rng.randf_range(0.8, 1.4))
+		chunk.mesh = box
+		chunk.material_override = material
+		chunk.position = center + along * rng.randf_range(-reach.x, reach.x) + across * rng.randf_range(-reach.y, reach.y) + Vector3(0.0, s * 0.2, 0.0)
+		chunk.rotation = Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(0.0, TAU), rng.randf_range(-0.5, 0.5))
+		parent.add_child(chunk)
+
+
+## Crumbled lips at both ends of a dip and loose stones down its ramps.
+static func crumble(parent: Node3D, from: Vector3, to: Vector3, width: float, material: Material) -> void:
+	var span := from.distance_to(to)
+	var along := (to - from).normalized()
+	var across := along.cross(Vector3.UP).normalized()
+	var ramp := maxf((span - FLOOR_LENGTH) * 0.5, 0.1) / span
+	for end in 2:
+		var sign_along := 1.0 if end == 0 else -1.0
+		var lip := from if end == 0 else to
+		scatter(parent, lip, along * sign_along, across, 9, Vector2(1.4, width * 0.5 + MARGIN), material, 100 + end)
+		var t := ramp * 0.5 if end == 0 else 1.0 - ramp * 0.5
+		var mid := from.lerp(to, t) - Vector3(0.0, depth_at(t, span), 0.0)
+		scatter(parent, mid, along, across, 5, Vector2(span * ramp * 0.4, width * 0.5), material, 200 + end)
+
+
+## Splintered planks at both ends of a deck, as its children, so a fallen span still looks torn off.
+static func splinter(deck: Node3D, span: float, width: float) -> void:
+	var wood := _wood()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(span * 100.0) + int(width * 10.0)
+	for end in [-1.0, 1.0]:
+		for k in 5:
+			var plank := MeshInstance3D.new()
+			var box := BoxMesh.new()
+			box.size = Vector3(rng.randf_range(0.25, 0.4), 0.08, rng.randf_range(0.4, 1.2))
+			plank.mesh = box
+			plank.material_override = wood
+			var lateral := (float(k) / 4.0 - 0.5) * (width - 0.8) + rng.randf_range(-0.1, 0.1)
+			plank.position = Vector3(lateral, DECK_HALF + 0.12, float(end) * (span * 0.5 - box.size.z * 0.4))
+			plank.rotation = Vector3(float(end) * rng.randf_range(0.15, 0.55), rng.randf_range(-0.2, 0.2), 0.0)
+			deck.add_child(plank)
+
+
 static func _wood() -> StandardMaterial3D:
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color(0.3, 0.22, 0.14)

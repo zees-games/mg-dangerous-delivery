@@ -26,7 +26,7 @@
 
 ## Bridges, fords and lanes
 
-A plank bridge is a `DotPropBridge` deck with rails, laid in world space (`DdRoute._lay_bridges`, redone when the route moves: the addon builds in world coordinates, and route-local points left the deck far from the road). Under it `DdFord` holds a shallow dip with trestle posts, so a fallen span slows a truck instead of ending the road. The doc validator allows only one of works, washout and ledge per segment, because each closes a side of the road and two leave no lane. `headless_passable` drives every stage and seed with a 3 m wide lane probe and fails on a gap or a step a truck cannot take.
+A plank bridge is a `DotPropBridge` deck with rails, laid in world space (`DdRoute._lay_bridges`, redone when the route moves: the addon builds in world coordinates, and route-local points left the deck far from the road). Under it `DdFord` holds a shallow dip with trestle posts, so a fallen span slows a truck instead of ending the road. The doc validator allows only one of works, washout and ledge per segment, because each closes a side of the road and two leave no lane; a segment of `SHARE_LENGTH` or more may hold one washout and one ledge, a quarter and three quarters along it, which is how a mountain with one wide straight keeps both. Edges are never clean cuts: `DdFord.crumble` strews rock at a collapsed deck's lip and on its ramps, `DdFord.splinter` leaves broken planks at a deck's ends, and ledges and washouts are frayed with chunks of rock. All of it is drawn only, with no collision. `headless_passable` drives every stage and seed with a 3 m wide lane probe and fails on a gap or a step a truck cannot take.
 
 ## Not done
 

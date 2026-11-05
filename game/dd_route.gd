@@ -687,6 +687,31 @@ func _build_ledges() -> void:
 		ledge.name = "Ledge"
 		add_child(ledge)
 		ledge.transform = at
+		if draws:
+			_fray_ledge(entry, d, half)
+	if draws:
+		_fray_washouts()
+
+
+## Stones along the broken edge of each washout, where the road was bitten away.
+func _fray_washouts() -> void:
+	for k in washouts.size():
+		var entry: Dictionary = washouts[k]
+		var d := float(entry["d"])
+		var half := float(entry["length"]) * 0.5
+		for step in 5:
+			var pose := pose_at(d - half + float(entry["length"]) * float(step) / 4.0)
+			var edge := pose.origin + pose.basis.x * float(entry["side"]) * width_at(d) * (WASHOUT_KEEP - 0.5)
+			DdFord.scatter(self, edge, pose.basis.z, pose.basis.x, 4, Vector2(1.0, 0.7), _rock_material(), 400 + k * 10 + step)
+
+
+## Fallen rock at both ends of a ledge, on its side of the road, so it does not stop like a cut.
+func _fray_ledge(entry: Dictionary, d: float, half: float) -> void:
+	var side := float(entry["side"])
+	for end in [-1.0, 1.0]:
+		var pose := pose_at(d + float(end) * half)
+		var edge := pose.origin + pose.basis.x * side * (width_at(d) * 0.5 - 0.3)
+		DdFord.scatter(self, edge, pose.basis.z, pose.basis.x, 6, Vector2(1.2, 0.8), _rock_material(), 300 + int(d))
 
 
 ## Broken road: low heaps of rock ([code]DotPropRubble[/code]) that must be crossed or held to one side of.
@@ -709,6 +734,8 @@ func _build_bridges() -> void:
 		var b: Vector3 = points[int(entry["b"])]
 		var width := _width_at_sample(int(entry["a"]))
 		add_child(DdFord.make(a, b, width, _rock_material() if draws else null, 1 | CAMERA_LAYER))
+		if draws:
+			DdFord.crumble(self, a, b, width, _rock_material())
 	set_notify_transform(true)
 	_lay_bridges()
 
@@ -733,6 +760,7 @@ func _lay_bridges() -> void:
 		deck.build(to_global(a), to_global(b), width, planks, 1 | CAMERA_LAYER)
 		if draws:
 			DdFord.rail(deck.get_node("Deck"), a.distance_to(b), width)
+			DdFord.splinter(deck.get_node("Deck"), a.distance_to(b), width)
 		entry["node"] = deck
 
 
