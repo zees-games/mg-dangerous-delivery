@@ -702,21 +702,43 @@ func _build_broken() -> void:
 		heap.transform = Transform3D(at.basis, at.origin + at.basis.x * float(heap_at["lateral"]))
 
 
-## Plank bridges (dot-props' [code]DotPropBridge[/code]) in the road's gaps.
+## A dip under each gap in the road (so a fallen deck leaves a way through), and its plank bridge.
 func _build_bridges() -> void:
+	for entry: Dictionary in bridges:
+		var a: Vector3 = points[int(entry["a"])]
+		var b: Vector3 = points[int(entry["b"])]
+		var width := _width_at_sample(int(entry["a"]))
+		add_child(DdFord.make(a, b, width, _rock_material() if draws else null, 1 | CAMERA_LAYER))
+	set_notify_transform(true)
+	_lay_bridges()
+
+
+## The decks work in world space, so they are laid again whenever the route is moved.
+func _lay_bridges() -> void:
 	var Bridge: GDScript = load("res://addons/dot_props/runtime/dot_prop_bridge.gd")
 	var planks := StandardMaterial3D.new()
 	planks.albedo_color = Color(0.42, 0.3, 0.18)
 	planks.roughness = 0.95
 	for entry: Dictionary in bridges:
+		var old: Node3D = entry.get("node")
+		if old != null:
+			old.queue_free()
 		var deck: Node3D = Bridge.new()
 		deck.name = "Bridge"
 		deck.rating = float(entry["rating"])
 		add_child(deck)
 		var a: Vector3 = points[int(entry["a"])]
 		var b: Vector3 = points[int(entry["b"])]
-		deck.build(a, b, _width_at_sample(int(entry["a"])), planks, 1 | CAMERA_LAYER)
+		var width := _width_at_sample(int(entry["a"]))
+		deck.build(to_global(a), to_global(b), width, planks, 1 | CAMERA_LAYER)
+		if draws:
+			DdFord.rail(deck.get_node("Deck"), a.distance_to(b), width)
 		entry["node"] = deck
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED and not bridges.is_empty() and is_inside_tree():
+		_lay_bridges()
 
 
 func _width_at_sample(i: int) -> float:

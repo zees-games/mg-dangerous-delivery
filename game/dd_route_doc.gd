@@ -11,7 +11,7 @@ const FORMAT := 1
 const BRIDGE_MIN_SEGMENT := 70.0
 
 ## Hazards a mountain may add to every route it holds ([method overlay]).
-const OVERLAY_KINDS := ["traffic", "bridge", "washout", "broken", "ice", "debris", "gravel", "works", "ledge"]
+const OVERLAY_KINDS := ["traffic", "bridge", "washout", "broken", "ice", "debris", "gravel", "ledge", "works"]
 
 const WALLS := ["none", "left", "right", "both"]
 
@@ -224,6 +224,9 @@ static func _check_features(i: int, seg: Dictionary, seg_width: float, turn: flo
 	if bridge > 0 and washout > 0:
 		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
 
+	if (1 if works > 0 else 0) + (1 if washout > 0 else 0) + (1 if ledge > 0 else 0) > 1:
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: roadworks, a washout and a ledge each take a side of the road, so a segment holds one." % i)
+
 	return DotResult.success()
 
 
@@ -296,6 +299,12 @@ static func overlay(doc: Dictionary, extras: Dictionary) -> Dictionary:
 			var length := float(seg["length"])
 			var straight := absf(float(seg["turn"])) / maxf(length, 1.0)
 			var ok := int(seg.get(kind, 0)) == 0 and i > 0 and i < segs.size() - 1
+			if kind == "washout":
+				ok = ok and int(seg.get("ledge", 0)) == 0 and int(seg.get("works", 0)) == 0
+			elif kind == "works":
+				ok = ok and int(seg.get("washout", 0)) == 0 and int(seg.get("ledge", 0)) == 0
+			elif kind == "ledge":
+				ok = ok and int(seg.get("washout", 0)) == 0 and int(seg.get("works", 0)) == 0
 			match kind:
 				"bridge":
 					ok = ok and absf(float(seg["turn"])) <= 4.0 and length >= BRIDGE_MIN_SEGMENT and int(seg.get("washout", 0)) == 0 and not bool(seg["checkpoint"])

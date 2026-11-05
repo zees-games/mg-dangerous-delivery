@@ -71,5 +71,5 @@ for arg in "$@"; do
 done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
-exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
+exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution "${RES:-1280x720}" \
     res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "--bridge=$bridge" "--ledge=$ledge" "${extra[@]}"

@@ -24,6 +24,10 @@
 
 **Shadows**: the mountain casting shadows cost a fifth of a software-rendered frame; it does not cast them.
 
+## Bridges, fords and lanes
+
+A plank bridge is a `DotPropBridge` deck with rails, laid in world space (`DdRoute._lay_bridges`, redone when the route moves: the addon builds in world coordinates, and route-local points left the deck far from the road). Under it `DdFord` holds a shallow dip with trestle posts, so a fallen span slows a truck instead of ending the road. The doc validator allows only one of works, washout and ledge per segment, because each closes a side of the road and two leave no lane. `headless_passable` drives every stage and seed with a 3 m wide lane probe and fails on a gap or a step a truck cannot take.
+
 ## Not done
 
 From above each route is still its own island with a steep face to the water; the land ([world.md](world.md)) now reaches every island's start by a road, but the islands' mountains are not joined to it or to each other. One terrain under the whole world would join them at the cost of the per-route build, which has not been timed in a browser. Grid lines show on the steepest faces at 5 m cells. A dark arch beside one route's depot, seen from above, is the massif's edge steepening into the lake and was left.
