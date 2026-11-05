@@ -96,15 +96,22 @@
 			"gravel": 1
 		},
 		{
-			"length": 150.0,
-			"turn": -30.0,
-			"climb": 6.0,
+			"length": 100.0,
+			"turn": -20.0,
+			"climb": 3.0,
 			"wall": "right",
 			"rail": "none",
 			"zone": "upper",
 			"boulders": 1,
-			"ice": 1,
-			"debris": 1
+			"ice": 1
+		},
+		{
+			"length": 100.0,
+			"turn": -10.0,
+			"climb": 3.0,
+			"wall": "right",
+			"rail": "none",
+			"zone": "upper"
 		},
 		{
 			"length": 100.0,
@@ -113,7 +120,8 @@
 			"wall": "none",
 			"rail": "none",
 			"zone": "upper",
-			"checkpoint": true
+			"checkpoint": true,
+			"debris": 1
 		},
 		{
 			"length": 90.0,

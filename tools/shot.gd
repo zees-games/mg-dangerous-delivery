@@ -92,7 +92,7 @@ func _ready() -> void:
 		var bridged = client.game.routes[StringName(str(_args.get("route", "dd_foothills")))]
 
 		if not bridged.bridges.is_empty():
-			at_m = float(bridged.bridges[0]["d"]) - 16.0
+			at_m = float(bridged.bridges[0]["d"]) - float(_args.get("short", "16"))
 			deck = bridged.bridges[0]["node"]
 
 	# `--ledge=1`: 14 m short of the route's first narrow ledge.
