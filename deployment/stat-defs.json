@@ -1,0 +1,102 @@
+{
+	"format": "dot-stat-defs",
+	"version": 1,
+	"stats": [
+		{
+			"key": "dd.deliveries",
+			"name": "Deliveries",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "deliveries",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.clean_deliveries",
+			"name": "Deliveries without a fall",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "deliveries",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.distance",
+			"name": "Distance hauled",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "km",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.earned",
+			"name": "Money earned",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "dollars",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.best_pay",
+			"name": "Best single delivery",
+			"description": "",
+			"kind": "BEST",
+			"unit": "dollars",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.best_level",
+			"name": "Hardest route delivered",
+			"description": "",
+			"kind": "BEST",
+			"unit": "level",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.falls",
+			"name": "Times over the edge",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "falls",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		},
+		{
+			"key": "dd.snow_deliveries",
+			"name": "Deliveries through snow",
+			"description": "",
+			"kind": "COUNTER",
+			"unit": "deliveries",
+			"format": "",
+			"decimals": 0,
+			"category": "",
+			"column": "OPTIONAL",
+			"better": null
+		}
+	]
+}
