@@ -818,6 +818,9 @@ func _build_touch() -> void:
 	touch = DdTouch.new()
 	touch.pressed_fn = _touch_pressed
 	touch.build(hud)
+	if platform != null:
+		platform.fit_touch_buttons(touch.right, DdTouch.right_layout())
+		platform.fit_touch_buttons(touch.left, DdTouch.left_layout())
 
 
 ## 1 while a touch button is held; 0 without touch.
