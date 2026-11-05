@@ -135,11 +135,11 @@ ROUTES = [
           {"ridge": {"name": "The Ridge", "wind": 0.9, "rain": 0.3}, "saddle": {"name": "The Saddle", "wind": 0.6, "snow": 0.3}},
           [
               seg(80, wall="left"),
-              seg(140, 15, 14, wall="left", zone="saddle", traffic=1),
+              seg(140, 15, 14, wall="left", zone="saddle", width=7.0, traffic=1),
               seg(160, -20, 8, wall="none", zone="ridge", width=6.5, checkpoint=True, gravel=1),
               seg(140, 30, 4, wall="none", zone="ridge", width=6.2, works=1),
               seg(120, -35, -6, wall="none", zone="ridge", width=6.2, checkpoint=True, ice=1),
-              seg(150, 25, 10, wall="right", zone="saddle", boulders=2, ice=1),
+              seg(150, 25, 10, wall="right", zone="saddle", width=7.0, boulders=2, ice=1),
               seg(130, -20, 6, wall="none", zone="ridge", width=6.0, checkpoint=True, gravel=1),
               # The far end (2026-10-26): off the ridge into the saddle, one switchback, and back
               # along the top at its narrowest.
@@ -156,7 +156,7 @@ ROUTES = [
            "summit": {"name": "Summit", "snow": 0.9, "wind": 0.5}},
           [
               seg(70, wall="left"),
-              seg(140, -25, 16, wall="left", zone="gate", boulders=2, traffic=1),
+              seg(140, -25, 16, wall="left", zone="gate", width=7.0, boulders=2, traffic=1),
               hairpin(1, 8, 6.5, zone="gate"),
               seg(130, 0, 18, wall="left", zone="gate", boulders=1, checkpoint=True),
               hairpin(-1, 8, 6.2, zone="spine"),

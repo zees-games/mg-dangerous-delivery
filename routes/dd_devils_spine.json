@@ -42,7 +42,8 @@
 			"rail": "none",
 			"zone": "gate",
 			"boulders": 2,
-			"traffic": 1
+			"traffic": 1,
+			"width": 7.0
 		},
 		{
 			"length": 95.0,
