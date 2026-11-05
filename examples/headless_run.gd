@@ -393,6 +393,16 @@ func _test_roads_and_gates() -> void:
 	_check(solid == probes, "every road is solid underfoot and under a wheel, at the lot's height", "%d of %d" % [solid, probes])
 	# What a footstep sounds like where somebody walks: the lot's slab and a road are concrete
 	# (asphalt is walked as concrete), the plain grass. The ground's own `surface` meta says so.
+	_check_footsteps()
+
+	await _check_gate_flow()
+
+	_check_snow_keeps_roads()
+	_finished_section()
+
+
+## Footsteps where somebody walks: the lot's slab and a road are concrete, the plain grass.
+func _check_footsteps() -> void:
 	var heard := []
 	var road_line: PackedVector3Array = game.land.roads[&"dd_foothills"]
 	var on_plain := game.lot.to_global(Vector3(DdLot.SIZE.x * 0.5 + 40.0, 0.0, 0.0))
@@ -415,6 +425,9 @@ func _test_roads_and_gates() -> void:
 	steps.free()
 	_check(heard == ["concrete", "concrete", "grass"], "footsteps: concrete on the lot and the roads, grass on the plain", str(heard))
 
+
+## Nobody walks past a gate; SET OFF drives to it, the barrier stops the truck, E accepts the delivery.
+func _check_gate_flow() -> void:
 	var key := &"gater"
 	var me := game.join(key, "Gater")
 	var gate: DdGate = game.gates[&"dd_foothills"]
@@ -457,6 +470,9 @@ func _test_roads_and_gates() -> void:
 		"E accepts it: the loaded truck is on the start line past the barrier", str(accepted.error) if not accepted.ok else "")
 	game.leave(key)
 
+
+## The snowline loops back south toward the lot's roads: its mountain is held under them.
+func _check_snow_keeps_roads() -> void:
 	# The snowline loops back south toward the lot's roads: its mountain is held under them.
 	var snow: DdRoute = game.routes[&"dd_snowline"]
 	var keep := PackedVector3Array()
@@ -472,7 +488,6 @@ func _test_roads_and_gates() -> void:
 			if ground.height_at(p.x, p.z) > p.y - 1.0:
 				buried += 1
 	_check(buried == 0, "no island's mountain stands over a road of the land's", "%d samples" % buried)
-	_finished_section()
 
 
 ## Bridges, washouts and broken road: a mountain's `hazards` reach its routes, deterministically,

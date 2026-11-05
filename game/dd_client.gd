@@ -33,19 +33,7 @@ func _ready() -> void:
 	_build_environment()
 	DdLoad.mark("environment")
 
-	game = DdGame.new()
-	game.name = "World"
-	game.draws = true
-	game.authoritative = _offline
-	# A connected client's world is a mirror: not registered (a server in the same process
-	# would fight it for the name) and not ticking itself (the bridge ticks it on the clock).
-	game.register_service = _offline
-	game.self_tick = _offline
-	game.staged_terrain = staged_load
-	_hold_for_world()
-	game.terrain_progress.connect(func(done: int, total: int) -> void:
-		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
-			DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()}))
+	_make_world()
 	_step("Building the world" if _offline else "Waiting for the server", 0.1 if _offline else 0.15)
 
 	if staged_load and _offline:
@@ -60,29 +48,12 @@ func _ready() -> void:
 				_place_walker(_on_foot_transform()))
 		var _me := game.join(local_key, local_name)
 
-	camera = Camera3D.new()
-	camera.name = "Camera"
-	camera.far = 3000.0
-	camera.fov = 70.0
-	add_child(camera)
-	camera.current = true
-	_frame_garage_camera()
+	_make_camera()
 
 	_build_weather()
 
 	_step("Setting up the lot", 0.5)
-	hud = DdHud.new()
-	hud.name = "Hud"
-	layer.add_child(hud)
-	_build_touch()
-	garage = DdGarage.new()
-	garage.name = "Garage"
-	garage.act = _act
-	layer.add_child(garage)
-
-	chat = new_chat()
-	add_child(chat)
-	garage.chat_window = chat.window
+	_make_panels(layer)
 	DdLoad.mark("camera, weather, hud, garage, chat")
 	_step("Sound", 0.6)
 	_build_audio()
@@ -117,6 +88,50 @@ func _ready() -> void:
 		# Straight onto the route, as a screenshot or a suite wants, not to its gate.
 		game.config.quick_start = true
 		_act("start", {"route": String(auto_route)})
+
+
+## The world node: a mirror when connected, the owner offline.
+func _make_world() -> void:
+	game = DdGame.new()
+	game.name = "World"
+	game.draws = true
+	game.authoritative = _offline
+	# A connected client's world is a mirror: not registered (a server in the same process
+	# would fight it for the name) and not ticking itself (the bridge ticks it on the clock).
+	game.register_service = _offline
+	game.self_tick = _offline
+	game.staged_terrain = staged_load
+	_hold_for_world()
+	game.terrain_progress.connect(func(done: int, total: int) -> void:
+		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
+			DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()}))
+
+
+## The camera, current, on the lot.
+func _make_camera() -> void:
+	camera = Camera3D.new()
+	camera.name = "Camera"
+	camera.far = 3000.0
+	camera.fov = 70.0
+	add_child(camera)
+	camera.current = true
+	_frame_garage_camera()
+
+
+## The HUD, the lot's panel and the chat window, on the UI layer.
+func _make_panels(layer: CanvasLayer) -> void:
+	hud = DdHud.new()
+	hud.name = "Hud"
+	layer.add_child(hud)
+	_build_touch()
+	garage = DdGarage.new()
+	garage.name = "Garage"
+	garage.act = _act
+	layer.add_child(garage)
+
+	chat = new_chat()
+	add_child(chat)
+	garage.chat_window = chat.window
 
 
 ## Offline, the client's own HUD answers the world's signals; a connected one hears them from the bridge.
