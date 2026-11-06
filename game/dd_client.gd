@@ -9,6 +9,10 @@ extends "dd_client_state.gd"
 const LINK_SERVICE := &"dot_client_link"
 
 const CHANNEL := "delivery.client"
+## The chase camera opens up with speed: no change under FROM m/s, the full widening at FULL.
+const FOV_WIDEN_FROM := 8.0
+const FOV_WIDEN_FULL := 38.0
+const FOV_WIDEN_MAX := 10.0
 
 
 func _ready() -> void:
@@ -1536,6 +1540,8 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	if not camera_allowed(camera_mode):
 		camera_mode = CameraMode.CAB if force_view == 1 else CameraMode.CHASE
 
+	_widen_fov(absf(_speed_of_truck(truck)), delta)
+
 	var basis := truck.global_basis
 	# Flattened, so a truck on its side does not roll the camera with it.
 	var flat := Vector3(basis.z.x, 0.0, basis.z.z).normalized()
@@ -1593,6 +1599,34 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	camera.global_position = _clear_of_mountain(truck, _chase_at, delta)
 	_look = _look.lerp(look, k) if _look != Vector3.ZERO else look
 	camera.look_at(_look)
+
+
+## Field of view for a speed: the player's own setting, plus up to [constant FOV_WIDEN_MAX]
+## degrees as the truck climbs from [constant FOV_WIDEN_FROM] to [constant FOV_WIDEN_FULL] m/s.
+## Standing still it is exactly the setting.
+static func fov_for_speed(base: float, speed_ms: float) -> float:
+	var t := clampf((speed_ms - FOV_WIDEN_FROM) / (FOV_WIDEN_FULL - FOV_WIDEN_FROM), 0.0, 1.0)
+	return base + FOV_WIDEN_MAX * t * t * (3.0 - 2.0 * t)
+
+
+func _widen_fov(speed_ms: float, delta: float) -> void:
+	var base := float(DdSettings.DEFAULT_FOV)
+
+	if settings != null and settings.settings != null:
+		base = float(settings.settings.get_int(&"field_of_view", DdSettings.DEFAULT_FOV))
+
+	var amount := 0.5 if camera_mode == CameraMode.CAB else 1.0
+	var wanted := base + (fov_for_speed(base, speed_ms) - base) * amount
+	camera.fov = lerpf(camera.fov, wanted, 1.0 - exp(-delta * 2.5))
+
+
+## Forward speed of a truck, on a mirror too ([method _speed_of] takes a driver).
+func _speed_of_truck(truck: DdTruck) -> float:
+	if _offline:
+		return truck.forward_speed()
+
+	var behaviour := truck.get_node_or_null("Net") as DdTruckNet
+	return behaviour.speed_ms() if behaviour != null else 0.0
 
 
 ## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the

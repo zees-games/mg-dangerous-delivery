@@ -5,7 +5,7 @@ extends "res://examples/headless_run_hazards.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 33
-const CHECKS := 274
+const CHECKS := 275
 
 
 
@@ -875,6 +875,12 @@ func _test_the_client_settings() -> void:
 		"the client's settings are read by its camera",
 		str(settings.describe()) if settings != null else "no settings"
 	)
+	var cl := load("res://game/dd_client.gd") as GDScript
+	var f0: float = cl.fov_for_speed(70.0, 0.0)
+	var f1: float = cl.fov_for_speed(70.0, 20.0)
+	var f2: float = cl.fov_for_speed(70.0, 60.0)
+	_check(is_equal_approx(f0, 70.0) and f1 > f0 and f2 > f1 and is_equal_approx(f2, 70.0 + float(cl.FOV_WIDEN_MAX)),
+		"the chase camera widens with speed, exactly the setting standing still", "%s %s %s" % [f0, f1, f2])
 	var garage: Node = client.get("garage")
 	var button := garage.find_child("Settings", true, false) as Button if garage != null else null
 	if button != null:
