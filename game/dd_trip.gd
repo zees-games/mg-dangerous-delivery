@@ -70,6 +70,9 @@ var paid: int = 0
 ## Speed last tick, for the knock test.
 var last_velocity: Vector3 = Vector3.ZERO
 
+## Horizontal acceleration (m/s^2), smoothed over about a quarter second, for the load-shift test.
+var accel: Vector3 = Vector3.ZERO
+
 
 func reset_to_start(hold_seconds: float) -> void:
 	state = State.HOLD
@@ -90,6 +93,7 @@ func reset_to_start(hold_seconds: float) -> void:
 	chaos_units = 0.0
 	paid = 0
 	last_velocity = Vector3.ZERO
+	accel = Vector3.ZERO
 
 
 ## Counts the weather in [param zone] once. Returns whether it was new.

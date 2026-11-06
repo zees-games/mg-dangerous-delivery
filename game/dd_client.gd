@@ -390,6 +390,8 @@ func _driver() -> DdGame.Driver:
 ## Asks a server whether this player may edit it (sv_workbench_remote); null offline.
 var _walkers_heard: Array = []
 var workbench_remote: DotGameWorkbenchRemoteClient = null
+## Where the truck was last frame, for [method _sideways_speed].
+var _slide_from := Vector3.ZERO
 
 
 func _build_netcode() -> DotResult:
@@ -1053,10 +1055,28 @@ func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
 			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
+			audio.slide = _sideways_speed(me)
 			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
 
 		var route := StringName(facts.get("route", &""))
 		audio.on_route(route)
+
+
+## How fast the truck moves across where it points, from where it was last frame (a mirror's
+## body has no velocity of its own).
+func _sideways_speed(me: DdGame.Driver) -> float:
+	if me == null or me.truck == null:
+		return 0.0
+
+	var truck := me.truck as Node3D
+	var step := truck.global_position - _slide_from
+	var dt := get_process_delta_time()
+	_slide_from = truck.global_position
+
+	if dt <= 0.0 or step.length() > 20.0 * dt * 10.0:
+		return 0.0
+
+	return absf(step.dot(truck.global_basis.x)) / dt
 
 
 ## How many other engines are in earshot (60 m, the def's range): they share one level.

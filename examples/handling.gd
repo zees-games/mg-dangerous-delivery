@@ -5,10 +5,11 @@ extends "res://examples/handling_damage.gd"
 ##   godot --headless --path . res://examples/handling.tscn
 
 
-const SECTIONS := 14
-const CHECKS := 72
+const SECTIONS := 15
+const CHECKS := 75
 
 
+const DdCargo := preload("res://game/dd_cargo.gd")
 const TRUCKS: Array[StringName] = [&"box_truck", &"flatbed", &"hauler", &"semi", &"bulk"]
 const LOADS: Array[StringName] = [&"crates", &"gravel", &"timber", &"fuel", &"glass", &"explosives"]
 
@@ -61,6 +62,8 @@ func _ready() -> void:
 		await _test_slosh()
 	if _runs(only, "gravel"):
 		await _test_glass_on_gravel()
+	if _runs(only, "shift"):
+		await _test_load_shift()
 
 	game.config.weather_frequency = 1.0
 	# The ordinary sky is part of what is measured; a storm is the extreme on top, and a Bulk
@@ -296,6 +299,40 @@ func _over_gravel(load_id: StringName, kmh: float) -> float:
 	var left := (me.trip as DdTrip).cargo
 	game.end_trip(&"t")
 	return left
+
+
+## From [param kmh] on the flat to a stop, braking at [param brake]: what is left of the load.
+func _stop_with(load_id: StringName, kmh: float, brake: float) -> float:
+	_use_test_routes([FLAT])
+	var me := _set_off(&"box_truck", load_id, &"t_flat")
+	await _seconds(0.4)
+	var t := 0.0
+	while _truck(me).forward_speed() * 3.6 < kmh and t < 60.0:
+		_drive(me, 1.0)
+		await get_tree().physics_frame
+		t += TICK
+	var before := (me.trip as DdTrip).cargo
+	_drive(me, 0.0, brake)
+	t = 0.0
+	while _truck(me).linear_velocity.length() > 0.3 and t < 30.0:
+		await get_tree().physics_frame
+		t += TICK
+	var left := (me.trip as DdTrip).cargo / maxf(before, 0.01)
+	game.end_trip(&"t")
+	return left
+
+
+func _test_load_shift() -> void:
+	_section("a hard stop slides the load")
+	_check(DdCargo.shift_loss(2.0, 1.0, 1.0, 3.0, 0.004) == 0.0 and DdCargo.shift_loss(6.0, 1.0, 1.0, 3.0, 0.004) > 0.0 \
+		and DdCargo.shift_loss(6.0, 2.0, 1.0, 3.0, 0.004) > DdCargo.shift_loss(6.0, 1.0, 1.0, 3.0, 0.004) * 2.0, "a gentle pull costs nothing, a hard one something, a fragile load more")
+	var glass_hard := await _stop_with(&"glass", 60.0, 1.0)
+	var glass_easy := await _stop_with(&"glass", 60.0, 0.08)
+	var crates_hard := await _stop_with(&"crates", 60.0, 1.0)
+	print("  stop from 60 km/h: glass hard %.0f%%, glass easy %.0f%%, crates hard %.0f%%" % [glass_hard * 100.0, glass_easy * 100.0, crates_hard * 100.0])
+	_check(glass_hard < glass_easy - 0.03, "glass stopped hard loses more than stopped gently", "%.3f vs %.3f" % [glass_hard, glass_easy])
+	_check(crates_hard > glass_hard + 0.02 and glass_easy > 0.95, "crates shrug off the stop, and a gentle one costs glass nothing", "%.3f, %.3f" % [crates_hard, glass_easy])
+	_finished_section()
 
 
 func _test_glass_on_gravel() -> void:

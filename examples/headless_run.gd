@@ -5,7 +5,7 @@ extends "res://examples/headless_run_hazards.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 33
-const CHECKS := 267
+const CHECKS := 270
 
 
 
@@ -1366,9 +1366,23 @@ func _test_sound_and_effects() -> void:
 	var own: Dictionary = audio.call("loop_state", &"own")
 	_check(bool(own.get("playing", false)) and float(own.get("pitch", 0.0)) > 0.6,
 		"the engine runs while driving, its pitch up with the speed", str(own))
+	var low_gear: float = DdAudio.call("engine_pitch", 5.0)
+	var shifted: float = DdAudio.call("engine_pitch", 22.0 * 0.14 + 0.5)
+	var top_of_gear: float = DdAudio.call("engine_pitch", 22.0 * 0.14 - 0.1)
+	_check(top_of_gear > shifted + 0.1 and float(DdAudio.call("engine_pitch", 0.0)) < 0.6 and absf(float(DdAudio.call("engine_pitch", 22.0)) - 1.45) < 0.01,
+		"the engine drops at a gear change, idles at a standstill and tops out where it did",
+		"%.2f before, %.2f after, %.2f at rest" % [top_of_gear, shifted, DdAudio.call("engine_pitch", 0.0)])
+	_check(low_gear > 0.55 and bool(DdAudio.call("ids").has(&"squeal")), "tyres have a sound of their own, in the catalogue")
 	var bot_truck: Node = (world.drivers[&"bot"] as Object).get("truck")
 	var other: Dictionary = audio.call("loop_state", DdAudio.call("loop_key", bot_truck)) if bot_truck != null else {}
 	_check(bool(other.get("playing", false)), "the truck behind is heard where it is", str(other))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	audio.set("slide", 5.0)
+	audio.call("_process", 0.1)
+	audio.call("_process", 0.1)
+	_check(bool((audio.call("loop_state", &"squeal") as Dictionary).get("playing", false)), "a truck sliding sideways makes the tyres sing", str(audio.call("loop_state", &"squeal")))
+	audio.set("slide", 0.0)
 
 	await _rock_is_heard_and_felt(world, client, audio, effects, settings, sink)
 

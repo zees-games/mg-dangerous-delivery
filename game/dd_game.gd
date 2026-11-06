@@ -1776,7 +1776,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 
 	_road_conditions(driver, road, local, delta)
 
-	_cargo_knock(driver)
+	_cargo_knock(driver, delta)
 
 	# Checkpoints.
 	var reached := road.stage_of(trip.distance)
@@ -1850,15 +1850,26 @@ func _step_not_driving(driver: Driver, delta: float) -> bool:
 
 
 ## A knock: the cargo feels a change of speed the road did not ask for; a fragile load loses more.
-func _cargo_knock(driver: Driver) -> void:
+func _cargo_knock(driver: Driver, delta: float) -> void:
 	var trip: DdTrip = driver.trip
 	var truck: DdTruck = driver.truck
 	var dv := (truck.linear_velocity - trip.last_velocity).length()
+	var flat_dv := truck.linear_velocity - trip.last_velocity
+	flat_dv.y = 0.0
 	trip.last_velocity = truck.linear_velocity
 	var threshold := config.knock_threshold / trip.fragile
+	var harmable := can_be_harmed(driver.key) and not (truck.wreck != null and truck.wreck.is_wrecked())
 
-	if dv > threshold and can_be_harmed(driver.key) and not (truck.wreck != null and truck.wreck.is_wrecked()):
+	if dv > threshold and harmable:
 		trip.cargo = maxf(trip.cargo - (dv - threshold) * config.knock_loss_per_speed * trip.fragile, 0.0)
+
+	# Hard braking or cornering slides the load: not a knock (that is one tick), a sustained pull.
+	# A knock's tick is left out of the average so one crash is not charged twice.
+	var pull := flat_dv / maxf(delta, 0.0001) if dv <= threshold else Vector3.ZERO
+	trip.accel = trip.accel.lerp(pull, 1.0 - exp(-delta * 4.0))
+
+	if harmable:
+		trip.cargo = maxf(trip.cargo - DdCargo.shift_loss(trip.accel.length(), trip.fragile, delta, config.shift_threshold, config.shift_loss_rate), 0.0)
 
 
 ## Hung up on the road's edge or on its back for long enough: the truck is put back. True if it fell.

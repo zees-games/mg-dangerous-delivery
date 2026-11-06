@@ -65,6 +65,12 @@ func get_load(id: StringName) -> Dictionary:
 	return loads.get(id, loads.get(&"crates", {}))
 
 
+## The share of a load lost in [param delta] seconds of a sustained horizontal pull of [param accel]
+## m/s^2 (a hard stop or a fast bend) above [param threshold], harder on a fragile load.
+static func shift_loss(accel: float, fragile: float, delta: float, threshold: float, rate: float) -> float:
+	return maxf(accel - threshold / maxf(fragile, 0.1), 0.0) * rate * fragile * delta
+
+
 func describe_lines() -> PackedStringArray:
 	var lines := PackedStringArray(["cargo (%d)" % order.size()])
 	for id in order:
