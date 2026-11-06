@@ -85,12 +85,12 @@ extends DotConfig
 @export_range(0.0, 1.0, 0.005) var knock_loss_per_speed: float = 0.02
 
 
-## Sustained horizontal acceleration, m/s^2, above which the load starts to slide (a hard stop is
-## about 4, a fast bend 3). A fragile load starts earlier, as with knocks.
-@export_range(0.5, 20.0, 0.1) var shift_threshold: float = 3.0
+## Sustained horizontal acceleration, m/s^2, above which the load starts to slide (a full-brake stop is
+## about 6.5, a gentle one under 2). A fragile load starts earlier, as with knocks.
+@export_range(0.5, 20.0, 0.1) var shift_threshold: float = 5.5
 
 ## Cargo lost per second per m/s^2 above the shift threshold, as a fraction.
-@export_range(0.0, 1.0, 0.001) var shift_loss_rate: float = 0.004
+@export_range(0.0, 1.0, 0.001) var shift_loss_rate: float = 0.006
 
 
 @export_group("Weather")
