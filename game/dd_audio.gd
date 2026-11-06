@@ -41,6 +41,12 @@ const TOP_SPEED := 22.0
 const SQUEAL_FROM := 1.5
 const SQUEAL_FULL := 6.0
 const SQUEAL_DB := -12.0
+## Braking harder than this (m/s²) over [constant BRAKE_SQUEAL_MIN_SPEED] also sings, up to
+## [constant BRAKE_SQUEAL_LEVEL] of the full squeal; a gentle stop (under 2) stays silent.
+const BRAKE_SQUEAL_FROM := 4.5
+const BRAKE_SQUEAL_FULL := 7.5
+const BRAKE_SQUEAL_MIN_SPEED := 4.0
+const BRAKE_SQUEAL_LEVEL := 0.7
 
 ## Where each gear ends, as a share of [constant TOP_SPEED]: the engine climbs through the gear
 ## and drops at the shift, which is what a gearbox sounds like from the cab.
@@ -74,6 +80,12 @@ var throttle: float = 0.0
 var braking: bool = false
 ## Metres per second the truck is moving sideways: its tyres sliding.
 var slide: float = 0.0
+## The drivetrain's gear (0 unknown, then 1 up): the pitch follows it, so it steps when the box does.
+var gear: int = 0
+## 0 (idle) to 1 (redline): the drivetrain's revs.
+var rev: float = 0.0
+var _last_speed: float = 0.0
+var _decel: float = 0.0
 ## {"sky": 0 clear / 1 rain / 2 snow, "wind": bool}.
 var weather: Dictionary = {}
 ## Whether anything plays at all: off in the garage.
@@ -277,16 +289,35 @@ static func engine_pitch(speed_ms: float) -> float:
 	return 0.55 + lerpf(0.0, rev, clampf(f / 0.03, 0.0, 1.0)) * 0.9
 
 
+## The pitch from the drivetrain's real [param gear] and [param rev] (0 idle to 1 redline), so it
+## steps when the box shifts, with the box's own hysteresis; no gear falls back to speed alone.
+static func gear_pitch(speed_ms: float, gear: int, rev: float) -> float:
+	if gear <= 0:
+		return engine_pitch(speed_ms)
+
+	var f := clampf(absf(speed_ms) / TOP_SPEED, 0.0, 1.0)
+	return 0.55 + lerpf(0.0, lerpf(0.3, 1.0, clampf(rev, 0.0, 1.0)), clampf(f / 0.03, 0.0, 1.0)) * 0.9
+
+
 func _process(delta: float) -> void:
 	if manager == null:
 		return
+
+	if delta > 0.0:
+		_decel = lerpf(_decel, (_last_speed - speed) / delta if absf(speed) > 0.0 else 0.0, 1.0 - exp(-delta * 6.0))
+		_last_speed = speed
 
 	var k := 1.0 - exp(-delta * 8.0)
 	var sky := int(weather.get("sky", 0))
 	# Idle at a little over half pitch, climbing with speed: a diesel never revs like a car.
 	_shape(&"own", ENGINE, lerpf(OWN_IDLE_DB, OWN_FULL_DB, clampf(throttle, 0.0, 1.0)) if driving else -80.0,
-		engine_pitch(speed), k)
+		gear_pitch(speed, gear, rev), k)
 	var skid := clampf((slide - SQUEAL_FROM) / (SQUEAL_FULL - SQUEAL_FROM), 0.0, 1.0)
+
+	if braking and absf(speed) > BRAKE_SQUEAL_MIN_SPEED:
+		var hard := clampf((_decel - BRAKE_SQUEAL_FROM) / (BRAKE_SQUEAL_FULL - BRAKE_SQUEAL_FROM), 0.0, 1.0)
+		skid = maxf(skid, hard * BRAKE_SQUEAL_LEVEL)
+
 	_shape(&"squeal", SQUEAL, SQUEAL_DB + linear_to_db(skid) if driving and skid > 0.02 else -80.0,
 		1.0, k)
 	_shape(&"rain", RAIN, RAIN_DB if driving and sky == 1 else -80.0, 1.0, k * 0.3)

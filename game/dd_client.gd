@@ -1056,10 +1056,19 @@ func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
 			audio.slide = _sideways_speed(me)
+			audio.gear = int(facts.get("gear", 0))
+			audio.rev = float(facts.get("rev", 0.0))
 			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
 
 		var route := StringName(facts.get("route", &""))
 		audio.on_route(route)
+
+
+## The truck's revs from idle (0) to the redline (1).
+func _rev_of(me: DdGame.Driver) -> float:
+	var g: Dictionary = (me.truck as DdTruck).gauge()
+	var idle: float = float(g.get("idle", 650.0))
+	return clampf((float(g.get("rpm", idle)) - idle) / maxf(float(g.get("redline", 2500.0)) - idle, 1.0), 0.0, 1.0)
 
 
 ## How fast the truck moves across where it points, from where it was last frame (a mirror's
@@ -1123,7 +1132,7 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 		return {
 			"stage": trip.stage, "stages": trip.stages, "fraction": trip.distance / maxf(road.length(), 1.0),
 			"cargo": trip.cargo, "cargo_name": str(game.cargo.get_load(trip.cargo_id).get("name", "")),
-			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)),
+			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)), "rev": _rev_of(me),
 			"speed": _speed_of(me), "offer": trip.pay_now(game.config),
 			"weather": game.weather_at(trip.route_id, trip.distance), "state": trip.state_name(),
 			"route": String(trip.route_id),

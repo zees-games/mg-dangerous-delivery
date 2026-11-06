@@ -25,8 +25,9 @@ var rolling: float = 0.009
 ## The engine's braking with the throttle closed, as a fraction of its torque at that speed.
 var engine_brake: float = 0.12
 
-## Seconds a shift takes, with nothing driving the wheels.
-var shift_seconds: float = 0.35
+## Seconds a shift takes, and the share of the drive force that still reaches the wheels meanwhile.
+var shift_seconds: float = 0.15
+var shift_force: float = 0.65
 
 ## The share of a trailer's mass that bears down on the drive axle through the hitch, kg: more
 ## weight on the driven wheels is more they can pull. Set by whoever hitches a trailer.
@@ -175,14 +176,15 @@ func _shift(to: int) -> void:
 
 
 ## The force a throttle of [param throttle] is worth: through the gear, never more than the
-## power gives, nothing while a shift is under way, and the governor's fade near its speed.
+## power gives, a dip while a shift is under way, and the governor's fade near its speed.
 func engine_force_for(throttle: float) -> float:
 	var forward := vehicle.forward_speed()
 
 	if throttle > 0.0:
-		if gear <= 0 or _shifting > 0.0:
+		if gear <= 0:
 			return 0.0
 		var f := minf(force_at(forward, gear), _traction_cap()) * throttle
+		f *= shift_force if _shifting > 0.0 else 1.0
 		# The governor: the last 2 m/s below it fade out, so the needle settles rather than bangs.
 		return f * clampf((governor - forward) / 2.0, 0.0, 1.0)
 
@@ -227,7 +229,7 @@ func _drive(command: DotVehicleCommand, delta: float) -> void:
 
 ## What the HUD and the engine's sound read.
 func gauge() -> Dictionary:
-	return {"gear": gear, "rpm": rpm, "redline": redline_rpm, "shifting": _shifting > 0.0}
+	return {"gear": gear, "rpm": rpm, "redline": redline_rpm, "idle": idle_rpm, "shifting": _shifting > 0.0}
 
 
 func describe() -> Dictionary:
