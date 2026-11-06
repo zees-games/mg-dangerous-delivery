@@ -7,7 +7,7 @@
 	"blurb": "Everything at once, and narrow. The pay is for the people who get there.",
 	"level": 5,
 	"pay": 700,
-	"width": 6.5,
+	"width": 7.5,
 	"cargo": "explosives",
 	"zones": {
 		"gate": {
@@ -80,7 +80,7 @@
 			"rail": "none",
 			"zone": "spine",
 			"ice": 2,
-			"width": 6.0
+			"width": 7.2
 		},
 		{
 			"length": 120.0,
@@ -110,7 +110,7 @@
 			"zone": "summit",
 			"boulders": 1,
 			"gravel": 1,
-			"width": 5.8
+			"width": 7.2
 		},
 		{
 			"length": 110.0,
@@ -131,7 +131,7 @@
 			"rail": "none",
 			"zone": "summit",
 			"works": 1,
-			"width": 5.8
+			"width": 7.2
 		},
 		{
 			"length": 90.0,

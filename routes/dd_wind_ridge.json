@@ -7,7 +7,7 @@
 	"blurb": "Along the top of a ridge with a drop on both sides, in a wind that comes in gusts; then off its end by a switchback and back along the top at its narrowest.",
 	"level": 4,
 	"pay": 560,
-	"width": 6.8,
+	"width": 7.5,
 	"cargo": "glass",
 	"zones": {
 		"ridge": {
@@ -47,7 +47,7 @@
 			"zone": "ridge",
 			"checkpoint": true,
 			"gravel": 1,
-			"width": 6.5
+			"width": 7.2
 		},
 		{
 			"length": 140.0,
@@ -57,7 +57,7 @@
 			"rail": "none",
 			"zone": "ridge",
 			"works": 1,
-			"width": 6.2
+			"width": 7.2
 		},
 		{
 			"length": 120.0,
@@ -68,7 +68,7 @@
 			"zone": "ridge",
 			"checkpoint": true,
 			"ice": 1,
-			"width": 6.2
+			"width": 7.2
 		},
 		{
 			"length": 150.0,
@@ -89,7 +89,7 @@
 			"zone": "ridge",
 			"checkpoint": true,
 			"gravel": 1,
-			"width": 6.0
+			"width": 7.2
 		},
 		{
 			"length": 130.0,
@@ -120,7 +120,7 @@
 			"zone": "saddle",
 			"ice": 1,
 			"works": 1,
-			"width": 6.4
+			"width": 7.2
 		},
 		{
 			"length": 120.0,
@@ -131,7 +131,7 @@
 			"zone": "ridge",
 			"checkpoint": true,
 			"gravel": 1,
-			"width": 5.9
+			"width": 7.2
 		},
 		{
 			"length": 90.0,
