@@ -5,7 +5,7 @@ extends "res://examples/headless_run_hazards.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 33
-const CHECKS := 270
+const CHECKS := 274
 
 
 
@@ -1383,6 +1383,7 @@ func _test_sound_and_effects() -> void:
 	audio.call("_process", 0.1)
 	_check(bool((audio.call("loop_state", &"squeal") as Dictionary).get("playing", false)), "a truck sliding sideways makes the tyres sing", str(audio.call("loop_state", &"squeal")))
 	audio.set("slide", 0.0)
+	_brake_squeal(audio)
 
 	await _rock_is_heard_and_felt(world, client, audio, effects, settings, sink)
 
@@ -1402,6 +1403,58 @@ func _test_sound_and_effects() -> void:
 	client.free()
 	await get_tree().process_frame
 	_finished_section()
+
+
+## Brake squeal from the deceleration alone (no sideways slide): silent in a gentle stop, sung in a full-brake one.
+func _brake_squeal(audio: Node) -> void:
+	var was_driving: Variant = audio.get("driving")
+	audio.set("driving", true)
+	audio.set("slide", 0.0)
+	audio.set("braking", true)
+	audio.set("speed", 0.0)
+	audio.set("_last_speed", 0.0)
+
+	for _i in range(30):
+		audio.call("_process", 0.1)
+
+	_check(not bool((audio.call("loop_state", &"squeal") as Dictionary).get("playing", true)), "the tyres are quiet at rest before the stops")
+	var peaks := []
+
+	for decel in [2.0, 8.0]:
+		var v := 30.0
+		audio.set("speed", v)
+		audio.set("_last_speed", v)
+		audio.set("_decel", 0.0)
+		var loudest := -80.0
+
+		for _i in range(25):
+			v -= float(decel) * 0.1
+			audio.set("speed", v)
+			audio.call("_process", 0.1)
+			loudest = maxf(loudest, float((audio.call("loop_state", &"squeal") as Dictionary).get("db", -80.0)))
+
+		peaks.append(loudest)
+		audio.set("speed", 0.0)
+		audio.set("_last_speed", 0.0)
+
+		for _i in range(30):
+			audio.call("_process", 0.1)
+
+	_check(float(peaks[0]) < -60.0, "a gentle stop (2 m/s^2) does not squeal", str(peaks))
+	_check(float(peaks[1]) > -30.0, "a full-brake stop (8 m/s^2) squeals", str(peaks))
+
+	# Sideways squeal is independent of the brakes.
+	audio.set("braking", false)
+	audio.set("speed", 12.0)
+	audio.set("_last_speed", 12.0)
+	audio.set("slide", 5.0)
+
+	for _i in range(6):
+		audio.call("_process", 0.1)
+
+	_check(bool((audio.call("loop_state", &"squeal") as Dictionary).get("playing", false)), "sliding sideways still squeals with the brakes off")
+	audio.set("slide", 0.0)
+	audio.set("driving", was_driving)
 
 
 ## A boulder nearby is heard and felt, and a shake slider at zero is no jolt.
