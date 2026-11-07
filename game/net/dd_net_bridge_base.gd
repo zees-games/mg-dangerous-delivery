@@ -1,4 +1,4 @@
-extends Node
+extends DotGameNetIo
 
 ## The bridge's constants, signals and state; [DdNetBridge] holds the wire.
 
@@ -53,8 +53,6 @@ signal superseded(peer_id: int, key: StringName)
 const SUPERSEDED_REASON := "You joined from another tab or window"
 
 var game: DdGame = null
-var net: DotNetManager = null
-var link: DdNetLink = null
 ## Carries the game's profile runtime over this manager; null when the types would not register.
 var profile_link: DotNetProfileLink = null
 
@@ -67,9 +65,6 @@ var garage_view: Dictionary = {}
 
 ## Set by dot-game: where voice goes once it arrives.
 var voice_relay_fn: Callable = Callable()
-
-## Milliseconds of round trip, for the client's clock. Set by the client.
-var rtt_source: Callable = Callable()
 
 ## Where this client's walker is, sent with every input while on foot: `[Vector3, yaw]`, or
 ## empty while driving. Set by the client each tick. Client side.
