@@ -9,6 +9,10 @@ extends "dd_client_flashlight.gd"
 const LINK_SERVICE := &"dot_client_link"
 
 const CHANNEL := "delivery.client"
+## The chase camera opens up with speed: no change under FROM m/s, the full widening at FULL.
+const FOV_WIDEN_FROM := 8.0
+const FOV_WIDEN_FULL := 38.0
+const FOV_WIDEN_MAX := 10.0
 
 
 func _ready() -> void:
@@ -54,6 +58,7 @@ func _ready() -> void:
 
 	_step("Setting up the lot", 0.5)
 	_make_panels(layer)
+	_build_touch()
 	DdLoad.mark("camera, weather, hud, garage, chat")
 	_step("Sound", 0.6)
 	_build_audio()
@@ -389,6 +394,8 @@ func _driver() -> DdGame.Driver:
 ## Asks a server whether this player may edit it (sv_workbench_remote); null offline.
 var _walkers_heard: Array = []
 var workbench_remote: DotGameWorkbenchRemoteClient = null
+## Where the truck was last frame, for [method _sideways_speed].
+var _slide_from := Vector3.ZERO
 
 
 func _build_netcode() -> DotResult:
@@ -748,6 +755,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _covered():
 		return
 
+	if touch != null:
+		# The mouse a finger emulates is the finger's own event below, not a second look.
+		if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
+		if _touch_look(event):
+			return
+
 	# The mouse looks round on foot, only while it is captured (a menu or the panel frees it).
 	var motion := event as InputEventMouseMotion
 	var button := event as InputEventMouseButton
@@ -812,6 +826,69 @@ func _unhandled_input(event: InputEvent) -> void:
 		_act("garage")
 
 
+## The touch controls, on a touch device only: the buttons are [DdTouch]'s, and a finger on the bare screen looks (on foot) or orbits the view (in a truck).
+func _build_touch() -> void:
+	if not DotPlatform.has_touch():
+		return
+	touch = DdTouch.new()
+	touch.pressed_fn = _touch_pressed
+	touch.build(hud)
+	if platform != null:
+		platform.fit_touch_buttons(touch.right, DdTouch.right_layout())
+		platform.fit_touch_buttons(touch.left, DdTouch.left_layout())
+
+
+## 1 while a touch button is held; 0 without touch.
+func _tv(id: StringName) -> float:
+	return touch.held(id) if touch != null and not _covered() else 0.0
+
+
+func _touch_pressed(id: StringName) -> void:
+	if _covered() or garage.visible or (chat != null and chat.is_typing()):
+		return
+	match id:
+		DdTouch.USE:
+			if use_prompt().begins_with("E") or use_action() != "":
+				_act("use")
+		DdTouch.RESPAWN:
+			_act("respawn")
+		DdTouch.LOT:
+			_act("garage")
+		DdTouch.CAMERA:
+			if _walking():
+				toggle_foot_view()
+			else:
+				cycle_camera()
+
+
+## One finger looks: it starts on bare screen and follows until it lifts. True when the event was one.
+func _touch_look(event: InputEvent) -> bool:
+	var press := event as InputEventScreenTouch
+	if press != null:
+		if press.pressed and touch.look_finger < 0 and not touch.contains_point(press.position):
+			touch.look_finger = press.index
+		elif not press.pressed and press.index == touch.look_finger:
+			touch.look_finger = -1
+		return true
+	var drag := event as InputEventScreenDrag
+	if drag == null:
+		return false
+	if drag.index != touch.look_finger:
+		return true
+	if _walking():
+		_mouse += drag.relative
+	elif _can_orbit_touch():
+		_orbit.x = wrapf(_orbit.x - drag.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+		_orbit.y = clampf(_orbit.y + drag.relative.y * MOUSE_SENSITIVITY, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX)
+	return true
+
+
+## The same test as [method _can_orbit] without the mouse pointer, which a phone does not have.
+func _can_orbit_touch() -> bool:
+	var me := _driver()
+	return me != null and me.truck != null and not _walking() and camera_mode != CameraMode.CAB
+
+
 func _say_refusal(result: DotResult) -> void:
 	if result != null and not result.ok:
 		hud.say(result.error.message, 2.0, Color(1.0, 0.7, 0.4))
@@ -866,10 +943,10 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.brake = 1.0
 		return out
 
-	var forward := Input.get_action_strength("ui_up") + _held(DdBindings.THROTTLE, KEY_W)
-	var back := Input.get_action_strength("ui_down") + _held(DdBindings.BRAKE, KEY_S)
-	var left := Input.get_action_strength("ui_left") + _held(DdBindings.LEFT, KEY_A)
-	var right := Input.get_action_strength("ui_right") + _held(DdBindings.RIGHT, KEY_D)
+	var forward := Input.get_action_strength("ui_up") + _held(DdBindings.THROTTLE, KEY_W) + _tv(DdTouch.GAS)
+	var back := Input.get_action_strength("ui_down") + _held(DdBindings.BRAKE, KEY_S) + _tv(DdTouch.BRAKE)
+	var left := Input.get_action_strength("ui_left") + _held(DdBindings.LEFT, KEY_A) + _tv(DdTouch.LEFT)
+	var right := Input.get_action_strength("ui_right") + _held(DdBindings.RIGHT, KEY_D) + _tv(DdTouch.RIGHT)
 	var speed := _speed_of(me)
 
 	# One key for slowing down and reversing, which is how every driving game does it: brake
@@ -880,7 +957,7 @@ func _sample(me: DdGame.Driver) -> DotVehicleCommand:
 		out.throttle = clampf(forward, 0.0, 1.0) - clampf(back, 0.0, 1.0)
 
 	out.steer = clampf(right - left, -1.0, 1.0)
-	out.handbrake = _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0
+	out.handbrake = _held(DdBindings.HANDBRAKE, KEY_SPACE) + _tv(DdTouch.HAND) > 0.0
 	return out
 
 
@@ -912,6 +989,11 @@ func _speed_of(me: DdGame.Driver) -> float:
 
 
 func _process(delta: float) -> void:
+	if touch != null and touch.right.visible == garage.visible:
+		# The lot's panel takes the screen; the buttons wait behind it with nothing held.
+		touch.right.visible = not garage.visible
+		touch.left.visible = not garage.visible
+		touch.release_all()
 	if net != null and net.is_running():
 		net.interpolate_frame(-1.0)
 
@@ -987,10 +1069,37 @@ func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
 			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
+			audio.slide = _sideways_speed(me)
+			audio.gear = int(facts.get("gear", 0))
+			audio.rev = float(facts.get("rev", 0.0))
 			audio.weather = facts.get("weather", {"sky": DdWeather.CLEAR, "wind": false})
 
 		var route := StringName(facts.get("route", &""))
 		audio.on_route(route)
+
+
+## The truck's revs from idle (0) to the redline (1).
+func _rev_of(me: DdGame.Driver) -> float:
+	var g: Dictionary = (me.truck as DdTruck).gauge()
+	var idle: float = float(g.get("idle", 650.0))
+	return clampf((float(g.get("rpm", idle)) - idle) / maxf(float(g.get("redline", 2500.0)) - idle, 1.0), 0.0, 1.0)
+
+
+## How fast the truck moves across where it points, from where it was last frame (a mirror's
+## body has no velocity of its own).
+func _sideways_speed(me: DdGame.Driver) -> float:
+	if me == null or me.truck == null:
+		return 0.0
+
+	var truck := me.truck as Node3D
+	var step := truck.global_position - _slide_from
+	var dt := get_process_delta_time()
+	_slide_from = truck.global_position
+
+	if dt <= 0.0 or step.length() > 20.0 * dt * 10.0:
+		return 0.0
+
+	return absf(step.dot(truck.global_basis.x)) / dt
 
 
 ## How many other engines are in earshot (60 m, the def's range): they share one level.
@@ -1037,7 +1146,7 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 		return {
 			"stage": trip.stage, "stages": trip.stages, "fraction": trip.distance / maxf(road.length(), 1.0),
 			"cargo": trip.cargo, "cargo_name": str(game.cargo.get_load(trip.cargo_id).get("name", "")),
-			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)),
+			"gear": int((me.truck as DdTruck).gauge().get("gear", 0)), "rev": _rev_of(me),
 			"speed": _speed_of(me), "offer": trip.pay_now(game.config),
 			"weather": game.weather_at(trip.route_id, trip.distance), "state": trip.state_name(),
 			"route": String(trip.route_id),
@@ -1205,13 +1314,13 @@ func _sample_walk() -> DotPlayerIntent:
 		_wheel_jump = false
 		return intent
 
-	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up")
-	var back := _held(DdBindings.BRAKE, KEY_S) + Input.get_action_strength("ui_down")
-	var left := _held(DdBindings.LEFT, KEY_A) + Input.get_action_strength("ui_left")
-	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right")
+	var forward := _held(DdBindings.THROTTLE, KEY_W) + Input.get_action_strength("ui_up") + _tv(DdTouch.GAS)
+	var back := _held(DdBindings.BRAKE, KEY_S) + Input.get_action_strength("ui_down") + _tv(DdTouch.BRAKE)
+	var left := _held(DdBindings.LEFT, KEY_A) + Input.get_action_strength("ui_left") + _tv(DdTouch.LEFT)
+	var right := _held(DdBindings.RIGHT, KEY_D) + Input.get_action_strength("ui_right") + _tv(DdTouch.RIGHT)
 	intent.move = Vector2(clampf(right - left, -1.0, 1.0), clampf(forward - back, -1.0, 1.0))
 
-	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump:
+	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump or _tv(DdTouch.JUMP) > 0.0:
 		intent.buttons |= DotPlayerIntent.Btn.JUMP
 
 	_wheel_jump = false
@@ -1450,6 +1559,8 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	if not camera_allowed(camera_mode):
 		camera_mode = CameraMode.CAB if force_view == 1 else CameraMode.CHASE
 
+	_widen_fov(absf(_speed_of_truck(truck)), delta)
+
 	var basis := truck.global_basis
 	# Flattened, so a truck on its side does not roll the camera with it.
 	var flat := Vector3(basis.z.x, 0.0, basis.z.z).normalized()
@@ -1507,6 +1618,34 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	camera.global_position = _clear_of_mountain(truck, _chase_at, delta)
 	_look = _look.lerp(look, k) if _look != Vector3.ZERO else look
 	camera.look_at(_look)
+
+
+## Field of view for a speed: the player's own setting, plus up to [constant FOV_WIDEN_MAX]
+## degrees as the truck climbs from [constant FOV_WIDEN_FROM] to [constant FOV_WIDEN_FULL] m/s.
+## Standing still it is exactly the setting.
+static func fov_for_speed(base: float, speed_ms: float) -> float:
+	var t := clampf((speed_ms - FOV_WIDEN_FROM) / (FOV_WIDEN_FULL - FOV_WIDEN_FROM), 0.0, 1.0)
+	return base + FOV_WIDEN_MAX * t * t * (3.0 - 2.0 * t)
+
+
+func _widen_fov(speed_ms: float, delta: float) -> void:
+	var base := float(DdSettings.DEFAULT_FOV)
+
+	if settings != null and settings.settings != null:
+		base = float(settings.settings.get_int(&"field_of_view", DdSettings.DEFAULT_FOV))
+
+	var amount := 0.5 if camera_mode == CameraMode.CAB else 1.0
+	var wanted := base + (fov_for_speed(base, speed_ms) - base) * amount
+	camera.fov = lerpf(camera.fov, wanted, 1.0 - exp(-delta * 2.5))
+
+
+## Forward speed of a truck, on a mirror too ([method _speed_of] takes a driver).
+func _speed_of_truck(truck: DdTruck) -> float:
+	if _offline:
+		return truck.forward_speed()
+
+	var behaviour := truck.get_node_or_null("Net") as DdTruckNet
+	return behaviour.speed_ms() if behaviour != null else 0.0
 
 
 ## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the

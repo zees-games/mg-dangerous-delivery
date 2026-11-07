@@ -19,6 +19,8 @@ const ENGINE_OTHER := &"engine_other"
 ## Rain on the roof, and wind. Flat loops, faded in and out with the weather.
 const RAIN := &"rain"
 const WIND := &"wind"
+## Tyres sliding sideways: a loop whose level follows how far the truck is skidding.
+const SQUEAL := &"squeal"
 ## The brakes going on at speed.
 const BRAKE_HISS := &"brake_hiss"
 ## Rock coming down near you.
@@ -34,6 +36,21 @@ const SILENT_DB := -60.0
 
 ## The speed (m/s) the engine's pitch tops out at.
 const TOP_SPEED := 22.0
+
+## Sideways speed (m/s) where the tyres start to sing and where they are as loud as they get.
+const SQUEAL_FROM := 1.5
+const SQUEAL_FULL := 6.0
+const SQUEAL_DB := -12.0
+## Braking harder than this (m/s²) over [constant BRAKE_SQUEAL_MIN_SPEED] also sings, up to
+## [constant BRAKE_SQUEAL_LEVEL] of the full squeal; a gentle stop (under 2) stays silent.
+const BRAKE_SQUEAL_FROM := 4.5
+const BRAKE_SQUEAL_FULL := 7.5
+const BRAKE_SQUEAL_MIN_SPEED := 4.0
+const BRAKE_SQUEAL_LEVEL := 0.7
+
+## Where each gear ends, as a share of [constant TOP_SPEED]: the engine climbs through the gear
+## and drops at the shift, which is what a gearbox sounds like from the cab.
+const SHIFTS: Array[float] = [0.0, 0.14, 0.32, 0.52, 0.76, 1.0]
 
 ## How many other trucks' engines are being fed this frame: their share of one level.
 var others_heard: int = 0
@@ -61,6 +78,14 @@ var speed: float = 0.0
 ## 0 to 1: how hard the engine is being asked.
 var throttle: float = 0.0
 var braking: bool = false
+## Metres per second the truck is moving sideways: its tyres sliding.
+var slide: float = 0.0
+## The drivetrain's gear (0 unknown, then 1 up): the pitch follows it, so it steps when the box does.
+var gear: int = 0
+## 0 (idle) to 1 (redline): the drivetrain's revs.
+var rev: float = 0.0
+var _last_speed: float = 0.0
+var _decel: float = 0.0
 ## {"sky": 0 clear / 1 rain / 2 snow, "wind": bool}.
 var weather: Dictionary = {}
 ## Whether anything plays at all: off in the garage.
@@ -90,7 +115,7 @@ var _fed: Dictionary = {}
 
 
 static func ids() -> Array[StringName]:
-	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]
+	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, SQUEAL, BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]
 	# dot-audio's stock beds and footsteps (the lot and the land are walked). Appended:
 	# a typed array plus a typed array is an untyped one.
 	out.append_array(DotAudioStock.ids())
@@ -124,6 +149,7 @@ static func sound_catalogue() -> DotAudioCatalogue:
 	c.add(other)
 	c.add(_def(RAIN, 1, 50, true))
 	c.add(_def(WIND, 1, 50, true))
+	c.add(_def(SQUEAL, 1, 60, true))
 
 	for id: StringName in [BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]:
 		var shot := _def(id, 1, 70, false)
@@ -248,15 +274,52 @@ func listen_from(at: Vector3) -> void:
 		manager.listener_position = at
 
 
+## The engine's pitch at [param speed_ms]: up through each gear and down at the shift.
+static func engine_pitch(speed_ms: float) -> float:
+	var f := clampf(absf(speed_ms) / TOP_SPEED, 0.0, 1.0)
+	var rev := f
+
+	for i in range(1, SHIFTS.size()):
+		if f <= SHIFTS[i]:
+			var within := (f - SHIFTS[i - 1]) / (SHIFTS[i] - SHIFTS[i - 1])
+			rev = lerpf(0.3, 1.0, within)
+			break
+
+	# At a standstill it idles, not at the bottom of first gear's rev range.
+	return 0.55 + lerpf(0.0, rev, clampf(f / 0.03, 0.0, 1.0)) * 0.9
+
+
+## The pitch from the drivetrain's real [param gear] and [param rev] (0 idle to 1 redline), so it
+## steps when the box shifts, with the box's own hysteresis; no gear falls back to speed alone.
+static func gear_pitch(speed_ms: float, gear: int, rev: float) -> float:
+	if gear <= 0:
+		return engine_pitch(speed_ms)
+
+	var f := clampf(absf(speed_ms) / TOP_SPEED, 0.0, 1.0)
+	return 0.55 + lerpf(0.0, lerpf(0.3, 1.0, clampf(rev, 0.0, 1.0)), clampf(f / 0.03, 0.0, 1.0)) * 0.9
+
+
 func _process(delta: float) -> void:
 	if manager == null:
 		return
+
+	if delta > 0.0:
+		_decel = lerpf(_decel, (_last_speed - speed) / delta if absf(speed) > 0.0 else 0.0, 1.0 - exp(-delta * 6.0))
+		_last_speed = speed
 
 	var k := 1.0 - exp(-delta * 8.0)
 	var sky := int(weather.get("sky", 0))
 	# Idle at a little over half pitch, climbing with speed: a diesel never revs like a car.
 	_shape(&"own", ENGINE, lerpf(OWN_IDLE_DB, OWN_FULL_DB, clampf(throttle, 0.0, 1.0)) if driving else -80.0,
-		0.55 + clampf(absf(speed) / TOP_SPEED, 0.0, 1.0) * 0.9, k)
+		gear_pitch(speed, gear, rev), k)
+	var skid := clampf((slide - SQUEAL_FROM) / (SQUEAL_FULL - SQUEAL_FROM), 0.0, 1.0)
+
+	if braking and absf(speed) > BRAKE_SQUEAL_MIN_SPEED:
+		var hard := clampf((_decel - BRAKE_SQUEAL_FROM) / (BRAKE_SQUEAL_FULL - BRAKE_SQUEAL_FROM), 0.0, 1.0)
+		skid = maxf(skid, hard * BRAKE_SQUEAL_LEVEL)
+
+	_shape(&"squeal", SQUEAL, SQUEAL_DB + linear_to_db(skid) if driving and skid > 0.02 else -80.0,
+		1.0, k)
 	_shape(&"rain", RAIN, RAIN_DB if driving and sky == 1 else -80.0, 1.0, k * 0.3)
 	_shape(&"wind", WIND, WIND_DB if driving and bool(weather.get("wind", false)) else -80.0, 1.0, k * 0.3)
 
@@ -399,6 +462,7 @@ static func stand_ins() -> Dictionary:
 		ENGINE_OTHER: engine,
 		RAIN: _noise_loop(0.9, 0.0),
 		WIND: _noise_loop(0.15, 1.0),
+		SQUEAL: _squeal_loop(),
 		BRAKE_HISS: _hiss_burst(),
 		ROCKFALL: _rumble_burst(),
 		DELIVERED: _chime_tone(),
@@ -465,6 +529,21 @@ static func _noise_loop(brightness: float, swell: float) -> AudioStreamWAV:
 		var f := float(i) / 400.0
 		out[i] *= f
 		out[n - 1 - i] *= f
+
+	return _wav(out, true)
+
+
+## Rubber on tarmac: a thin, wavering tone with grit on it.
+static func _squeal_loop() -> AudioStreamWAV:
+	var out := _buffer(1.0)
+	var rate := float(DotAudioSynth.RATE)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+
+	for i in out.size():
+		var t := float(i) / rate
+		var tone := sin(TAU * 1100.0 * t + 3.0 * sin(TAU * 7.0 * t)) * 0.5 + sin(TAU * 1650.0 * t) * 0.2
+		out[i] = (tone + rng.randf_range(-0.25, 0.25)) * 0.4
 
 	return _wav(out, true)
 

@@ -5,10 +5,11 @@ extends "res://examples/handling_damage.gd"
 ##   godot --headless --path . res://examples/handling.tscn
 
 
-const SECTIONS := 14
-const CHECKS := 72
+const SECTIONS := 16
+const CHECKS := 81
 
 
+const DdCargo := preload("res://game/dd_cargo.gd")
 const TRUCKS: Array[StringName] = [&"box_truck", &"flatbed", &"hauler", &"semi", &"bulk"]
 const LOADS: Array[StringName] = [&"crates", &"gravel", &"timber", &"fuel", &"glass", &"explosives"]
 
@@ -61,6 +62,10 @@ func _ready() -> void:
 		await _test_slosh()
 	if _runs(only, "gravel"):
 		await _test_glass_on_gravel()
+	if _runs(only, "shift"):
+		await _test_load_shift()
+	if _runs(only, "gearchange"):
+		await _test_gearchange()
 
 	game.config.weather_frequency = 1.0
 	# The ordinary sky is part of what is measured; a storm is the extreme on top, and a Bulk
@@ -296,6 +301,106 @@ func _over_gravel(load_id: StringName, kmh: float) -> float:
 	var left := (me.trip as DdTrip).cargo
 	game.end_trip(&"t")
 	return left
+
+
+## From [param kmh] on the flat to a stop, braking at [param brake]: what is left of the load.
+func _stop_with(load_id: StringName, kmh: float, brake: float) -> float:
+	_use_test_routes([FLAT])
+	var me := _set_off(&"box_truck", load_id, &"t_flat")
+	await _seconds(0.4)
+	var t := 0.0
+	while _truck(me).forward_speed() * 3.6 < kmh and t < 60.0:
+		_drive(me, 1.0)
+		await get_tree().physics_frame
+		t += TICK
+	var before := (me.trip as DdTrip).cargo
+	_drive(me, 0.0, brake)
+	t = 0.0
+	while _truck(me).linear_velocity.length() > 0.3 and t < 30.0:
+		await get_tree().physics_frame
+		t += TICK
+	var left := (me.trip as DdTrip).cargo / maxf(before, 0.01)
+	game.end_trip(&"t")
+	return left
+
+
+func _test_load_shift() -> void:
+	_section("a hard stop slides the load")
+	_check(DdCargo.shift_loss(2.0, 1.0, 1.0, 3.0, 0.004) == 0.0 and DdCargo.shift_loss(6.0, 1.0, 1.0, 3.0, 0.004) > 0.0 \
+		and DdCargo.shift_loss(6.0, 2.0, 1.0, 3.0, 0.004) > DdCargo.shift_loss(6.0, 1.0, 1.0, 3.0, 0.004) * 2.0, "a gentle pull costs nothing, a hard one something, a fragile load more")
+	var glass_hard := await _stop_with(&"glass", 60.0, 1.0)
+	var glass_easy := await _stop_with(&"glass", 60.0, 0.08)
+	var crates_hard := await _stop_with(&"crates", 60.0, 1.0)
+	print("  stop from 60 km/h: glass hard %.0f%%, glass easy %.0f%%, crates hard %.0f%%" % [glass_hard * 100.0, glass_easy * 100.0, crates_hard * 100.0])
+	_check(glass_hard < glass_easy - 0.03, "glass stopped hard loses more than stopped gently", "%.3f vs %.3f" % [glass_hard, glass_easy])
+	_check(crates_hard > glass_hard + 0.02 and glass_easy > 0.95, "crates shrug off the stop, and a gentle one costs glass nothing", "%.3f, %.3f" % [crates_hard, glass_easy])
+	_finished_section()
+
+
+## A gear change dips the drive force for shift_seconds, and holding a speed at a shift point does not flip-flop.
+func _test_gearchange() -> void:
+	_section("a shift dips the power, and the box does not hunt at a shift point")
+	_use_test_routes([FLAT])
+	var me := _set_off(&"t", &"crates", &"t_flat")
+	await _seconds(0.4)
+	_drive(me, 1.0)
+	var dt := _truck(me).chassis as DdDrivetrain
+	var ratio := -1.0
+	var frames := 0
+	var counting := false
+	var t := 0.0
+
+	while t < 30.0:
+		await get_tree().physics_frame
+		t += TICK
+		var shifting := bool(dt.gauge().get("shifting", false))
+
+		if shifting and not counting and frames == 0:
+			counting = true
+
+		if counting:
+			if not shifting:
+				break
+			frames += 1
+
+			if ratio < 0.0:
+				var dipped := dt.engine_force_for(1.0)
+				dt.set("_shifting", 0.0)
+				var normal := dt.engine_force_for(1.0)
+				dt.set("_shifting", dt.shift_seconds)
+				ratio = dipped / normal if normal > 0.0 else -1.0
+
+	var after := dt.engine_force_for(1.0)
+	game.end_trip(&"t")
+	_check(absf(ratio - dt.shift_force) < 0.001, "the force during a shift is shift_force times the normal", "%.4f vs %.2f" % [ratio, dt.shift_force])
+	_check(absf(frames * TICK - dt.shift_seconds) < 0.08, "and the dip lasts about shift_seconds", "%.3f s vs %.2f" % [frames * TICK, dt.shift_seconds])
+	_check(after > 0.0 and not bool(dt.gauge().get("shifting", false)), "and the full force is back afterwards", "%.0f N" % after)
+
+	# A speed held within 1% of the third-gear shift point: one upshift, no downshift, one step in the pitch.
+	var DdAudio: GDScript = load("res://game/dd_audio.gd")
+	var box := DdDrivetrain.new()
+	box.gear = 3
+	var at: float = box._upshift_rpm(1.0) * TAU / 60.0 * box.wheel_radius / (box._ratio(3) * box.final_drive)
+	var changes := 0
+	var downs := 0
+	var jumps := 0
+	var last_pitch := -1.0
+
+	for i in range(600):
+		var v: float = at * (1.0 + 0.01 * sin(float(i) * 0.7))
+		var before: int = box.gear
+		box._choose_gear(v, 1.0, TICK)
+		changes += int(box.gear != before)
+		downs += int(box.gear < before)
+		var rev := clampf((box.rpm_at(v, box.gear) - box.idle_rpm) / (box.redline_rpm - box.idle_rpm), 0.0, 1.0)
+		var pitch: float = DdAudio.call("gear_pitch", v, box.gear, rev)
+		jumps += int(last_pitch >= 0.0 and absf(pitch - last_pitch) > 0.1)
+		last_pitch = pitch
+
+	_check(changes == 1, "holding a speed at a shift point shifts once", "%d changes" % changes)
+	_check(downs == 0, "and never drops back down", "%d downshifts" % downs)
+	_check(jumps <= 1, "and the engine's pitch steps at most once", "%d jumps" % jumps)
+	_finished_section()
 
 
 func _test_glass_on_gravel() -> void:
