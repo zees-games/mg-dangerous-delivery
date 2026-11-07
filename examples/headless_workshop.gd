@@ -191,7 +191,7 @@ func _test_vote() -> void:
 	var world := _world(index)
 	var vote := DdVote.new()
 	vote.content_index = index
-	vote.mountains_fn = func() -> Array:
+	vote.maps_fn = func() -> Array:
 		var out: Array = []
 		for mountain in DdMountains.allowed(world.library, world.maps):
 			if not world.is_workshop(mountain["id"]):

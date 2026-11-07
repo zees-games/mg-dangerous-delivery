@@ -362,7 +362,7 @@ func _test_rotation_file() -> void:
 	}}], "mg-dangerous-delivery")
 	_check(parsed.ok, "a rotation file parses", str(parsed.error))
 	game.rotation_file = parsed.value
-	vote.call("refresh_mountains")
+	vote.call("refresh_maps")
 
 	var ids: Array = _ballot_ids(vote)
 	_check(ids.has("low_country") and ids.has("high_country") and not ids.has("range") and not ids.has("long_haul"),
@@ -380,7 +380,7 @@ func _test_rotation_file() -> void:
 
 	# A switch to the cycle: the written order, a `random` rotation's own set gone.
 	_check(game.switch_rotation("b").ok, "a rotation switch is accepted")
-	vote.call("refresh_mountains")
+	vote.call("refresh_maps")
 	ids = _ballot_ids(vote)
 	_check(ids == ["long_haul", "high_country", "low_country"], "and takes effect: the cycle's order on the ballot", str(ids))
 	game.mountain_id = &"high_country"
@@ -413,21 +413,21 @@ func _test_rotation_file() -> void:
 	var stem: String = game.config.map_rotation_file
 	game.config.map_rotation_file = path
 	var read: DotResult = game.load_rotation()
-	vote.call("refresh_mountains")
+	vote.call("refresh_maps")
 	ids = _ballot_ids(vote)
 	_check(read.ok and ids == ["range"], "a file read from disk decides the ballot", str(ids))
 
 	# No file: every mountain rotates, as it always did.
 	game.config.map_rotation_file = "no_such_rot_dd"
 	var _missing: DotResult = game.load_rotation()
-	vote.call("refresh_mountains")
+	vote.call("refresh_maps")
 	ids = _ballot_ids(vote)
 	_check(not game.rotation_file.has_rotations() and ids.size() == 4 and game.in_rotation(&"long_haul"),
 		"with no file every mountain is on the ballot", str(ids))
 
 	game.config.map_rotation_file = stem
 	game.rotation_file = kept
-	vote.call("refresh_mountains")
+	vote.call("refresh_maps")
 	_finished_section()
 
 ## The map menu's server half (M): the owner's flag changes the mountain now, anybody else gets a nomination and a
