@@ -469,13 +469,13 @@ func _show_ballot(world: Node) -> void:
 	var states: Array = []
 	var vote := DdVote.new()
 	vote.config_path = ""
-	vote.mountains_fn = func() -> Array: return list
+	vote.maps_fn = func() -> Array: return list
 	vote.voters_fn = func() -> Array: return names.keys()
 	vote.people_fn = func(voter: StringName) -> Dictionary: return {"name": names.get(voter, "?"), "avatar": ""}
 	vote.ballot_fn = func(state: Dictionary) -> void: states.append(state)
 	add_child(vote)
 	var _set := vote.setup()
-	vote.note_mountain(world.get("mountain_id"))
+	vote.note_map(world.get("mountain_id"))
 	var director: DotVoteDirector = vote.director
 	var _opened := director.open_vote(DotVoteClock.REASON_MANUAL)
 	var options := director.ballot.option_ids()

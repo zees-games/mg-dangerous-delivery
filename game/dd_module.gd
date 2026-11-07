@@ -206,7 +206,7 @@ func _bind_commands(world: DdGame) -> void:
 			world.config.map_rotation_file = new_value.strip_edges()
 			var _read := world.load_rotation()
 			if vote != null:
-				vote.refresh_mountains()
+				vote.refresh_maps()
 	)
 
 
@@ -458,7 +458,7 @@ func _wire_vote_callbacks(world: DdGame) -> void:
 	vote.in_rotation_fn = func(id: StringName) -> bool: return world.in_rotation(id)
 	vote.rotation_order_fn = func() -> Array:
 		return world.rotation_mountains().map(func(m: Dictionary) -> StringName: return StringName(str(m["id"])))
-	vote.mountains_fn = func() -> Array:
+	vote.maps_fn = func() -> Array:
 		var out: Array = []
 
 		# The game's own only (the Workshop's come from the source's own follow), and only those in maps.yml's active rotation.
@@ -528,7 +528,7 @@ func _wire_vote_menu(world: DdGame) -> void:
 				vote.minutes = world.config.mountain_minutes
 				vote.director.rules.duration_sec = world.config.mountain_minutes * 60.0)
 
-	vote.note_mountain(world.mountain_id)
+	vote.note_map(world.mountain_id)
 
 	if server != null:
 		server.client_disconnected.connect(func(session: DotClientSession, _reason: String) -> void:
@@ -547,7 +547,7 @@ func _change_mountain(id: StringName) -> DotResult:
 		return changed
 
 	if vote != null:
-		vote.note_mountain(world.mountain_id)
+		vote.note_map(world.mountain_id)
 
 	return DotResult.success(id)
 
@@ -765,7 +765,7 @@ func _cmd_rotation(ctx: DotCmdContext) -> void:
 		return
 
 	if vote != null:
-		vote.refresh_mountains()
+		vote.refresh_maps()
 
 	ctx.reply("Rotation: %s" % ctx.arg(0))
 
@@ -775,7 +775,7 @@ func _cmd_maps_reload(ctx: DotCmdContext) -> void:
 	var read := world.load_rotation()
 
 	if vote != null:
-		vote.refresh_mountains()
+		vote.refresh_maps()
 
 	ctx.reply("maps.yml read." if read.ok else read.error.message)
 
