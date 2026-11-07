@@ -32,6 +32,7 @@ You start on foot in the lot, among everybody else and a truck of every model on
 | **Shift** | Run, on foot |
 | **E** | Buy from a salesperson, get in or out of your truck, accept the delivery at a gate |
 | **Mouse** | Look round, on foot |
+| **F** | Flashlight, on foot or at the wheel (on at the start of a night mountain). A lit beam is seen by everyone who can see you; in the cab it is a lamp on the dash, and the cab view is its eye |
 | **R** | Back to the last checkpoint (costs what a fall costs) |
 | **T** | Restart the trip |
 | **N** | Skip a stage (costs part of the pay) |

@@ -1,4 +1,4 @@
-extends "dd_game_damage.gd"
+extends "dd_game_flashlight.gd"
 
 ## The mountain: every route this server has, every truck on them, and every rule a haul is
 ## played under. Headless; what a player sees is [DdClient]'s. Why one world, why trucks are
@@ -372,6 +372,8 @@ func set_mountain(id: StringName) -> DotResult:
 
 		if walker_of.walker != null:
 			_put_on_foot(walker_of, spawn_transform(walker_of))
+
+		_start_flashlight(walker_of)
 	DotLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
 	mountain_changed.emit(id)
 	return DotResult.success(true)
@@ -658,6 +660,7 @@ func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 		driver.idle = STAND_IN_FIRST_WAIT
 
 	_make_walker(driver)
+	_start_flashlight(driver)
 	driver_joined.emit(key)
 	_put_on_foot(driver, spawn_transform(driver))
 

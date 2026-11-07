@@ -19,6 +19,7 @@ const MENU := &"dd_menu"
 const SCOREBOARD := &"dd_scoreboard"
 const USE := &"dd_use"
 const RUN := &"dd_run"
+const FLASHLIGHT := &"dd_flashlight"
 
 
 static func make() -> DotMenuBindings:
@@ -47,6 +48,7 @@ static func make() -> DotMenuBindings:
 
 	# F5, the family's view key in every game; a server's `mp_forceview` limits which of the
 	# three it cycles through (the cab is the first-person one).
+	keys.add(FLASHLIGHT, &"bind_flashlight", "Flashlight, on foot or at the wheel", "F", "General")
 	keys.add(CAMERA, &"bind_camera", "Camera: chase, cab or high, where the server allows", "F5", "General")
 	keys.add(MENU, &"bind_menu", "Settings, help and leave, from the road", "O", "General")
 	keys.add(SCOREBOARD, &"bind_scoreboard", "Scoreboard (hold)", "Tab", "General")

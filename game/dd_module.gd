@@ -272,6 +272,11 @@ func _hand_cvar(key: String) -> String:
 
 ## Every config field as a `dd_<field>` cvar (the hand-written ones keep their handlers and follow workbench edits), the cfg/ diff commands, the workbench and dot-team's block rules.
 func _bind_config(world: DdGame) -> DotResult:
+	var _fl := world.flashlight_conf()
+	if world.flashlight_binder != null:
+		var _flash_cvars := world.flashlight_binder.bind_cvars(add_cvar, DotConVar.FLAG_ARCHIVE,
+			func(name: String) -> bool: return console.has_name(name))
+		world.flashlight_binder.bind_commands(add_command)
 	var binder := world.config_binder
 	if binder == null:
 		return DotResult.success(null)
@@ -284,6 +289,9 @@ func _bind_config(world: DdGame) -> DotResult:
 			and bool(server.admins.uid_has_permission(actor, flag))
 	for set: DotProfileSet in binder.profile_sets():
 		workbench.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
+	if world.flashlight_binder != null:
+		for set: DotProfileSet in world.flashlight_binder.profile_sets():
+			workbench.add_set(set, "Flashlight")
 	var ambient_set := DotGameWorkbench.cvar_set(console, DdAmbience.cvar_types(), AMBIENT_KIND)
 	if ambient_set != null:
 		workbench.add_set(ambient_set, "Ambience (dd_ambient*)")
@@ -308,6 +316,8 @@ func _bind_config(world: DdGame) -> DotResult:
 	binder.field_changed.connect(_on_config_field)
 	if runtime != null:
 		binder.attach(runtime)
+		if world.flashlight_binder != null:
+			world.flashlight_binder.attach(runtime)
 		if ambient_set != null:
 			var _applied := DotGameWorkbench.bind_cvar_set(ambient_set, runtime, console)
 		runtime.add_set(world.truck_profiles)

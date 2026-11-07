@@ -80,6 +80,7 @@ func _connect_server_signals() -> void:
 
 		_broadcast(DdEvents.Kind.GONE, {"key": String(key)}))
 	game.solo_changed.connect(func(key: StringName, _on: bool) -> void: _broadcast_driver(key))
+	game.flashlight_changed.connect(func(key: StringName, _on: bool) -> void: _broadcast_driver(key))
 	game.stage_reached.connect(func(key: StringName, stage: int) -> void:
 		_say_to(key, "CHECKPOINT %d" % stage, "good"))
 	game.fell.connect(func(key: StringName, why: String) -> void:
@@ -403,7 +404,7 @@ func _driver_body(key: StringName) -> Dictionary:
 
 	var truck := driver.truck as DdTruck
 	var body := {
-		"key": String(key), "name": driver.name, "bot": driver.is_bot, "solo": driver.solo,
+		"key": String(key), "name": driver.name, "bot": driver.is_bot, "solo": driver.solo, "flashlight": driver.flashlight,
 		"net_id": int(_net_of.get(truck, 0)) if truck != null else 0,
 		"on_foot": driver.on_foot,
 		"walker_net_id": int(_net_of.get(driver.walker, 0)) if driver.walker != null else 0,
@@ -956,6 +957,7 @@ func _apply_driver(data: Dictionary) -> void:
 	driver.name = str(data.get("name", key))
 	driver.is_bot = bool(data.get("bot", false))
 	driver.solo = bool(data.get("solo", false))
+	driver.flashlight = bool(data.get("flashlight", false))
 	driver.on_foot = bool(data.get("on_foot", false))
 	var walker_id := int(data.get("walker_net_id", 0))
 
@@ -1240,6 +1242,8 @@ class DdBridgeActs:
 			"solo":
 				var driver = world.drivers.get(key, null)
 				return world.set_solo(key, not driver.solo if driver != null else true)
+			"flashlight":
+				return world.toggle_flashlight(key)
 			"garage":
 				world.end_trip(key)
 				return DotResult.success(null)

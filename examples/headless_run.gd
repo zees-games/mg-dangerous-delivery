@@ -1,11 +1,11 @@
-extends "res://examples/headless_run_hazards.gd"
+extends "res://examples/headless_run_flashlight.gd"
 
 ## The game, headless: documents, the road, the weather, the money, and trucks really driven.
 ##   godot --headless --path . res://examples/headless_run.tscn
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
-const SECTIONS := 33
-const CHECKS := 267
+const SECTIONS := 34
+const CHECKS := 276
 
 
 
@@ -43,6 +43,7 @@ func _ready() -> void:
 	await _test_a_delivery()
 	await _test_a_fall()
 	_test_solo()
+	_test_flashlight()
 	await _test_rock()
 	_test_stage_hazards()
 	await _test_hazard_drive()
