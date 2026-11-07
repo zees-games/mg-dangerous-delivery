@@ -36,7 +36,8 @@
 			"wall": "left",
 			"rail": "none",
 			"zone": "saddle",
-			"traffic": 1
+			"traffic": 1,
+			"width": 7.0
 		},
 		{
 			"length": 160.0,
@@ -78,7 +79,8 @@
 			"rail": "none",
 			"zone": "saddle",
 			"boulders": 2,
-			"ice": 1
+			"ice": 1,
+			"width": 7.0
 		},
 		{
 			"length": 130.0,

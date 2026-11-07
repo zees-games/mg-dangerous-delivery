@@ -39,7 +39,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p screenshots
 
-view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"; bridge=""; ledge=""
+view="garage"; seconds="6"; out=""; route="dd_foothills"; sky=""; hazard=""; at="0"; truck=""; mountain=""; ballot="0"; chat="0"; people="0"; panel="0"; n="0"; orbit=""; near="0"; dx="-5"; dy="2.2"; dz="-1.6"; bridge=""; ledge=""; short="16"
 take=0; extra=()
 for arg in "$@"; do
     if [ "$take" -gt 0 ]; then extra+=("$arg"); take=$((take - 1)); continue; fi
@@ -63,6 +63,7 @@ for arg in "$@"; do
         --dx=*)      dx="${arg#*=}" ;;
         --dy=*)      dy="${arg#*=}" ;;
         --dz=*)      dz="${arg#*=}" ;;
+        --short=*)   short="${arg#*=}" ;;
         --bridge=*)  bridge="${arg#*=}" ;;
         --ledge=*)   ledge="${arg#*=}" ;;
         --panel)     panel="1" ;;
@@ -71,5 +72,5 @@ for arg in "$@"; do
 done
 [ -n "$out" ] || out="res://screenshots/${view}.png"
 
-exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution 1280x720 \
-    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "--bridge=$bridge" "--ledge=$ledge" "${extra[@]}"
+exec xvfb-run -a "${GODOT:-godot}" --fixed-fps 60 --path . --resolution "${RES:-1280x720}" \
+    res://tools/shot.tscn -- "--seconds=$seconds" "--view=$view" "--out=$out" "--route=$route" "--sky=$sky" "--hazard=$hazard" "--at=$at" "--truck=$truck" "--mountain=$mountain" "--ballot=$ballot" "--chat=$chat" "--people=$people" "--panel=$panel" "--n=$n" "--orbit=$orbit" "--near=$near" "--dx=$dx" "--dy=$dy" "--dz=$dz" "--bridge=$bridge" "--ledge=$ledge" "--short=$short" "${extra[@]}"

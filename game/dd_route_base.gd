@@ -312,14 +312,14 @@ func _place_ground_hazards(index: int, seg: Dictionary, start: float, length_m: 
 
 	for k in int(seg["bridge"]):
 		var n := float(int(seg["bridge"]))
-		var centre := start + length_m * (float(k) + 0.5) / n
+		var centre := start + length_m * ((float(k) + 0.5) / n if int(seg["ledge"]) == 0 else 0.25)
 		var hole := _hole_samples(centre - BRIDGE_LENGTH * 0.5, centre + BRIDGE_LENGTH * 0.5)
 		var roll := DdWeather.unit("%s|bridge|%d|%d" % [id_text, index, k])
 		bridges.append({"d": centre, "length": BRIDGE_LENGTH, "a": hole[0], "b": hole[1], "rating": 1.5 + roll * 0.7})
 
 	for k in int(seg["washout"]):
 		var n := float(int(seg["washout"]))
-		var centre := start + length_m * (float(k) + 0.5) / n
+		var centre := start + length_m * ((float(k) + 0.5) / n if int(seg["ledge"]) == 0 else 0.25)
 		var hole := _hole_samples(centre - WASHOUT_LENGTH * 0.5, centre + WASHOUT_LENGTH * 0.5)
 		var roll := DdWeather.unit("%s|washout|%d|%d" % [id_text, index, k])
 		# The drop side goes, so the truck must hold the cliff's.
@@ -332,7 +332,7 @@ func _place_ground_hazards(index: int, seg: Dictionary, start: float, length_m: 
 		var roll := DdWeather.unit("%s|ledge|%d|%d" % [id_text, index, k])
 		var wall_side := -1.0 if str(seg["wall"]) == "left" else (1.0 if str(seg["wall"]) == "right" else (-1.0 if roll < 0.5 else 1.0))
 		ledges.append({
-			"d": start + length_m * (float(k) + 0.5) / n, "length": minf(LEDGE_LENGTH, length_m * 0.4),
+			"d": start + length_m * ((float(k) + 0.5) / n if int(seg["washout"]) == 0 else 0.75), "length": minf(LEDGE_LENGTH, length_m * 0.4),
 			"side": wall_side, "intrusion": width * (1.0 - LEDGE_KEEP),
 		})
 
