@@ -3,8 +3,8 @@ extends "headless_net_base.gd"
 ## A server and a client in one process, over the link's loopback, each in its own physics world.
 ##   godot --headless --path . res://examples/headless_net.tscn
 
-const SECTIONS := 22
-const CHECKS := 108
+const SECTIONS := 23
+const CHECKS := 112
 
 
 func _ready() -> void:
@@ -23,6 +23,7 @@ func _ready() -> void:
 		await _test_driving()
 		await _test_weather()
 		await _test_solo()
+		await _test_flashlight()
 		await _test_refusal()
 		await _test_bots()
 		await _test_one_account_twice()
@@ -360,6 +361,26 @@ func _test_solo() -> void:
 	_exchange()
 	await _steps(2)
 	_check(not (_client_game.drivers[_key] as DdGame.Driver).solo, "and off again")
+	_finished_section()
+
+
+func _test_flashlight() -> void:
+	_section("the flashlight is asked for, and the server's flag comes back to everybody")
+	var server_me: DdGame.Driver = _server_game.drivers[_key]
+	var was := server_me.flashlight
+	_client_bridge.ask_act("flashlight")
+	_exchange()
+	await _steps(2)
+	_check(server_me.flashlight != was, "the server switched it")
+	_check((_client_game.drivers[_key] as DdGame.Driver).flashlight == server_me.flashlight, "and the client's copy of the driver is told")
+	_server_game.toggle_flashlight(_key)
+	_exchange()
+	await _steps(2)
+	_check((_client_game.drivers[_key] as DdGame.Driver).flashlight == was, "a server-side switch reaches the client too")
+	_client_bridge.ask_act("flashlight")
+	_exchange()
+	await _steps(2)
+	_check(server_me.flashlight != was and (_client_game.drivers[_key] as DdGame.Driver).flashlight != was, "and the next ask switches it again")
 	_finished_section()
 
 

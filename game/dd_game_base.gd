@@ -66,6 +66,7 @@ signal put_back(key: StringName)
 signal delivered(key: StringName, route_id: StringName, pay: int)
 signal trip_ended(key: StringName)
 signal solo_changed(key: StringName, on: bool)
+signal flashlight_changed(key: StringName, on: bool)
 signal boulder_dropped(route_id: StringName, at: Vector3)
 ## A boulder body exists, and one went: the bridge replicates the first and forgets the second.
 signal boulder_made(body: RigidBody3D)
@@ -133,6 +134,8 @@ class Driver:
 	var name: String = ""
 	var is_bot: bool = false
 	var solo: bool = false
+	## The flashlight is on (server-owned; it rides the driver document to everybody).
+	var flashlight: bool = false
 	var truck: Node = null
 	var trailer: Node = null
 	var trip: RefCounted = null

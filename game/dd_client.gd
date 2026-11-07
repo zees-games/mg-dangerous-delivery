@@ -1,4 +1,4 @@
-extends "dd_client_state.gd"
+extends "dd_client_flashlight.gd"
 
 ## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera, the
 ## controls, the HUD and the sky. Actions go through [method _act] and [member command], and
@@ -584,6 +584,9 @@ func _start_remote_workbench() -> void:
 	if game.config_binder != null:
 		for set: DotProfileSet in game.config_binder.profile_sets():
 			wb.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
+	var _fl := game.flashlight_conf()
+	for set: DotProfileSet in game.flashlight_binder.profile_sets():
+		wb.add_set(set, "Flashlight")
 	add_child(wb)
 	var started := wb.start(game.ensure_runtime())
 	DotLog.result(CHANNEL, "the remote workbench", started)
@@ -607,6 +610,9 @@ func _add_noblock_and_workbench() -> void:
 	wb.config = {"enabled": false}
 	for set: DotProfileSet in game.config_binder.profile_sets():
 		wb.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
+	var _fl := game.flashlight_conf()
+	for set: DotProfileSet in game.flashlight_binder.profile_sets():
+		wb.add_set(set, "Flashlight")
 	wb.add_set(game.truck_profiles, "Trucks")
 	wb.add_set(game.cargo_profiles, "Cargo")
 	add_child(wb)
@@ -614,6 +620,7 @@ func _add_noblock_and_workbench() -> void:
 	DotLog.result(CHANNEL, "the workbench", started)
 	if started.ok:
 		game.config_binder.attach(wb.api.runtime)
+		game.flashlight_binder.attach(wb.api.runtime)
 		wb.api.runtime.add_set(game.truck_profiles)
 		wb.api.runtime.add_set(game.cargo_profiles)
 		wb.api.runtime.profile_changed.connect(func(kind: String, _id: String, _rev: int) -> void:
@@ -782,6 +789,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Only when it does something here; the world decides what (the same `use_choice`).
 		if use_prompt().begins_with("E") or use_action() != "":
 			_act("use")
+	elif key.is_action(DdBindings.FLASHLIGHT):
+		_flash_pressed()
 	elif key.is_action(DdBindings.SOLO):
 		_act("solo")
 	elif key.is_action(DdBindings.RESPAWN):
@@ -924,6 +933,7 @@ func _process(delta: float) -> void:
 				_feed_engine(other, seen, delta)
 
 	_present_walkers(me)
+	_present_flashlights(delta, me)
 	_hear_walkers()
 	var facts := _trip_facts(me)
 	var at_wheel := not facts.is_empty() or (me != null and me.truck != null and not me.on_foot)
@@ -1112,6 +1122,15 @@ func _on_road() -> bool:
 		return me != null and me.on_road()
 
 	return bridge != null and bool(bridge.trip_view.get("on_road", false))
+
+
+## First person on foot, or the cab view in a truck: the camera is the eye the light is on.
+func _flash_own_eye() -> bool:
+	if _walking():
+		return force_view == 1 or (force_view == 0 and foot_first_person)
+
+	var me := _driver()
+	return me != null and me.truck != null and not me.on_foot and camera_mode == CameraMode.CAB
 
 
 ## Where the world has this player on foot.
