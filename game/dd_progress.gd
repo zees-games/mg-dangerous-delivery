@@ -5,7 +5,6 @@ extends Node
 ## Filed under the same key as the money (`uid:...`); a stand-in is never counted.
 
 const DdGame := preload("dd_game.gd")
-const DdStatsRelay := preload("dd_stats_relay.gd")
 const DdTrip := preload("dd_trip.gd")
 
 const CHANNEL := "delivery.progress"
@@ -31,8 +30,6 @@ var link: DotAchievementStatsLink = null
 
 ## Only the stats report is filed under dot-game's stable key; the wallet, drivers and awards keep `uid:...`.
 var stats_feed := DotGameStatsFeed.new()
-var relay := DdStatsRelay.new()
-
 ## driver key -> [stats key, userid], noted at admission by [method note_session].
 var _stats_keys: Dictionary = {}
 
@@ -158,8 +155,7 @@ func setup(world: DdGame, directory: String, report: bool) -> DotResult:
 	link = DotAchievementStatsLink.new()
 	link.name = "StatsLink"
 	link.tracker = achievements
-	relay.follow(stats)
-	link.stats = relay
+	link.stats = stats
 	add_child(link)
 	var linked := link.start()
 
@@ -214,7 +210,7 @@ func record(key: StringName, stat: StringName, value: float = 1.0) -> void:
 
 	if not stats.has_player(_stats_key(key)):
 		stats.begin(_stats_key(key), driver.name)
-		relay.record_of[_stats_key(key)] = key
+		link.key_map[_stats_key(key)] = key
 		_begin(key)
 
 	var filed := stats.record(_stats_key(key), stat, value)
@@ -235,7 +231,7 @@ func leave(key: StringName) -> void:
 		return
 
 	var _values := stats.end(_stats_key(key))
-	relay.record_of.erase(_stats_key(key))
+	link.key_map.erase(_stats_key(key))
 
 	if _stats_keys.has(key):
 		stats_feed.forget(int(_stats_keys[key][1]))

@@ -31,9 +31,9 @@ static func run(game: DdGame, progress: DdProgress) -> Array[String]:
 		bad.append("the stats session is not under the stable key")
 	if progress.session_values(key).get_value(DdProgress.FALLS) != 1.0:
 		bad.append("the reading did not land")
-	if progress.relay.record_of.get(&"plat-9001", &"") != key:
-		bad.append("the relay does not map the stats key to the driver key")
+	if progress.link.key_map.get(&"plat-9001", &"") != key:
+		bad.append("the link does not map the stats key to the driver key")
 	game.leave(key)
-	if progress.stats.has_player(&"plat-9001") or progress.relay.record_of.has(&"plat-9001"):
+	if progress.stats.has_player(&"plat-9001") or progress.link.key_map.has(&"plat-9001"):
 		bad.append("leave left the stats session behind")
 	return bad
