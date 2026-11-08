@@ -5,7 +5,7 @@ extends "res://examples/headless_run_flashlight.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 34
-const CHECKS := 284
+const CHECKS := 285
 
 
 

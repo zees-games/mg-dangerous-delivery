@@ -468,6 +468,14 @@ func _test_a_fall() -> void:
 	_check(progress.session_values(&"p1").get_value(DdProgress.FALLS) == 1.0, "and is counted")
 	var split: Array[String] = ProgressKeysCheck.run(game, progress)
 	_check(split.is_empty(), "stats file under the stable key, the wallet under the driver key", str(split))
+	var held := DotStatsValues.new()
+	held.values = {String(DdProgress.DELIVERIES): 10.0}
+	progress.rank.seed_baseline(&"p1", held)
+	var alone: float = progress.rank.weighted(progress.session_values(&"p1").to_dictionary())
+	progress.publish_rank(&"p1")
+	_check(progress.session_values(&"p1").get_value(DdProgress.RANK_SCORE, 0.0) == roundf(alone + 20.0),
+		"rank_score is built on the stored lifetime (10 deliveries x 2) plus this session, not the session alone",
+		str(progress.session_values(&"p1").to_dictionary()))
 	_finished_section()
 
 
