@@ -1,10 +1,10 @@
 extends DotNetBehaviour
 
-## One of the map's toys on the wire (dot-props' [DotPropToy]): where its moving part is, how it is turned, whether it is on, and how often it was used.
+## One of the map's toys on the wire (dot-props' [DotPropBody]): where its moving part is, how it is turned, whether it is on, and how often it was used.
 ## The server's physics, never predicted; the client's toy is frozen and posed from these. Paired by index: both ends build the same toys in the same order.
 ## A use count, not an event: a client plays the sound when [member net_count] (eight bits, wraps) moves, so a lost packet costs only a late sound.
 
-var toy: DotPropToy = null
+var toy: DotPropBody = null
 
 var net_position: Vector3 = Vector3.ZERO
 var net_rotation: Quaternion = Quaternion.IDENTITY

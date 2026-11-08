@@ -82,10 +82,10 @@ signal toy_sound(id: StringName, at: Vector3, strength: float)
 
 ## The lot's toys (dot-props' loose ones), placed from [constant TOY_SPOTS] on both ends in the
 ## same order; a truck ploughs them, a walker pushes them. Null before a lot.
-var toys: DotPropToyBox = null
+var toys: DotPropBodyBox = null
 
 ## dot-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
-var toy_rules: DotPropToyRules = DotPropToyRules.new()
+var toy_rules: DotPropBodyRules = DotPropBodyRules.new()
 
 ## The collision bit a loose toy is on: nothing else here uses it, a walker's mask (1 and the
 ## walkers' wall) never meets it, and the slab, the fence and every truck are on layer 1.

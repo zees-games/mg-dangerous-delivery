@@ -157,7 +157,7 @@ static func sound_catalogue() -> DotAudioCatalogue:
 		c.add(shot)
 
 	# The lot's toys: dot-props' stock toy sounds (Kenney, CC0), shipped in the addon.
-	for row: Dictionary in DotPropToySounds.rows():
+	for row: Dictionary in DotPropBodySounds.rows():
 		var toy := DotAudioDef.new()
 		toy.id = row["id"]
 		toy.path = row["path"]

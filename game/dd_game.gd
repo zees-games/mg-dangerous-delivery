@@ -1714,7 +1714,7 @@ func _build_toys() -> void:
 	for spot: Array in TOY_SPOTS:
 		var at: Vector3 = lot.global_transform * (spot[1] as Vector3)
 		placements.append({"toy": spot[0], "at": [at.x, at.y, at.z], "yaw": float(placements.size()) * 41.0})
-	toys = DotPropToyBox.new()
+	toys = DotPropBodyBox.new()
 	toys.name = "Toys"
 	toys.authoritative = authoritative
 	toys.draw = draws

@@ -34,7 +34,7 @@ func rows() -> Array:
 
 	var ids := DdAudio.ids()
 
-	for toy: Dictionary in DotPropToySounds.rows():
+	for toy: Dictionary in DotPropBodySounds.rows():
 		ids.append(toy["id"])
 
 	for id: StringName in ids:
