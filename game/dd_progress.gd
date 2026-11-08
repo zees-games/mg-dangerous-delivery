@@ -17,6 +17,8 @@ const BEST_PAY := &"dd.best_pay"
 const BEST_LEVEL := &"dd.best_level"
 const FALLS := &"dd.falls"
 const SNOW_DELIVERIES := &"dd.snow_deliveries"
+## The published skill figure the site orders by (dot-stats' DotStatsRank).
+const RANK_SCORE := &"rank_score"
 
 signal earned(key: StringName, title: String, points: int)
 
@@ -27,6 +29,8 @@ var game: DdGame = null
 var stats: DotStatsTracker = null
 var achievements: DotAchievementTracker = null
 var link: DotAchievementStatsLink = null
+## The skill rank, built on lifetime totals: baseline loaded at the first reading, republished after each delivery.
+var rank: DotStatsRank = null
 
 ## Only the stats report is filed under dot-game's stable key; the wallet, drivers and awards keep `uid:...`.
 var stats_feed := DotGameStatsFeed.new()
@@ -44,6 +48,7 @@ static func schema() -> DotStatsSchema:
 	_add(out, BEST_LEVEL, DotStatsDef.Kind.BEST, "Hardest route delivered", "level")
 	_add(out, FALLS, DotStatsDef.Kind.COUNTER, "Times over the edge", "falls")
 	_add(out, SNOW_DELIVERIES, DotStatsDef.Kind.COUNTER, "Deliveries through snow", "deliveries")
+	var _rank := DotStatsRank.declare(out, RANK_SCORE, "Rank score")
 	return out
 
 
@@ -162,6 +167,19 @@ func setup(world: DdGame, directory: String, report: bool) -> DotResult:
 	if not linked.ok:
 		return linked.wrap("the stats-to-achievements link")
 
+	rank = DotStatsRank.new()
+	rank.stat_id = RANK_SCORE
+	# Delivering is the whole game: loads count, clean ones and hard routes more, a fall costs a little.
+	rank.terms = [
+		{"stat": String(DELIVERIES), "weight": 2.0},
+		{"stat": String(CLEAN_DELIVERIES), "weight": 1.0},
+		{"stat": String(SNOW_DELIVERIES), "weight": 1.0},
+		{"stat": String(DISTANCE), "weight": 0.2},
+		{"stat": String(FALLS), "weight": -0.1},
+	]
+	rank.record_fn = func(who: Variant, stat: StringName, value: float) -> void: _file_rank(StringName(str(who)), stat, value)
+	rank.key_fn = func(who: Variant) -> StringName: return _stats_key(StringName(str(who)))
+
 	game.delivered.connect(_on_delivered)
 	game.fell.connect(func(key: StringName, why: String) -> void:
 		if why != "respawn":
@@ -191,6 +209,8 @@ func _on_delivered(key: StringName, route_id: StringName, pay: int) -> void:
 			record(key, SNOW_DELIVERIES)
 			break
 
+	publish_rank(key)
+
 
 ## Notes the stable stats key of a driver's seat; a driver never noted files under the driver key.
 func note_session(key: StringName, session: DotClientSession) -> void:
@@ -209,6 +229,7 @@ func record(key: StringName, stat: StringName, value: float = 1.0) -> void:
 		return
 
 	if not stats.has_player(_stats_key(key)):
+		_load_baseline(key)
 		stats.begin(_stats_key(key), driver.name)
 		link.key_map[_stats_key(key)] = key
 		_begin(key)
@@ -217,6 +238,24 @@ func record(key: StringName, stat: StringName, value: float = 1.0) -> void:
 
 	if not filed.ok:
 		DotLog.warn(CHANNEL, "a reading was refused", {"player": String(key), "stat": String(stat), "why": filed.error.message})
+
+
+## Reads the driver's stored lifetime totals before this session's figures are flushed into the store (reading later would count them twice).
+func _load_baseline(key: StringName) -> void:
+	if rank != null and stats.store != null:
+		rank.load_baseline(stats.store, key)
+
+
+## Republishes the driver's rank score from the stored lifetime plus this session.
+func publish_rank(key: StringName) -> void:
+	if rank == null or stats == null or not stats.has_player(_stats_key(key)):
+		return
+	var _s := rank.publish_lifetime(key, session_values(key), stats.schema)
+
+
+func _file_rank(key: StringName, stat: StringName, value: float) -> void:
+	if stats != null and stats.has_player(_stats_key(key)):
+		var _filed := stats.record(_stats_key(key), stat, value)
 
 
 func _begin(key: StringName) -> void:
@@ -231,6 +270,8 @@ func leave(key: StringName) -> void:
 		return
 
 	var _values := stats.end(_stats_key(key))
+	if rank != null:
+		rank.forget(key)
 	link.key_map.erase(_stats_key(key))
 
 	if _stats_keys.has(key):
