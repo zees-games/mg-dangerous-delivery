@@ -1,12 +1,19 @@
 extends Node
 
 ## Records what the game sounds like to a WAV, for a loudness meter:
-##   tools/loudness.sh [--route=dd_snowline] [--sky=snow|rain|wind|clear] [--seconds=20]
+##   tools/loudness.sh [--squeal=6] [--route=dd_snowline] [--sky=snow|rain|wind|clear] [--seconds=20]
 ## Master bus through an AudioEffectRecord under xvfb: headless and Movie Maker run the Dummy driver, where dot-audio plays nothing.
 
 const DdClient := preload("res://game/dd_client.gd")
 
 var _args: Dictionary = {}
+var _hold_slide := -1.0
+var _client: Node
+
+
+func _process(_delta: float) -> void:
+	if _hold_slide >= 0.0 and _client != null:
+		_client.audio.slide = _hold_slide
 
 
 func _ready() -> void:
@@ -20,6 +27,7 @@ func _ready() -> void:
 	client.auto_route = StringName(str(_args.get("route", "dd_snowline")))
 	client.autopilot = true
 	add_child(client)
+	_client = client
 	for _i in 600:
 		if client.gate.is_open():
 			break
@@ -39,6 +47,12 @@ func _ready() -> void:
 
 	for _i in 30:
 		await get_tree().process_frame
+
+	# --squeal=<sideways m/s>: hold the tyres at that slide (between the client's feed and the shaping), to meter the squeal alone.
+	if _args.has("squeal"):
+		client.audio.process_priority = 100
+		process_priority = 50
+		_hold_slide = float(_args["squeal"])
 
 	record.set_recording_active(true)
 	var frames := int(float(_args.get("seconds", "20")) * 60.0)
