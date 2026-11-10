@@ -5,7 +5,7 @@ extends "res://examples/headless_run_flashlight.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 34
-const CHECKS := 285
+const CHECKS := 287
 
 
 
@@ -513,6 +513,13 @@ func _test_road_hazards() -> void:
 	var twice := DdRouteDoc.overlay(base, {"bridge": 1, "washout": 1})
 	_check(var_to_str(once) == var_to_str(twice) and var_to_str(once) != var_to_str(base), "the overlay is the same on every machine and changes the road")
 	_check(base["segments"][0].get("bridge", 0) == 0 and var_to_str(DdRouteDoc.overlay(base, {})) == var_to_str(base), "and never touches the shipped document")
+	for narrow_id in [&"dd_wind_ridge", &"dd_devils_spine"]:
+		var narrow := DdRouteDoc.overlay(world.library[narrow_id], {"ledge": 1, "washout": 1})
+		var got := {"ledge": 0, "washout": 0}
+		for seg in narrow["segments"]:
+			for k in got:
+				got[k] += int(seg.get(k, 0))
+		_check(got["ledge"] > 0 and got["washout"] > 0, "%s takes a ledge and a washout" % narrow_id, str(got))
 	var low := 0
 	world.set_mountain(&"low_country")
 	for id: StringName in world.routes:

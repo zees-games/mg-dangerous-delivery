@@ -28,7 +28,9 @@ const MIN_OPEN_LANE := 3.3
 ## A ledge pinches the road to [member DdRoute.LEDGE_KEEP] of its width, which has to stay a lane.
 ## A segment this long holds a washout and a ledge at once, a quarter and three quarters along it.
 const SHARE_LENGTH := 120.0
-const LEDGE_MIN_WIDTH := 7.0
+## Narrowest road that takes a ledge or a washout: the 56% / 58% left is still 3.3 m (the works rule) at 6 m. Was 7.0, which no stretch of Wind Ridge or Devil's Spine reaches.
+const LEDGE_MIN_WIDTH := 6.0
+const WASHOUT_MIN_WIDTH := 6.0
 
 ## Where oncoming traffic may run: this wide at least, and turning no more than this per metre.
 const MIN_TRAFFIC_WIDTH := 6.4
@@ -312,7 +314,7 @@ static func overlay(doc: Dictionary, extras: Dictionary) -> Dictionary:
 				"bridge":
 					ok = ok and absf(float(seg["turn"])) <= 4.0 and length >= BRIDGE_MIN_SEGMENT and int(seg.get("washout", 0)) == 0 and not bool(seg["checkpoint"])
 				"washout":
-					ok = ok and float(seg["width"]) >= 7.0 and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
+					ok = ok and float(seg["width"]) >= WASHOUT_MIN_WIDTH and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
 				"ledge":
 					ok = ok and float(seg["width"]) >= LEDGE_MIN_WIDTH and straight <= MAX_TRAFFIC_TURN and length >= 60.0 and int(seg.get("bridge", 0)) == 0 and not bool(seg["checkpoint"])
 				"traffic":
