@@ -693,16 +693,24 @@ func _build_ledges() -> void:
 		_fray_washouts()
 
 
+## Spacing of the stone clusters along a washout's broken edge.
+const FRAY_SPACING := 2.5
+
+
 ## Stones along the broken edge of each washout, where the road was bitten away.
 func _fray_washouts() -> void:
 	for k in washouts.size():
 		var entry: Dictionary = washouts[k]
 		var d := float(entry["d"])
 		var half := float(entry["length"]) * 0.5
-		for step in 5:
-			var pose := pose_at(d - half + float(entry["length"]) * float(step) / 4.0)
+		var steps := maxi(int(float(entry["length"]) / FRAY_SPACING), 4)
+		for step in steps + 1:
+			var pose := pose_at(d - half + float(entry["length"]) * float(step) / float(steps))
 			var edge := pose.origin + pose.basis.x * float(entry["side"]) * width_at(d) * (WASHOUT_KEEP - 0.5)
-			DdFord.scatter(self, edge, pose.basis.z, pose.basis.x, 4, Vector2(1.0, 0.7), _rock_material(), 400 + k * 10 + step)
+			DdFord.scatter(self, edge, pose.basis.z, pose.basis.x, 4, Vector2(FRAY_SPACING * 0.5, 0.7), _rock_material(), 400 + k * 100 + step)
+			# Spilled shoulder gravel outside the lip, thinner than the stones on it.
+			var shoulder := edge + pose.basis.x * float(entry["side"]) * 0.9
+			DdFord.scatter(self, shoulder, pose.basis.z, pose.basis.x, 2, Vector2(FRAY_SPACING * 0.5, 0.5), _rock_material(), 4000 + k * 100 + step)
 
 
 ## Fallen rock at both ends of a ledge, on its side of the road, so it does not stop like a cut.
@@ -725,6 +733,9 @@ func _build_broken() -> void:
 		heap.name = "Broken"
 		add_child(heap)
 		heap.transform = Transform3D(at.basis, at.origin + at.basis.x * float(heap_at["lateral"]))
+		if draws:
+			# Rubble spilled before and behind the heap, so its ends do not stop like a cut.
+			DdFord.scatter(self, heap.position, at.basis.z, at.basis.x, 6, Vector2(size.z * 0.5 + 1.2, size.x * 0.5 + 0.4), _rock_material(), 500 + k)
 
 
 ## A dip under each gap in the road (so a fallen deck leaves a way through), and its plank bridge.
