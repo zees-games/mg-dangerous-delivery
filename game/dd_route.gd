@@ -1,4 +1,5 @@
 extends "dd_route_base.gd"
+const DdFord := preload("dd_ford.gd")
 
 ## A route document, built: the road, the cliff, the drop, the checkpoints, the lot and the depot, and every question the game asks about where a truck is along it.
 ## The same build on every machine; nothing here is random (weather and rock are [DdWeather]'s and [DdGame]'s).

@@ -1,4 +1,3 @@
-class_name DdFord
 extends RefCounted
 
 ## The dip under a plank bridge: when the deck gives way a truck drives down into it and out, so a

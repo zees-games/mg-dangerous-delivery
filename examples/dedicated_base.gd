@@ -1,4 +1,5 @@
 extends DotGameCheckSuite
+const DDTestPorts := preload("test_ports.gd")
 
 ## The server, its boot and the shared helpers of dedicated.gd, split out to keep each script under the size gate.
 
