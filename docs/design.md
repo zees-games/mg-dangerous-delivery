@@ -129,7 +129,7 @@ The camera key (F5, the family's view key) cycles chase, cab and high under the 
 
 ## The light is the family's daylight; the colours stay the mountain's
 
-The family's look pass (game-arena's built-in maps: pastel prototype grid, daylight dot-lighting) was judged against this game and only its light was taken. **The palette was not**: the world is rock, grass, asphalt, snow and water, and the weather a route is built around is read from those colours (a white road is snow, a dark glossy one is wet, a grey one is grip). A pastel grid over a mountain would make every surface a block-out and take the snow's meaning away.
+The family's look pass (game-fatal-contact's built-in maps: pastel prototype grid, daylight dot-lighting) was judged against this game and only its light was taken. **The palette was not**: the world is rock, grass, asphalt, snow and water, and the weather a route is built around is read from those colours (a white road is snow, a dark glossy one is wet, a grey one is grip). A pastel grid over a mountain would make every surface a block-out and take the snow's meaning away.
 
 - **The light is a dot-lighting document** (`DdClient._build_environment`): a warm sun with soft shadows at the old angle, a pale cool fill, filmic tone map, glow, with this game's own sky colours painted after the rig.
 - **The weather still drives it**: the sun dims to half its clear value under rain or snow (`_clear_sun`), and the fog is exponential, thickened per sky (`FOG_CLEAR`, `FOG_RAIN`, `FOG_SNOW`: 0.0006, 0.0015, 0.0028), so the document carries none. Half what it was: at 0.006 the snow stage was white on white past 60 m in the first play test, and the next bend was not there to see.
