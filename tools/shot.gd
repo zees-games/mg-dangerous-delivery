@@ -208,6 +208,10 @@ func _wait_gate(client: DdClient) -> void:
 
 		await get_tree().physics_frame
 
+	# The gate open is not the cover gone: a frame saved now can still be the cover fading out.
+	if not await DotShotGate.wait_lifted(get_tree(), client.get("platform")):
+		printerr("shot: load cover still up after the wait; shooting anyway")
+
 
 ## The extras on the view (ballot, maps menu, chat), then the frame saved and the shot's sequence recorded.
 func _capture(client: DdClient, view: String) -> void:
