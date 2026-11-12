@@ -41,11 +41,8 @@ func _physics_process(delta: float) -> void:
 	var tr = d.truck
 	if tr != null and is_instance_valid(tr) and d.trip:
 		if _knock_truck != tr and tr.breakage != null:
-			_knock_truck = tr
-			tr.breakage.broke.connect(func(e: Dictionary) -> void: shed.append("%s@%.1f" % [e.get("id", e.get("kind", "?")), knocks.back() if not knocks.is_empty() else 0.0]))
-			tr.breakage.impact.connect(func(at: Vector3, dv: float) -> void:
-				knocks.append(dv)
-				knock_at.append(at))
+			var hook := _hook_truck  # once per truck, held as a Callable
+			hook.call(tr)
 		var up: Vector3 = tr.global_transform.basis.y
 		var fwd: Vector3 = -tr.global_transform.basis.z
 		var roll := rad_to_deg(acos(clampf(up.dot(Vector3.UP), -1.0, 1.0)))
@@ -55,17 +52,40 @@ func _physics_process(delta: float) -> void:
 		var flipped := roll > 70.0
 		if flipped and not was_flipped:
 			flips += 1
-			print("FLIP t=%.1f dist=%.0f speed=%.1f roll=%.0f pitch=%.0f falls=%d" % [t, d.trip.distance, game.truck_speed(d), roll, pitch, d.trip.falls])
+			var log_flip := _log_flip
+			log_flip.call(d, roll, pitch)
 		was_flipped = flipped
 	if int(t * 60) % 120 == 0:
-		print("t=%.0f %s speed=%.1f" % [t, d.trip.describe() if d.trip else "garage", game.truck_speed(d)])
+		var log_tick := _log_tick
+		log_tick.call(d)
 	if t > float(OS.get_environment("SECS") if OS.get_environment("SECS") != "" else "120") or (d.trip and d.trip.state == 3):
-		var lost: Array = tr_lost(d)
-		print("KNOCKS %s" % knock_summary())
-		print("WORN %s shed=%s" % [worn(d), shed])
-		print("PARTS lost=%d %s\nTILT max_tilt=%.1f max_pitch=%.1f flips=%d" % [lost.size(), lost, max_roll, max_pitch, flips])
-		print("END t=%.0f %s paid=%d money=%d" % [t, d.trip.describe() if d.trip else "-", d.trip.paid if d.trip else -1, game.bank.money(&"bot1")])
+		var finish := _log_end  # one-shot report
+		finish.call(d)
 		get_tree().quit()
+
+
+func _hook_truck(tr) -> void:
+	_knock_truck = tr
+	tr.breakage.broke.connect(func(e: Dictionary) -> void: shed.append("%s@%.1f" % [e.get("id", e.get("kind", "?")), knocks.back() if not knocks.is_empty() else 0.0]))
+	tr.breakage.impact.connect(func(at: Vector3, dv: float) -> void:
+		knocks.append(dv)
+		knock_at.append(at))
+
+
+func _log_flip(d, roll: float, pitch: float) -> void:
+	print("FLIP t=%.1f dist=%.0f speed=%.1f roll=%.0f pitch=%.0f falls=%d" % [t, d.trip.distance, game.truck_speed(d), roll, pitch, d.trip.falls])
+
+
+func _log_tick(d) -> void:
+	print("t=%.0f %s speed=%.1f" % [t, d.trip.describe() if d.trip else "garage", game.truck_speed(d)])
+
+
+func _log_end(d) -> void:
+	var lost: Array = tr_lost(d)
+	print("KNOCKS %s" % knock_summary())
+	print("WORN %s shed=%s" % [worn(d), shed])
+	print("PARTS lost=%d %s\nTILT max_tilt=%.1f max_pitch=%.1f flips=%d" % [lost.size(), lost, max_roll, max_pitch, flips])
+	print("END t=%.0f %s paid=%d money=%d" % [t, d.trip.describe() if d.trip else "-", d.trip.paid if d.trip else -1, game.bank.money(&"bot1")])
 
 
 ## Ids of the parts (and cargo pieces) the truck has shed so far, for tuning the strengths in DdTrucks.

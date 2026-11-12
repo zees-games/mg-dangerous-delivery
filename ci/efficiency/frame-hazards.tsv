@@ -26,5 +26,4 @@ game/dd_game.gd::_stand_in_walk::string_build	2
 game/dd_game.gd::_step_boulders::string_build	2
 game/dd_game.gd::start_trip::string_build	5
 game/dd_garage.gd::covered_rect::group_lookup	1
-tools/drive.gd::_physics_process::string_build	4
 tools/load_probe.gd::_process::string_build	2

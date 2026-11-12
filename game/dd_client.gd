@@ -396,6 +396,9 @@ var _walkers_heard: Array = []
 var workbench_remote: DotGameWorkbenchRemoteClient = null
 ## Where the truck was last frame, for [method _sideways_speed].
 var _slide_from := Vector3.ZERO
+## The truck [method _speed_of_truck] last looked up, and its net behaviour (found once, not per frame).
+var _speed_truck: DdTruck = null
+var _speed_net: DdTruckNet = null
 
 
 func _build_netcode() -> DotResult:
@@ -1639,13 +1642,20 @@ func _widen_fov(speed_ms: float, delta: float) -> void:
 	camera.fov = lerpf(camera.fov, wanted, 1.0 - exp(-delta * 2.5))
 
 
+func _net_of(truck: DdTruck) -> DdTruckNet:
+	return truck.get_node_or_null("Net") as DdTruckNet
+
+
 ## Forward speed of a truck, on a mirror too ([method _speed_of] takes a driver).
 func _speed_of_truck(truck: DdTruck) -> float:
 	if _offline:
 		return truck.forward_speed()
 
-	var behaviour := truck.get_node_or_null("Net") as DdTruckNet
-	return behaviour.speed_ms() if behaviour != null else 0.0
+	if truck != _speed_truck or _speed_net == null or not is_instance_valid(_speed_net):
+		_speed_truck = truck
+		var look := _net_of  # on a new truck only, not per frame
+		_speed_net = look.call(truck)
+	return _speed_net.speed_ms() if _speed_net != null and is_instance_valid(_speed_net) else 0.0
 
 
 ## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the
