@@ -10,8 +10,11 @@ const Rubble := preload("res://addons/dot_props/runtime/dot_prop_rubble.gd")
 ## Rays are dropped on a grid across each road every half metre: a lane the width of a truck must hold
 ## solid ground at every station, and the ground under it may not step or climb past what a truck climbs.
 
-const SECTIONS := 3
+const SECTIONS := 4
 const MOUNTAINS: Array[StringName] = [&"range", &"low_country", &"high_country", &"long_haul"]
+## The staged community pack (packs/community-maps): not in routes/, so loaded here on top of the six.
+const PACK := "res://packs/community-maps/routes"
+const PACK_MOUNTAINS: Array[StringName] = [&"gm_fork", &"gm_boreas", &"rp_southside"]
 ## Truck width plus a margin, metres.
 const LANE := 3.0
 const STATION := 0.5
@@ -37,6 +40,7 @@ func _run() -> void:
 	await _test_mountains(false)
 	await _test_mountains(true)
 	await _test_stress()
+	await _test_pack()
 	_report_sections(_entered, _completed, SECTIONS)
 
 
@@ -62,6 +66,29 @@ func _test_mountains(down: bool) -> void:
 				bad.append("%s/%s %s" % [mountain, id, fault])
 	_check(roads > 0 and bad.is_empty(), "every road on every mountain is passable, bridges %s" % ("down" if down else "standing"),
 		"%d roads; %s" % [roads, "; ".join(bad.slice(0, 6))])
+	world.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+## The community pack's roads, on their own mountains and laid beside every other route (a map naming none).
+## A route that falls past the land's floor (dd_land SEA_FLOOR, 66 m down) stands under a slab: the tool writes such a road from its other end.
+func _test_pack() -> void:
+	_entered += 1
+	var world := DdGame.new()
+	world.draws = false
+	add_child(world)
+	var taken := world.load_directory(PACK)
+	var bad := PackedStringArray()
+	for mountain in PACK_MOUNTAINS:
+		var _moved := world.set_mountain(mountain)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		for id: StringName in world.routes:
+			var fault := _walk(world.routes[id] as DdRoute)
+			if fault != "":
+				bad.append("%s/%s %s" % [mountain, id, fault])
+	_check(taken == 3 and bad.is_empty(), "the community pack's three roads are passable on their mountains", "%d routes; %s" % [taken, "; ".join(bad)])
 	world.queue_free()
 	await get_tree().process_frame
 	_completed += 1

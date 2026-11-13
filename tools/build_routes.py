@@ -72,6 +72,15 @@ def route(rid, name, level, pay, blurb, width, zones, segments, cargo="crates"):
     }
 
 
+def widen(doc, road=7.5, floor=7.2):
+    """64dc4e4: the truck is too wide for the first-draft widths; no road here is under `floor`."""
+    doc["width"] = max(doc["width"], road)
+    for sg in doc["segments"]:
+        if "width" in sg and sg["width"] < 7.0:
+            sg["width"] = floor
+    return doc
+
+
 ROUTES = [
     route("dd_foothills", "Foothills", 1, 300,
           "A gentle climb with rails most of the way. Learn how the truck stops.", 8.5,
@@ -181,6 +190,8 @@ def main():
     stale = []
 
     for doc in ROUTES:
+        if doc["id"] in ("dd_wind_ridge", "dd_devils_spine"):
+            widen(doc)
         path = os.path.join(OUT, doc["id"] + ".json")
         text = text_of(doc)
 

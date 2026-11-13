@@ -16,136 +16,26 @@
 	},
 	"segments": [
 		{
-			"length": 59.0,
-			"turn": 62.7,
-			"climb": 2.5,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
-			"zone": "map"
-		},
-		{
-			"length": 52.5,
-			"turn": -27.4,
-			"climb": 2.1,
-			"wall": "none",
-			"rail": "none",
+			"length": 40.4,
+			"turn": -43.8,
+			"climb": 1.1,
+			"wall": "left",
+			"rail": "right",
 			"width": 6.0,
-			"zone": "map"
-		},
-		{
-			"length": 73.3,
-			"turn": 139.2,
-			"climb": -10.3,
-			"wall": "none",
-			"rail": "none",
-			"width": 6.0,
-			"zone": "map"
-		},
-		{
-			"length": 81.9,
-			"turn": -59.0,
-			"climb": -11.5,
-			"wall": "none",
-			"rail": "none",
-			"width": 6.0,
-			"zone": "map"
-		},
-		{
-			"length": 34.0,
-			"turn": -27.3,
-			"climb": -4.8,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
-			"zone": "map"
-		},
-		{
-			"length": 78.8,
-			"turn": 79.3,
-			"climb": -11.0,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
-			"zone": "map"
-		},
-		{
-			"length": 66.3,
-			"turn": -46.0,
-			"climb": -9.3,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
-			"zone": "map"
-		},
-		{
-			"length": 41.8,
-			"turn": -48.3,
-			"climb": -5.9,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
-			"zone": "map",
-			"checkpoint": true
-		},
-		{
-			"length": 83.6,
-			"turn": -0.3,
-			"climb": -11.7,
-			"wall": "none",
-			"rail": "none",
-			"width": 12.0,
-			"zone": "map"
-		},
-		{
-			"length": 115.2,
-			"turn": -2.3,
-			"climb": -9.7,
-			"wall": "none",
-			"rail": "none",
-			"width": 12.0,
-			"zone": "map"
-		},
-		{
-			"length": 90.0,
-			"turn": -89.7,
-			"climb": -0.0,
-			"wall": "none",
-			"rail": "left",
-			"width": 10.0,
-			"zone": "map"
-		},
-		{
-			"length": 69.1,
-			"turn": -49.5,
-			"climb": 0.0,
-			"wall": "none",
-			"rail": "left",
-			"width": 10.0,
 			"zone": "map"
 		},
 		{
 			"length": 82.6,
-			"turn": 24.9,
-			"climb": -0.3,
+			"turn": 156.9,
+			"climb": -7.2,
 			"wall": "none",
-			"rail": "none",
-			"width": 12.0,
-			"zone": "map",
-			"checkpoint": true
-		},
-		{
-			"length": 26.6,
-			"turn": 25.0,
-			"climb": 0.3,
-			"wall": "none",
-			"rail": "none",
-			"width": 10.0,
+			"rail": "right",
+			"width": 6.0,
 			"zone": "map"
 		},
 		{
 			"length": 30.0,
-			"turn": -0.1,
+			"turn": 14.6,
 			"climb": 0.0,
 			"wall": "none",
 			"rail": "none",
@@ -153,21 +43,131 @@
 			"zone": "map"
 		},
 		{
-			"length": 87.9,
-			"turn": -167.1,
-			"climb": 7.5,
+			"length": 85.9,
+			"turn": -23.7,
+			"climb": -1.9,
 			"wall": "none",
-			"rail": "left",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 34.7,
+			"turn": -24.3,
+			"climb": 2.1,
+			"wall": "none",
+			"rail": "none",
+			"width": 12.0,
+			"zone": "map"
+		},
+		{
+			"length": 73.6,
+			"turn": 51.6,
+			"climb": -0.1,
+			"wall": "none",
+			"rail": "right",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 76.1,
+			"turn": 87.1,
+			"climb": -0.0,
+			"wall": "none",
+			"rail": "none",
 			"width": 6.0,
 			"zone": "map"
 		},
 		{
-			"length": 34.6,
-			"turn": 38.0,
-			"climb": -1.2,
-			"wall": "right",
-			"rail": "left",
+			"length": 159.4,
+			"turn": -4.8,
+			"climb": 5.8,
+			"wall": "none",
+			"rail": "none",
+			"width": 12.0,
+			"zone": "map",
+			"checkpoint": true
+		},
+		{
+			"length": 37.5,
+			"turn": 6.8,
+			"climb": 5.2,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 74.1,
+			"turn": 38.4,
+			"climb": 10.4,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 41.6,
+			"turn": 54.9,
+			"climb": 5.8,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 76.8,
+			"turn": -78.2,
+			"climb": 0.1,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 64.3,
+			"turn": 41.0,
+			"climb": 0.1,
+			"wall": "none",
+			"rail": "none",
 			"width": 6.0,
+			"zone": "map"
+		},
+		{
+			"length": 62.7,
+			"turn": 44.7,
+			"climb": 8.8,
+			"wall": "none",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map",
+			"checkpoint": true
+		},
+		{
+			"length": 71.8,
+			"turn": -136.1,
+			"climb": 10.0,
+			"wall": "none",
+			"rail": "none",
+			"width": 6.0,
+			"zone": "map"
+		},
+		{
+			"length": 46.8,
+			"turn": 24.4,
+			"climb": 6.6,
+			"wall": "none",
+			"rail": "left",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 49.3,
+			"turn": -64.7,
+			"climb": 6.9,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
 			"zone": "map"
 		}
 	]
