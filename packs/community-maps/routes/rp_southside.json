@@ -1,0 +1,12 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "rp_southside",
+	"name": "Southside",
+	"author": "rp_southside by Fishke (https://steamcommunity.com/sharedfiles/filedetails/?id=2010286798)",
+	"blurb": "A delivery run through the community map rp_southside by Fishke.",
+	"order": 52,
+	"routes": [
+		"dd_rp_southside"
+	]
+}

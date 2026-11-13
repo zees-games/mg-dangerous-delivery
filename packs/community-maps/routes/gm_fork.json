@@ -1,0 +1,12 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "gm_fork",
+	"name": "Fork",
+	"author": "gm_fork by Blueberry_pie (https://steamcommunity.com/sharedfiles/filedetails/?id=326332456)",
+	"blurb": "A delivery run through the community map gm_fork by Blueberry_pie.",
+	"order": 50,
+	"routes": [
+		"dd_gm_fork"
+	]
+}
