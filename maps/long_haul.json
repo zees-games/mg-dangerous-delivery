@@ -6,7 +6,14 @@
 	"ambient": {"level": 0.8, "lively": false},
 	"blurb": "Every route, far apart across open country: a long drive from the lot to each gate.",
 	"order": 40,
-	"routes": [],
+	"routes": [
+		"dd_foothills",
+		"dd_river_cut",
+		"dd_slate_quarry",
+		"dd_snowline",
+		"dd_wind_ridge",
+		"dd_devils_spine"
+	],
 	"layout": {
 		"gap": 360,
 		"clearance": 800,

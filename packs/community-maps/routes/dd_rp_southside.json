@@ -1,0 +1,164 @@
+{
+	"format": 1,
+	"kind": "route",
+	"id": "dd_rp_southside",
+	"name": "rp_southside",
+	"author": "rp_southside by Fishke (https://steamcommunity.com/sharedfiles/filedetails/?id=2010286798), route generated from the map; removed on request: https://github.com/zees-games/mg-dangerous-delivery/issues",
+	"blurb": "The longest road through rp_southside.",
+	"level": 2,
+	"pay": 300,
+	"width": 10.0,
+	"cargo": "crates",
+	"zones": {
+		"map": {
+			"name": "rp_southside"
+		}
+	},
+	"segments": [
+		{
+			"length": 32.9,
+			"turn": -47.7,
+			"climb": 1.5,
+			"wall": "left",
+			"rail": "none",
+			"width": 6.0,
+			"zone": "map"
+		},
+		{
+			"length": 42.7,
+			"turn": 81.2,
+			"climb": 0.9,
+			"wall": "right",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 103.9,
+			"turn": 27.6,
+			"climb": 2.4,
+			"wall": "right",
+			"rail": "left",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 70.7,
+			"turn": 84.8,
+			"climb": 0.0,
+			"wall": "left",
+			"rail": "right",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 41.9,
+			"turn": 1.8,
+			"climb": 0.0,
+			"wall": "left",
+			"rail": "right",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 51.5,
+			"turn": -80.7,
+			"climb": 0.0,
+			"wall": "none",
+			"rail": "left",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 43.7,
+			"turn": 80.8,
+			"climb": 0.0,
+			"wall": "right",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 46.0,
+			"turn": -0.5,
+			"climb": -0.6,
+			"wall": "right",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 38.4,
+			"turn": -51.8,
+			"climb": -0.6,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map",
+			"checkpoint": true
+		},
+		{
+			"length": 35.0,
+			"turn": 43.4,
+			"climb": 0.0,
+			"wall": "right",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 33.4,
+			"turn": -63.4,
+			"climb": 1.4,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 30.4,
+			"turn": 53.2,
+			"climb": 0.8,
+			"wall": "none",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 43.9,
+			"turn": -64.8,
+			"climb": 1.5,
+			"wall": "left",
+			"rail": "none",
+			"width": 10.0,
+			"zone": "map"
+		},
+		{
+			"length": 47.4,
+			"turn": 85.4,
+			"climb": 0.8,
+			"wall": "right",
+			"rail": "none",
+			"width": 12.0,
+			"zone": "map"
+		},
+		{
+			"length": 51.3,
+			"turn": 89.0,
+			"climb": 0.0,
+			"wall": "right",
+			"rail": "none",
+			"width": 12.0,
+			"zone": "map"
+		},
+		{
+			"length": 24.5,
+			"turn": 7.7,
+			"climb": 0.0,
+			"wall": "right",
+			"rail": "none",
+			"width": 12.0,
+			"zone": "map"
+		}
+	]
+}

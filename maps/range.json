@@ -6,7 +6,14 @@
 	"ambient": {"level": 1.2, "lively": true},
 	"blurb": "Every route this server has, side by side, a road from the lot to each.",
 	"order": 10,
-	"routes": [],
+	"routes": [
+		"dd_foothills",
+		"dd_river_cut",
+		"dd_slate_quarry",
+		"dd_snowline",
+		"dd_wind_ridge",
+		"dd_devils_spine"
+	],
 	"layout": {
 		"clearance": 400
 	},

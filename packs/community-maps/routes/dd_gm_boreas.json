@@ -1,0 +1,248 @@
+{
+	"format": 1,
+	"kind": "route",
+	"id": "dd_gm_boreas",
+	"name": "gm_boreas",
+	"author": "gm_boreas by Blueberry_pie (https://steamcommunity.com/sharedfiles/filedetails/?id=1572373847), route generated from the map; removed on request: https://github.com/zees-games/mg-dangerous-delivery/issues",
+	"blurb": "Across country over gm_boreas.",
+	"level": 5,
+	"pay": 390,
+	"width": 9.0,
+	"cargo": "crates",
+	"zones": {
+		"map": {
+			"name": "gm_boreas",
+			"snow": 1.0,
+			"wind": 0.3
+		}
+	},
+	"segments": [
+		{
+			"length": 49.2,
+			"turn": -44.4,
+			"climb": -6.9,
+			"wall": "none",
+			"rail": "both",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 62.0,
+			"turn": 0.5,
+			"climb": 8.1,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 47.2,
+			"turn": 89.7,
+			"climb": 6.6,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 61.7,
+			"turn": -117.3,
+			"climb": 8.6,
+			"wall": "none",
+			"rail": "left",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 30.3,
+			"turn": 25.0,
+			"climb": 4.2,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 40.0,
+			"turn": 0.4,
+			"climb": 5.6,
+			"wall": "left",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 56.2,
+			"turn": -45.0,
+			"climb": 5.5,
+			"wall": "left",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 36.0,
+			"turn": -37.2,
+			"climb": -5.0,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 27.1,
+			"turn": 51.6,
+			"climb": -3.8,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 66.9,
+			"turn": -12.3,
+			"climb": -9.4,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map",
+			"checkpoint": true
+		},
+		{
+			"length": 38.0,
+			"turn": -2.2,
+			"climb": -5.3,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 94.5,
+			"turn": -63.3,
+			"climb": -13.2,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 73.4,
+			"turn": 41.7,
+			"climb": -10.3,
+			"wall": "none",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 25.6,
+			"turn": 48.5,
+			"climb": -3.6,
+			"wall": "none",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 35.8,
+			"turn": 18.1,
+			"climb": -5.0,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 73.3,
+			"turn": -108.2,
+			"climb": -10.3,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 46.6,
+			"turn": -27.1,
+			"climb": -6.5,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 36.2,
+			"turn": -40.5,
+			"climb": -5.1,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map",
+			"checkpoint": true
+		},
+		{
+			"length": 44.6,
+			"turn": 5.7,
+			"climb": -6.2,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 46.5,
+			"turn": 8.1,
+			"climb": -6.5,
+			"wall": "none",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 28.5,
+			"turn": 27.3,
+			"climb": -4.0,
+			"wall": "none",
+			"rail": "right",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 113.0,
+			"turn": 7.2,
+			"climb": -15.8,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 38.1,
+			"turn": -9.6,
+			"climb": -5.3,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 87.8,
+			"turn": 1.8,
+			"climb": -12.3,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		},
+		{
+			"length": 53.2,
+			"turn": -43.4,
+			"climb": -7.4,
+			"wall": "none",
+			"rail": "none",
+			"width": 9.0,
+			"zone": "map"
+		}
+	]
+}

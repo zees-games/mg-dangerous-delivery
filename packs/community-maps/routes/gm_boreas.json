@@ -1,0 +1,12 @@
+{
+	"format": 1,
+	"kind": "map",
+	"id": "gm_boreas",
+	"name": "Boreas",
+	"author": "gm_boreas by Blueberry_pie (https://steamcommunity.com/sharedfiles/filedetails/?id=1572373847)",
+	"blurb": "A delivery run through the community map gm_boreas by Blueberry_pie.",
+	"order": 51,
+	"routes": [
+		"dd_gm_boreas"
+	]
+}

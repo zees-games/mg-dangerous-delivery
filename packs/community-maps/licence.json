@@ -1,0 +1,35 @@
+[
+  {
+    "paths": [
+      "routes/dd_gm_fork.json",
+      "routes/gm_fork.json"
+    ],
+    "licence": "unlicensed community map (no licence stated)",
+    "author": "Blueberry_pie",
+    "source_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=326332456",
+    "title": "gm_fork: route generated from the community map's roads, credited, removed on request",
+    "removal_contact": "https://github.com/zees-games/mg-dangerous-delivery/issues"
+  },
+  {
+    "paths": [
+      "routes/dd_gm_boreas.json",
+      "routes/gm_boreas.json"
+    ],
+    "licence": "unlicensed community map (no licence stated)",
+    "author": "Blueberry_pie",
+    "source_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1572373847",
+    "title": "gm_boreas: route generated from the community map's roads, credited, removed on request",
+    "removal_contact": "https://github.com/zees-games/mg-dangerous-delivery/issues"
+  },
+  {
+    "paths": [
+      "routes/dd_rp_southside.json",
+      "routes/rp_southside.json"
+    ],
+    "licence": "unlicensed community map (no licence stated)",
+    "author": "Fishke",
+    "source_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2010286798",
+    "title": "rp_southside: route generated from the community map's roads, credited, removed on request",
+    "removal_contact": "https://github.com/zees-games/mg-dangerous-delivery/issues"
+  }
+]
