@@ -276,7 +276,7 @@ extends DotConfig
 ## Minutes a mountain is played before the players' ballot picks the next one (the vote's time
 ## limit; the ballot opens a minute before it runs out). 0 turns the clock off: only a rocked
 ## vote changes the mountain. The `dd_vote_minutes` cvar changes it from the next mountain on.
-@export_range(0.0, 360.0, 1.0) var mountain_minutes: float = 15.0
+@export_range(0.0, 360.0, 1.0, "or_greater") var mountain_minutes: float = 15.0
 
 ## The file that says which mountains a server ROTATES: `maps.yml` in
 ## `cfg/game/mg-dangerous-delivery/dot_map/` or `cfg/server/addons/dot_map/` (dot-map's

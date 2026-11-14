@@ -78,7 +78,7 @@
 # --- Mountain
 # The mountain the server starts on (`DdMountains`: range, low_country, high_country). An id this game does n...
 # mountain: "range"
-# Minutes a mountain is played before the players' ballot picks the next one (the vote's time limit; the ball... [0.0..360.0]
+# Minutes a mountain is played before the players' ballot picks the next one (the vote's time limit; the ball... [0.0..]
 # mountain_minutes: 15.0
 # The file that says which mountains a server ROTATES: `maps.yml` in `cfg/game/mg-dangerous-delivery/dot_map/...
 # map_rotation_file: "cfg/maps.yml"
