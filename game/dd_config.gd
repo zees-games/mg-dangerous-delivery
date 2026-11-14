@@ -214,7 +214,7 @@ extends DotConfig
 ## Stand-in drivers, so a server is not an empty mountain. People replace them. The default for
 ## the server's `bot_quota` (fill mode: stand-ins plus people make this many). Two, so one
 ## person alone has somebody to pass and race to the depot.
-@export_range(0, 16, 1) var bots: int = 2
+@export_range(0, 16, 1, "or_greater") var bots: int = 2
 
 ## Seconds a stand-in may drive one trip before it is put back in a bay to start again.
 @export_range(30.0, 3600.0, 10.0) var stand_in_road_seconds: float = 240.0
