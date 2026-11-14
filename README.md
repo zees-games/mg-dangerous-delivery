@@ -1,21 +1,52 @@
-This is a game to demonstrate the capabilities of the [**Dot collection**](https://moddingcommunity.com/co/4-dot-assets) built on-top of [Godot 4](https://godotengine.org/) and [TMC's gaming platform](https://moddingcommunity.com/play). In this 3D game, players drive loaded trucks up mountain roads with no guard rails, through snow, rain, wind and falling rock, and deliver the load to a depot. The harder the haul, the more it pays, and the money buys bigger trucks and upgrades.
+# Dangerous Delivery
 
-**This project and the assets under it are COMPLETELY OPEN SOURCE**. You are free to use, modify, and distribute them under the terms of the MIT license. The only thing not open source is the back-end web infrastructure. So if you opt into using your own authentication backend instead of integrating with TMC, you will need to build and integrate your own back-end infrastructure.
+Dangerous Delivery is a 3D multiplayer driving game. You drive a loaded truck up a mountain road with no guard rails, through snow, rain, wind and falling rock, and deliver the load to a depot. The harder the haul, the more it pays, and the money buys bigger trucks and upgrades.
 
-**Please treat this as partially tested.** The game was built with Claude Code. Its headless test suite passes, but little of it has been in front of real players. Please report anything you run into.
+It is built on [Godot 4](https://godotengine.org/), the [Dot collection](https://moddingcommunity.com/co/4-dot-assets) and [TMC's gaming platform](https://moddingcommunity.com/play).
+
+Everything in this repository is open source under the MIT license. The only closed part is the website back-end it can sign in through. If you do not want to use TMC's platform, you can plug in your own sign-in back-end.
+
+The game was built with Claude Code and is maintained with it. It has a full automated test suite, but few real players have tried it yet, so expect rough edges. Please report what you find.
 
 ## How it plays
+
 You start on foot in the lot, among everybody else and a truck of every model on show, each with somebody selling it. Walk up to a salesperson and press **E** to buy their truck (or have yours brought round), then drive it out of the lot: a road leaves for every route, across open country and out over the water to the route's gate. Drive up to a gate and press **E** to accept the delivery; the load is put on your truck past the barrier, and the route is yours. Nobody gets through a gate on foot. Get the load to the depot at the far end. Every route is a level, and the next level opens once you have delivered on the one below it. Routes are split into stages by checkpoints. Go over the edge and you are put back at the last checkpoint, with some of the load gone.
 
-**The weather belongs to the mountain.** Each route is split into zones, and every couple of minutes each zone rolls its own sky: snow (the road turns white and grip drops to 40%), rain (70% grip), or gusts of wind that push the truck toward the edge. Everybody in a zone gets the same weather. There is also rock falling off the cliffs, black ice, fallen rock blocking a lane, roadworks closing one, loose gravel that shakes the load, and cars coming down the other lane (keep right). Hairpins have a rail round the outside and a sign before them; the danger is the speed you bring into one. Each route is cut into a mountain of its own, which climbs behind the cliffs and falls away to a lake under the drop, and the snow lies on it wherever it is snowing on the road.
+**The weather belongs to the mountain.** Each route is split into zones, and every couple of minutes each zone rolls its own sky: snow (the road turns white and grip drops to 40% by default), rain (70% grip by default), or gusts of wind that push the truck toward the edge. Everybody in a zone gets the same weather. There is also rock falling off the cliffs, black ice, fallen rock blocking a lane, roadworks closing one, loose gravel that shakes the load, and cars coming down the other lane (keep right). Hairpins have a rail round the outside and a sign before them; the danger is the speed you bring into one. Each route is cut into a mountain of its own, which climbs behind the cliffs and falls away to a lake under the drop, and the snow lies on it wherever it is snowing on the road.
 
 **Pay** starts from the route's pay, goes up with its level and with the truck you drive (harder trucks pay more), and goes up again for every kind of bad weather and every rockfall you actually drove through. It is scaled by how much of the load arrived, with a bonus for a run with no falls and no skips. The HUD shows what the trip pays right now.
 
-**The players vote for the mountain.** A server is on one mountain (a map) at a time: the whole range (every route), Low Country (the first three levels, four routes), High Country (the last three) or The Long Haul (every route, far apart across open country, with long roads between). Every 15 minutes a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A map pack, published as its own pack, `mg-dangerous-delivery-maps` (a server mounts it; this repo's `packs/community-maps/` is a staging copy for the suites, see its README), adds three mountains of one road each, generated from community maps: Fork (`gm_fork`) and Boreas (`gm_boreas`), both by Blueberry_pie ([gm_fork](https://steamcommunity.com/sharedfiles/filedetails/?id=326332456), [gm_boreas](https://steamcommunity.com/sharedfiles/filedetails/?id=1572373847)), and Southside (`rp_southside` by Fishke, [page](https://steamcommunity.com/sharedfiles/filedetails/?id=2010286798)). No licence is stated on those pages; only the road's shape is used, the maps are credited here, in `licence.json` and in each document's `author`, and each is removed on the author's request (open an issue at https://github.com/zees-games/mg-dangerous-delivery/issues). The range and The Long Haul hold the six original routes only. A change sends every truck back to the lot.
+**The players vote for the mountain.** A server is on one mountain (a map) at a time. Every 15 minutes by default a ballot opens for the next one, and the change waits until everybody on the road has reached the depot (three minutes at most). Type `!nominate low_country` to put a mountain on the next ballot, `!rtv` to ask for a vote now, and `!vote 2` (or press the number) to vote. A change sends every truck back to the lot.
 
-**Money buys trucks and upgrades.** There are five trucks: the Box Truck (free), the Flatbed, the Hauler, the Semi (with an articulated trailer) and the Bulk Carrier. Each has its own engine, gearbox and weight, so each is quicker or slower off the line, up a climb and to a stop, and nothing is capped: a truck runs as fast as its engine, the road's slope and the air let it, up to a governor on the flat. Each has three levels of engine, brakes and tyres.
+| Mountain | Id | What it is |
+| --- | --- | --- |
+| The whole range | `range` | Every original route (six) |
+| Low Country | `low_country` | The first three levels, four routes |
+| High Country | `high_country` | The last three levels |
+| The Long Haul | `long_haul` | Every original route, far apart across open country, with long roads between |
+| Fork, Boreas, Southside | `gm_fork`, `gm_boreas`, `rp_southside` | One road each, generated from community maps (see below). They come from the separate map pack `mg-dangerous-delivery-maps`, which a server mounts. This repository's `packs/community-maps/` is a staging copy for the tests. |
 
-**Every route carries a load**: crates, timber (tall, leans in the bends, catches the wind), fuel (keeps moving in its tank after you stop turning), glass (every bump costs money) or explosives. The load is a share of what the truck can carry, so it is heavier in a bigger truck, and it pays more the harder it is to carry.
+Fork and Boreas are by Blueberry_pie ([gm_fork](https://steamcommunity.com/sharedfiles/filedetails/?id=326332456), [gm_boreas](https://steamcommunity.com/sharedfiles/filedetails/?id=1572373847)). Southside is by Fishke ([page](https://steamcommunity.com/sharedfiles/filedetails/?id=2010286798)). No licence is stated on those pages. Only the road's shape is used. The maps are credited here, in `licence.json` and in each document's `author`, and each is removed on the author's request (open an issue at https://github.com/zees-games/mg-dangerous-delivery/issues).
+
+**Money buys trucks and upgrades.** Each truck has its own engine, gearbox and weight, so each is quicker or slower off the line, up a climb and to a stop. A truck runs as fast as its engine, the road's slope and the air let it, up to a governor on the flat. Each has three levels of engine, brakes and tyres.
+
+| Truck | Notes |
+| --- | --- |
+| Box Truck | Free: the one you start with |
+| Flatbed | |
+| Hauler | |
+| Semi | An articulated trailer |
+| Bulk Carrier | |
+
+**Every route carries a load.** The load is a share of what the truck can carry, so it is heavier in a bigger truck, and it pays more the harder it is to carry.
+
+| Load | What it does |
+| --- | --- |
+| Crates | The plain load |
+| Timber | Tall, leans in the bends, catches the wind |
+| Fuel | Keeps moving in its tank after you stop turning |
+| Glass | Every bump costs money |
+| Explosives | The hardest to carry |
 
 ## Controls
 
@@ -39,6 +70,7 @@ You start on foot in the lot, among everybody else and a truck of every model on
 | **Tab** (hold) | Scoreboard |
 
 ## Getting started
+
 You need [Godot 4.7](https://godotengine.org/download). The game is built from many Dot addons, each in its own repository, so the easiest way to get everything is [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap). It clones every project and links the addons into each one:
 
 ```bash
@@ -68,6 +100,7 @@ On Windows, run `bootstrap.ps1` instead and open the project in Godot.
 `tools/drive.sh` has a bot drive every route to the depot.
 
 ## Running a server
+
 Console commands:
 
 | Command | |
@@ -78,9 +111,9 @@ Console commands:
 | `dd_give <name> <amount>` | Give somebody money |
 | `dd_mountain [id]` | List the mountains, or move the server to one now |
 
-The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. `dd_vote_minutes` is how long a mountain is played before the vote for the next one (0 leaves only `!rtv`), from the next mountain on. Stand-in drivers are the family's shared bot cvars: `bot_quota` (default 2) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
+The quick switches are cvars: `dd_solo`, `dd_skip`, `dd_rocks` and `dd_collide`. `dd_vote_minutes` is how long a mountain is played before the vote for the next one (0 leaves only `!rtv`), from the next mountain on. Stand-in drivers are the family's shared bot cvars: `bot_quota` (2 by default) is how many drivers the mountain is kept at, and each person who joins replaces a stand-in; `bot_quota_mode` is `fill` (that), `fixed`, `per_player` or `off`. `dd_bots` is a deprecated alias that sets `bot_quota`.
 
-Everything else is a setting, also a `dd_<name>` console variable and a key in `cfg/game/mg-dangerous-delivery/config_trips|config_world|config_players/game.yml`. Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
+Everything else is a setting, also a `dd_<name>` console variable and a key in a file under `cfg/game/mg-dangerous-delivery/` (`config_trips`, `config_world`, `config_players`; each has a `game.yml`). Put it in `user://cfg/delivery.json`, or set it with a `DD_*` environment variable or a `--dd-*` argument (the later one wins). The ones you are most likely to change:
 
 | Setting | Default | |
 | --- | --- | --- |
@@ -159,7 +192,11 @@ tools/drive.sh                  # a bot delivers on every route
 | Suite | What it covers |
 | --- | --- |
 | `headless_run` | The game itself: routes, trucks, weather, hazards, pay and the bank |
+| `headless_passable` | Every route can be driven through |
 | `headless_net` | A server and a client in one process, over the network code |
+| `headless_config`, `headless_workbench`, `headless_mapcfg` | Settings, the workbench and per-map config |
+| `headless_touch` | Phone controls |
+| `headless_workshop` | The workshop (content) flow |
 | `dedicated` | A real server: boots, loads the game, runs its commands, and the mountain vote from nomination to the rebuilt world |
 | `handling` | How the trucks drive, measured: every truck and every load on the flat and up a climb, stopping, a tanker's slosh, glass on gravel, every route's challenges, signs, oncoming cars, every start line, hairpins in the snow |
 
@@ -182,4 +219,5 @@ tools/drive.sh                  # a bot delivers on every route
 If you made one of these assets and want it removed, open an issue.
 
 ## License
+
 MIT. See [LICENSE](LICENSE). The Kenney art and the Poly Haven textures are CC0, which is public domain.
