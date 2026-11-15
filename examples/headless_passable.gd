@@ -5,10 +5,9 @@ const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
 const Rubble := preload("res://addons/dot_props/runtime/dot_prop_rubble.gd")
 
-## Every road can be driven end to end by a truck, with every bridge standing and with every bridge down.
-##   godot --headless --path . res://examples/headless_passable.tscn
-## Rays are dropped on a grid across each road every half metre: a lane the width of a truck must hold
-## solid ground at every station, and the ground under it may not step or climb past what a truck climbs.
+## Every road can be driven end to end by a truck, with every bridge standing and with every bridge down (godot --headless --path . res://examples/headless_passable.tscn).
+## Rays are dropped on a grid across each road every half metre: a lane the width of a truck must hold solid ground at every station,
+## and the ground under it may not step or climb past what a truck climbs.
 
 const SECTIONS := 4
 const MOUNTAINS: Array[StringName] = [&"range", &"low_country", &"high_country", &"long_haul"]

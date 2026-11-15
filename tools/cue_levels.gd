@@ -1,10 +1,8 @@
 extends RefCounted
 
-## Offline per-cue loudness for Dangerous Delivery: the thin game table for dot-audio's
-## addons/dot_audio/tools/cue_levels.gd (no audio device needed):
+## Offline per-cue loudness for Dangerous Delivery, the thin game table for dot-audio's addons/dot_audio/tools/cue_levels.gd (no audio device needed):
 ##   godot --headless --path . --script res://addons/dot_audio/tools/cue_levels.gd -- --table=res://tools/cue_levels.gd
-## Rows are what the game plays (game/dd_audio.gd): the catalogue's gain plus the level the game
-## drives each cue at. Not covered: the ambience director's moods, pitch, 3D falloff, stacking.
+## Rows are what game/dd_audio.gd plays: the catalogue's gain plus the level each cue is driven at. Not covered: ambience moods, pitch, 3D falloff, stacking.
 
 const DdAudio := preload("res://game/dd_audio.gd")
 
