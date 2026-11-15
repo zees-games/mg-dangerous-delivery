@@ -1,4 +1,4 @@
-extends "dd_game_flashlight.gd"
+extends "dd_game_rotation.gd"
 
 ## The mountain: every route this server has, every truck on them, and every rule a haul is
 ## played under. Headless; what a player sees is [DdClient]'s. Why one world, why trucks are
@@ -96,7 +96,6 @@ func _apply_gravity() -> void:
 		PhysicsServer3D.area_set_param(space, PhysicsServer3D.AREA_PARAM_GRAVITY, config.gravity)
 
 
-
 ## Reads every `.json` in [param directory]: a route, or a map (its `kind` says which; a map
 ## pack keeps both in its `routes/`). Returns how many routes were accepted.
 func load_directory(directory: String) -> int:
@@ -181,10 +180,6 @@ func mountain_rows() -> Array:
 	return out
 
 
-## The server's maps.yml, or null when there is none (every mountain rotates, as it always did).
-var rotation_file: DotMapRotationFile = null
-
-
 ## Reads maps.yml (the `--config` directory searched too, under [member DdConfig.map_rotation_file])
 ## and keeps it for [method rotation_mountains]. A file that is present and unreadable is an ERROR
 ## and changes nothing: rotating every mountain is a better failure than rotating none.
@@ -225,88 +220,6 @@ func load_rotation() -> DotResult:
 		})
 
 	return read
-
-
-## Switches to the rotation [param name] in maps.yml; an unknown one changes nothing.
-func switch_rotation(name: String) -> DotResult:
-	if rotation_file == null or not rotation_file.has_rotations():
-		return DotResult.fail(DotError.CODE_STATE, "There is no maps.yml; every mountain rotates.")
-
-	var _mirror := _rotation_mirror()
-	return rotation_file.switch(_rot, name)
-
-
-# dot-map's rotation file orders [DotMapDef]s in a [DotMapCatalogue]; this game keeps mountains
-# as documents, so a def per mountain is mirrored. Rebuilt on every ask: the mountains on offer
-# change with the routes a server holds, and a stale mirror would rotate yesterday's set.
-var _rot: DotMapRotation = null
-
-
-func _rotation_mirror() -> DotMapCatalogue:
-	var mirror := DotMapCatalogue.new()
-	sync_content()
-
-	for mountain in DdMountains.allowed(library, maps):
-		var def := DotMapDef.new()
-		def.id = StringName(str(mountain["id"]))
-		def.display_name = str(mountain["name"])
-		def.scene_path = "doc:%s" % def.id
-		var _added := mirror.add(def)
-
-	_rot = DotMapRotation.of(mirror)
-	return mirror
-
-
-## The mountains maps.yml's active rotation plays, as [DdMountains] documents: in the file's
-## order for a `cycle`, the catalogue's own otherwise. No file or no match: every mountain, so a
-## rotation can never strand the server.
-func rotation_mountains() -> Array[Dictionary]:
-	var all := DdMountains.allowed(library, maps)
-
-	if rotation_file == null or not rotation_file.has_rotations():
-		return all
-
-	var mirror := _rotation_mirror()
-	# An empty rotation plays every installed mountain: the same set as having no file.
-	rotation_file.fallback_in = func(_map: DotMapDef) -> bool: return true
-	var _applied := rotation_file.apply(_rot)
-	var kept: Array[Dictionary] = []
-
-	for mountain in all:
-		var def := mirror.get_map(StringName(str(mountain["id"])))
-
-		if def == null or def.in_rotation:
-			kept.append(mountain)
-
-	if _rot.mode != DotMapRotation.Mode.SEQUENTIAL or _rot.order.is_empty():
-		return kept
-
-	var ordered: Array[Dictionary] = []
-
-	for id in _rot.order:
-		for mountain in kept:
-			if StringName(str(mountain["id"])) == id:
-				ordered.append(mountain)
-
-	for mountain in kept:
-		if not ordered.has(mountain):
-			ordered.append(mountain)
-
-	# The cycle goes on from where the server is: the first on the ballot is the next in turn.
-	for i in ordered.size():
-		if StringName(str(ordered[i]["id"])) == mountain_id:
-			return ordered.slice(i + 1) + ordered.slice(0, i + 1)
-
-	return ordered
-
-
-## Whether maps.yml's active rotation plays [param id]; true with no file.
-func in_rotation(id: Variant) -> bool:
-	for mountain in rotation_mountains():
-		if str(mountain["id"]) == str(id):
-			return true
-
-	return false
 
 
 ## maps.yml's `commands:` block (prefix and names), or empty with no file.
@@ -418,84 +331,6 @@ func follow_content(index: DotContentIndex, accepted_kinds: PackedStringArray = 
 	content_index = index
 	content_kinds = accepted_kinds
 	sync_content()
-
-
-## Brings [member maps] in line with the index's current session. The game's own ids win; an
-## invalid pack map is listed in [member refused] and left out. A mountain the world stands on
-## that leaves falls back to the default at the next [method _select_mountain].
-func sync_content() -> void:
-	var wanted := {}
-
-	if content_index != null:
-		for entry in content_index.entries(&"map"):
-			var kind := str(entry.raw.get("map_kind", ""))
-
-			if kind == "" or not (content_kinds.has("*") or content_kinds.has(kind)):
-				continue
-
-			var id := entry.id
-
-			if wanted.has(id) or (not DdMountains.by_id(StringName(id), maps).is_empty() and not workshop.has(id)):
-				continue
-
-			var map := _workshop_map(entry)
-
-			if not map.is_empty():
-				wanted[id] = [map, entry.pack_title]
-
-	var changed := false
-
-	for id: String in workshop.keys():
-		if not wanted.has(id):
-			for i in range(maps.size() - 1, -1, -1):
-				if str(maps[i]["id"]) == id:
-					maps.remove_at(i)
-
-			workshop.erase(id)
-			changed = true
-
-	for id: String in wanted:
-		if not workshop.has(id):
-			maps.append(wanted[id][0])
-			workshop[id] = wanted[id][1]
-			changed = true
-
-	if changed:
-		DdMountains.sort(maps)
-
-
-func _workshop_map(entry: DotContentEntry) -> Dictionary:
-	if _workshop_docs.has(entry.key):
-		return _workshop_docs[entry.key]
-
-	var path := entry.path("scene")
-	var parsed: Variant = null
-
-	if path != "" and FileAccess.file_exists(path):
-		# An instance, not parse_string: that prints an engine error for a document that is
-		# not JSON, and a refusal here is a normal outcome.
-		var json := JSON.new()
-		if json.parse(FileAccess.get_file_as_string(path)) == OK:
-			parsed = json.data
-
-	var map: Dictionary = {}
-
-	if parsed is Dictionary:
-		(parsed as Dictionary)["id"] = entry.id
-		var normal := DdMapDoc.normalise(parsed)
-
-		if normal.ok:
-			map = normal.value
-		else:
-			refused[entry.key] = normal.error.message
-	else:
-		refused[entry.key] = "empty or unreadable: %s" % path
-
-	if map.is_empty():
-		DotLog.warn(CHANNEL, "a Workshop map was refused", {"entry": entry.key, "why": refused[entry.key]})
-
-	_workshop_docs[entry.key] = map
-	return map
 
 
 ## Whether [param id] came from a subscribed pack.
@@ -638,7 +473,6 @@ func is_unlocked(key: StringName, route_id: StringName) -> bool:
 				return true
 
 	return false
-
 
 
 func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
@@ -924,7 +758,6 @@ func set_command(key: StringName, command: DotVehicleCommand) -> void:
 		driver.command = command
 
 
-
 func buy_truck(key: StringName, truck_id: StringName) -> DotResult:
 	var def := trucks.get_truck(truck_id)
 
@@ -984,7 +817,6 @@ func garage_view(key: StringName) -> Dictionary:
 
 	return {"money": int(acct["money"]), "mountain": mountain_name(), "routes": out_routes, "trucks": out_trucks, "upgrades": out_upgrades,
 		"quick_start": config.quick_start}
-
 
 
 ## The lot, south of every route: centred under their starts, past the furthest south any of
@@ -1312,7 +1144,6 @@ func walkable(at: Vector3) -> bool:
 			return false
 
 	return true
-
 
 
 ## Whether [param key] is in the lot, on foot or at the wheel: where trucks are bought and
@@ -1644,7 +1475,6 @@ func _step_roaming(driver: Driver, delta: float) -> void:
 		put_back.emit(driver.key)
 
 
-
 func _physics_process(delta: float) -> void:
 	# Covered: only the engine's own bodies settle; no trip clock, rock or weather runs.
 	if hold_clock.is_valid() and hold_clock.call():
@@ -1701,7 +1531,6 @@ func step(delta: float) -> void:
 		disasters.step_hazards(delta)
 
 	_advance_toys(delta)
-
 
 
 func _build_toys() -> void:
@@ -2155,7 +1984,6 @@ func _global_points(route_id: StringName, from_d: float) -> PackedVector3Array:
 	return out
 
 
-
 ## A stand-in's corner braking gain at `bot_difficulty medium` (its speed is `stand_in_speed`).
 const STAND_IN_BRAKE := 1.5
 
@@ -2417,7 +2245,6 @@ func stand_in_road(route_id: StringName, from: Vector3) -> PackedVector3Array:
 	return out
 
 
-
 func _refresh_weather(force: bool) -> void:
 	# Once a second is plenty: the weather holds for minutes.
 	if not force and tick % maxi(tick_rate, 1) != 0:
@@ -2495,7 +2322,6 @@ func _sky(route_id: StringName, zone: String) -> Dictionary:
 		return forced_weather
 
 	return weather.get("%s|%s" % [route_id, zone], {"sky": DdWeather.CLEAR, "wind": false, "storm": false, "fog": false})
-
 
 
 func _step_boulders(delta: float) -> void:
@@ -2613,7 +2439,6 @@ func _drop_boulder(route_id: StringName, road: DdRoute, site: Dictionary, lead_s
 				trip.chaos_units += config.boulder_chaos
 
 	boulder_dropped.emit(route_id, at)
-
 
 
 func describe() -> Dictionary:

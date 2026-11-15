@@ -10,10 +10,15 @@ const DdVote := preload("res://game/dd_vote.gd")
 var _args: Dictionary = {}
 
 
-func _ready() -> void:
+## Reads every `--key=value` user argument into _args.
+func _parse_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--") and arg.contains("="):
 			_args[arg.substr(2, arg.find("=") - 2)] = arg.substr(arg.find("=") + 1)
+
+
+func _ready() -> void:
+	_parse_args()
 
 	if str(_args.get("touch", "0")) == "1":
 		DotPlatform.touch_override = 1
