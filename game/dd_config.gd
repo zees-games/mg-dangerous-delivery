@@ -132,7 +132,7 @@ extends DotConfig
 @export_range(10.0, 1800.0, 5.0) var weather_period_sec: float = 150.0
 
 ## Multiplies every zone's own chance of each weather. 0 is a server of clear skies.
-@export_range(0.0, 3.0, 0.05) var weather_frequency: float = 1.0
+@export_range(0.0, 3.0, 0.05, "or_greater") var weather_frequency: float = 1.0
 
 ## Of the rain periods, the share that is a storm: harder rain, wind that is always up and
 ## gusts [member storm_gust] times as hard, and less grip ([member storm_grip]). Times

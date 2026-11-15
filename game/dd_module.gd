@@ -231,7 +231,7 @@ func _bind_tunables(world: DdGame) -> void:
 	_tunable_bool("dd_stage_hazards", world.config.stage_hazards, "Whether stages bring a tornado, gusts or a quake (stage_hazards.yml says which)", func(v: bool) -> void: world.config.stage_hazards = v)
 	# Weather by cvar: a change reaches every client at once, because they compute the same sky
 	# from the same numbers (and the sky is the server's only through them).
-	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, 3.0, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")
+	_tunable_weather("dd_weather_frequency", "weather_frequency", 0.0, INF, "How often any weather comes, 0 for clear skies always, 1 as the routes are written")
 	_tunable_weather("dd_weather_storms", "storm_chance", 0.0, 1.0, "Share of rain periods that are storms (harder wind, less grip), 0 for none")
 	_tunable_weather("dd_weather_fog", "fog_chance", 0.0, 1.0, "Share of periods that are fog, 0 for none")
 	_tunable_weather("dd_weather_disasters", "weather_disasters", 0.0, 1.0, "1: storms bring natural-disasters' lightning when it is linked; 0: weather only")
@@ -368,7 +368,7 @@ func _on_config_field(key: String, _value: Variant, source: String) -> void:
 ## What a mountain's `cfg/game/mg-dangerous-delivery/dot_map/map/<id>.yml` may set: weather, the view rule and the stand-ins' skill, never a command.
 func _map_config_keys() -> Dictionary:
 	var keys := {
-		"dd_weather_frequency": {"type": "float", "min": 0.0, "max": 3.0},
+		"dd_weather_frequency": {"type": "float", "min": 0.0},
 		"dd_weather_storms": {"type": "float", "min": 0.0, "max": 1.0},
 		"dd_weather_fog": {"type": "float", "min": 0.0, "max": 1.0},
 		"dd_weather_disasters": {"type": "float", "min": 0.0, "max": 1.0},
@@ -457,7 +457,10 @@ func _tunable_weather(cvar_name: String, setting: String, low: float, high: floa
 	if cvar == null:
 		return
 
-	cvar.with_range(low, high)
+	if is_inf(high):
+		var _floor := cvar.with_min(low)
+	else:
+		var _ranged := cvar.with_range(low, high)
 	cvar.changed.connect(func(_old: String, new_value: String) -> void:
 		world.config.set(setting, _truthy(new_value) if current is bool else new_value.to_float())
 

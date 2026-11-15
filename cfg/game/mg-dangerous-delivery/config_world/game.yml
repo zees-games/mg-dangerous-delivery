@@ -24,7 +24,7 @@
 # ice_chaos: 0.2
 # Seconds one weather draw holds before the sky is drawn again, per zone. Every machine computes the sky from... [10.0..1800.0]
 # weather_period_sec: 150.0
-# Multiplies every zone's own chance of each weather. 0 is a server of clear skies. [0.0..3.0]
+# Multiplies every zone's own chance of each weather. 0 is a server of clear skies. [0.0..]
 # weather_frequency: 1.0
 # Of the rain periods, the share that is a storm: harder rain, wind that is always up and gusts storm_gust ti... [0.0..1.0]
 # storm_chance: 0.3
