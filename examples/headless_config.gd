@@ -8,9 +8,12 @@ const DdProfiles := preload("../game/dd_profiles.gd")
 const DdTrucks := preload("../game/dd_trucks.gd")
 const DdCargo := preload("../game/dd_cargo.gd")
 const DdWeatherRef := preload("../game/dd_weather.gd")
-const ROOT := "user://dd_cfgtest"
+## One directory per suite process (the probe child is handed its parent's): user:// is shared by
+## every copy of this project on a box, and two suites at once wrote and deleted each other's cfg files.
+const ROOT_ARG := "--cfgroot="
+var ROOT := _root()
 const GAME := "mg-dangerous-delivery"
-const CHECKS := 42
+const CHECKS := 43
 const SECTIONS := 5
 
 var _entered := 0
@@ -27,6 +30,13 @@ func _write(path: String, text: String) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(text)
 	f.close()
+
+
+func _root() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(ROOT_ARG):
+			return a.substr(ROOT_ARG.length())
+	return "user://dd_cfgtest_%d" % OS.get_process_id()
 
 
 func _run() -> void:
@@ -53,15 +63,15 @@ func _run() -> void:
 	console.set_cvar("dd_boulder_mass", "5000.0")
 	_check(is_equal_approx(config.boulder_mass, 5000.0) and binder.source_of("boulder_mass") == "cvar", "a cvar writes the field")
 	_check(binder.diff_yaml().contains("boulder_mass: 5000.0"), "the diff names the edit")
-	var schema_path := "user://dd_config_schema.json"
+	var schema_path := ROOT + "_config_schema.json"
 	_check(binder.write_schema(schema_path).ok and FileAccess.file_exists(schema_path), "write_schema writes the schema")
 	DirAccess.remove_absolute(schema_path)
 
-	_write("user://dd_config_bad.json", '{"no_such_field": 1}')
-	var strict := DdConfig.make_binder(DdConfig.new(), "user://dd_config_bad.json")
+	_write(ROOT + "_config_bad.json", '{"no_such_field": 1}')
+	var strict := DdConfig.make_binder(DdConfig.new(), ROOT + "_config_bad.json")
 	strict.strict = true
 	_check(not strict.load_layers().ok, "strict: an unknown key is refused")
-	DirAccess.remove_absolute("user://dd_config_bad.json")
+	DirAccess.remove_absolute(ROOT + "_config_bad.json")
 
 	var shipped := "res://cfg/game/%s/config_trips/game.yml" % GAME
 	var kept := FileAccess.get_file_as_string(shipped)
@@ -184,7 +194,7 @@ func _probe() -> void:
 func _child() -> String:
 	var out: Array = []
 	OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"),
-		"res://examples/headless_config.tscn", "--", "--probe", "--dd-gravity=15.0", "--dd-ghost-seconds=7.5"], out, true)
+		"res://examples/headless_config.tscn", "--", "--probe", ROOT_ARG + ROOT, "--dd-gravity=15.0", "--dd-ghost-seconds=7.5"], out, true)
 	return "".join(PackedStringArray(out))
 
 
@@ -202,7 +212,8 @@ func _layers() -> void:
 	OS.unset_environment("DD_FALL_DEPTH")
 	_write_root("game/%s/config_trips/game.yml" % GAME, "gravity: 9.0\n")
 	_check(_child().contains("PROBE ok=false"), "strict: a key in the wrong file is refused")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(ROOT.path_join("game/%s/config_trips/game.yml" % GAME)))
+	var removed := DotPaths.remove_tree(ProjectSettings.globalize_path(ROOT))
+	_check(removed.ok and not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(ROOT)), "the per-process cfg fixture directory is removed", ROOT if removed.ok else str(removed.error))
 
 
 ## The shipped cfg files hold every key, in step with DdConfig, and change nothing as they are.
