@@ -22,6 +22,22 @@
 - **A scene with a parse error hangs** (the family's rule); cap every run with `timeout`. `:=` on an untyped receiver did it to `tools/drive.gd`.
 - **Render after touching the terrain, the road meshes, the land, the lot, the HUD or the panel.** None of the mountain's problems, the culled road, the zero-sized garage, or the lot striped by the ground 5 cm under it were visible to a suite.
 
+## Visual QA
+
+`tools/visual_qa.gd` is dot-game's visual QA capture (dot-game `docs/visual-qa.md`) for this game. It records every frame at 60 fps from three cameras: f is the game's cab camera, t is behind and to the right, and o is someone on the road ahead.
+
+- `truck_<id>`: every truck in DdTrucks, with crates on board, the driver seated, and the semi pulling its trailer. Clips are idle, drive, turn, brake and crash (into a wall).
+- `walker`: the player on foot. Clips are idle, walk and run.
+- `prop_cone`, `prop_barrier`, `prop_car_sedan`, `prop_car_suv`: each on a turntable at the scale DdRoute draws it.
+
+Run it as gamedev from the checkout or a worktree. It goes to a GPU box when one is free.
+
+```
+sudo -u gamedev bash addons/dot_game/tools/dot_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh all [-- --only truck_semi --clips crash]
+```
+
+The output goes to `screenshots/visual_qa/` (gitignored): `report.md`, then `<item>/<clip>_{fp,tp,op}_sheet.png` and an mp4 per clip. Read the report first, then the sheets. Ask "does this look like a real game?", fix what doesn't, and re-capture only the items you touched. Post the before and after with `addons/dot_game/tools/dot_game_visual_qa_post.sh` to a nightly review.
+
 ## The deployment
 
 dot-server-deploy's `examples/delivery_client` joins a delivered pack (`tmc/delivery`, `content/delivery/`) with a real client over a real socket and drives. Nobody has driven it in the web shell yet.

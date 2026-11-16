@@ -40,7 +40,9 @@ func _on_truck_damaged(event: Dictionary, key: StringName) -> void:
 			# A wreck's load is the fall's to cost (fall_cargo_loss), not each crate's.
 			if trip != null and not (driver.truck as DdTruck).wreck.is_wrecked():
 				trip.cargo = maxf(trip.cargo - 1.0 / float(maxi(_cargo_units(driver.truck), 1)), 0.0)
-			drop_crate(driver.truck, event)
+			# A crate drawn on the bed is already thrown by the truck's breakage; one in the road otherwise.
+			if (driver.truck as DdTruck).breakage == null or (driver.truck as DdTruck).breakage.part_node(part.id) == null:
+				drop_crate(driver.truck, event)
 
 	truck_damaged.emit(key, event)
 

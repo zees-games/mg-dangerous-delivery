@@ -14,6 +14,10 @@ const SEATS := {
 	&"semi": {"at": Vector3(-0.6, 1.25, -0.9), "height": 1.1},
 	&"bulk": {"at": Vector3(-0.65, 1.3, -1.6), "height": 1.1},
 }
+## A seated person's eyes above the hips, as a share of their height.
+const CAB_EYE := 0.5
+const CAB_EYE_IN := 0.8
+const CAB_EYE_FORWARD := 0.25
 
 
 ## Where a catalogue entry's model file is. A name with a folder in it ("models/x.glb") is one of ours under assets/; a bare name is a Kenney Car Kit truck.
@@ -26,9 +30,20 @@ static func seat_of(id: StringName) -> Dictionary:
 	return SEATS.get(id, {"at": Vector3(-0.45, 1.5, -1.6), "height": 1.2})
 
 
+## Where the cab camera sits for a truck id, in the truck's own frame: at the seated driver's eye height
+## ([constant CAB_EYE] of the drawn height above the hips), so the view is through the windscreen over the bonnet, not
+## from the roof. It is moved [constant CAB_EYE_IN] of the way to the middle of the cab and [constant CAB_EYE_FORWARD]
+## ahead of the hips, because at the seat itself the Kenney cabs' thick left pillar fills half the view.
+static func cab_eye(id: StringName) -> Vector3:
+	var seat := seat_of(id)
+	var at: Vector3 = seat["at"]
+	return Vector3(at.x * (1.0 - CAB_EYE_IN), at.y + float(seat["height"]) * CAB_EYE, at.z - CAB_EYE_FORWARD)
+
+
 ## The trucks, in the order the garage shows them. The drive is an engine, a gearbox and the air
 ## ([DdDrivetrain]): `power_kw` and `torque_nm` through `gears` and `final_drive`, up to
 ## `governor_kmh`. `mass` is the truck empty; `capacity_kg` is what a full load adds.
+## `bed_floor` marks an open bed, as a fraction of the body's height: the load is drawn there, a crate per unit.
 const DEFAULTS := [
 	{
 		"id": "box_truck", "name": "Box Truck", "model": "models/delivery_truck.glb", "scale": 1.7,
@@ -49,6 +64,7 @@ const DEFAULTS := [
 		"brake_force": 44000.0, "steering_limit_deg": 32.0, "steering_speed_falloff": 0.45,
 		"friction_slip": 1.25, "rear_grip_fraction": 0.98, "centre_of_mass_drop": 0.55,
 		"suspension": {"stiffness": 70.0, "compression": 0.9, "relaxation": 1.25, "travel": 0.3},
+		"bed_floor": 0.42,
 		"wind_scale": 1.4,
 	},
 	{
@@ -60,6 +76,7 @@ const DEFAULTS := [
 		"brake_force": 70000.0, "steering_limit_deg": 30.0, "steering_speed_falloff": 0.42,
 		"friction_slip": 1.15, "rear_grip_fraction": 1.1, "centre_of_mass_drop": 0.5,
 		"suspension": {"stiffness": 72.0, "compression": 0.9, "relaxation": 1.25, "travel": 0.3},
+		"bed_floor": 0.4,
 	},
 	{
 		"id": "semi", "name": "Semi", "model": "models/semi.glb", "scale": 1.9,

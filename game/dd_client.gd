@@ -1380,7 +1380,7 @@ func _follow(truck: DdTruck, delta: float) -> void:
 
 	match camera_mode:
 		CameraMode.CAB:
-			target = truck.global_position + basis * Vector3(0.0, 2.6, -truck.half_length * 0.55)
+			target = truck.global_transform * DdTrucks.cab_eye(truck.truck_id)
 			look = target - basis.z * 20.0
 			camera.global_position = target
 			camera.look_at(look)

@@ -195,7 +195,9 @@ func _build_damage(draws: bool) -> void:
 		for k in units:
 			var along := lerpf(0.55, 0.95, float(k) / float(maxi(units - 1, 1)))
 			var at := body_box.position + body_box.size * Vector3(0.5, 0.85, along)
-			var _c := damage.add_part(StringName("cargo_%d" % k), &"cargo", at, strength, 1.4, each)
+			var crate := _draw_crate(k, units) if draws else null
+			var _c := damage.add_part(StringName("cargo_%d" % k), &"cargo", at, strength, 1.4, each,
+				NodePath(crate.name) if crate != null else NodePath(""))
 
 	breakage = DotVehicleBreakage.new()
 	breakage.name = "Breakage"
@@ -210,6 +212,39 @@ func _build_damage(draws: bool) -> void:
 	wreck.draws = draws
 	add_child(wreck)
 	DotLog.result(CHANNEL, "the truck's wreck", wreck.setup(self, breakage))
+
+
+## Unit [param k] of [param units] of the load, drawn on an open bed (the truck's `bed_floor`, a fraction of
+## [member body_box]'s height, is where the bed is; a closed box or a truck without one draws none). Rows across the back
+## of the bed, at the part's place along it, so the breakage hides the crate that comes off and throws a copy.
+func _draw_crate(k: int, units: int) -> MeshInstance3D:
+	if not def.has("bed_floor"):
+		return null
+	var floor_y := body_box.position.y + body_box.size.y * float(def["bed_floor"])
+	var pitch := body_box.size.z * 0.4 / float(maxi(units - 1, 1))
+	var size := Vector3(body_box.size.x * 0.62, minf(body_box.size.y * 0.28, 0.9), minf(pitch * 0.92, 1.2))
+	var along := lerpf(0.55, 0.95, float(k) / float(maxi(units - 1, 1)))
+	var crate := MeshInstance3D.new()
+	crate.name = "Crate%d" % k
+	var box := BoxMesh.new()
+	box.size = size
+	crate.mesh = box
+	crate.material_override = _crate_material()
+	crate.position = Vector3(body_box.get_center().x, floor_y + size.y * 0.5, body_box.position.z + body_box.size.z * along)
+	add_child(crate)
+	return crate
+
+
+static var _crate_look: StandardMaterial3D = null
+
+
+## Plain wood, the colour [method DdGameDamage.drop_crate] gives a crate in the road.
+static func _crate_material() -> StandardMaterial3D:
+	if _crate_look == null:
+		_crate_look = StandardMaterial3D.new()
+		_crate_look.albedo_color = Color(0.62, 0.45, 0.25)
+		_crate_look.roughness = 0.9
+	return _crate_look
 
 
 ## A part's region in the body's frame, from its fractions of [member body_box].
