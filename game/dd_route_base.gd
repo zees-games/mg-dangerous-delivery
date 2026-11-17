@@ -156,6 +156,11 @@ static var native_traffic := true
 ## Whether every native ask is asked of the script too: any difference is an error and the
 ## script's answer wins. `headless_native_traffic`'s live half; costly, not for play.
 static var traffic_verify := false
+## Whether [method nearest_index] is asked of dot-sim's `DotSimRoad` when the library has it: a
+## truck asks it about five times a tick (its hint, distance, height, ice, gravel), each a walk of
+## the samples around the hint in script. One native call each instead; the same to the bit
+## (`headless_native_traffic`), checked like the yield under [member traffic_verify].
+static var native_nearest := true
 ## Asks checked and asks that differed under [member traffic_verify].
 static var traffic_checked := 0
 static var traffic_differ := 0
@@ -164,6 +169,9 @@ static var traffic_differ := 0
 ## road. Dropped by [method DdRoute.clear].
 var _native_road: Variant = null
 var _native_built := false
+## Set once [method DdRoute.build] has sampled the whole road, so a native road is never made
+## from the samples of a road still being built.
+var _built := false
 
 ## Zone id -> the StandardMaterial3D every road surface in it shares, so weather recolours a
 ## zone with one assignment.
@@ -553,7 +561,7 @@ func _car_blocked(spec: Dictionary, d: float, trucks: PackedVector3Array) -> boo
 ## [member traffic_verify] holds it to.
 func car_blocked_script(spec: Dictionary, d: float, trucks: PackedVector3Array) -> bool:
 	for p in trucks:
-		var i := nearest_index(p, index_at_distance(d))
+		var i := nearest_index_script(p, index_at_distance(d))
 		var along := distances[i] + forward_of(yaws[i]).dot(p - points[i])
 		var lateral := right_of(yaws[i]).dot(p - points[i])
 		var ahead := d - along
@@ -616,7 +624,34 @@ func stages() -> int:
 ## The sample nearest [param position] horizontally, searched around [param hint] first: a
 ## switchback puts the road beside itself, so a truck's own last index, searched near first and
 ## in three dimensions, is the road it is on.
+## dot-sim's answer once the road is built and the library has the road module
+## ([member native_nearest]), the script's otherwise; the same to the bit.
 func nearest_index(position: Vector3, hint: int = -1) -> int:
+	if not (native_nearest and _built):
+		return nearest_index_script(position, hint)
+
+	var native: Variant = road_native()
+
+	if native == null:
+		return nearest_index_script(position, hint)
+
+	var i: int = native.nearest_index(position, hint)
+
+	if traffic_verify:
+		var script := nearest_index_script(position, hint)
+		traffic_checked += 1
+
+		if script != i:
+			traffic_differ += 1
+			push_error("DdRoute.nearest_index: native %d, script %d for %s hint %d" % [i, script, position, hint])
+			return script
+
+	return i
+
+
+## [method nearest_index] in script: the fallback with no library, and the twin
+## [member traffic_verify] holds it to.
+func nearest_index_script(position: Vector3, hint: int = -1) -> int:
 	if points.is_empty():
 		return 0
 
@@ -640,7 +675,7 @@ func nearest_index(position: Vector3, hint: int = -1) -> int:
 	# A hint that put the truck at the window's edge is a truck that has moved further than
 	# the window in one call — a respawn or a teleport. Ask the whole road.
 	if hint >= 0 and (best == lo and lo > 0 or best == hi and hi < points.size() - 1):
-		return nearest_index(position, -1)
+		return nearest_index_script(position, -1)
 
 	return best
 

@@ -87,7 +87,7 @@ func _test_parity(world: DdGame) -> void:
 					bad.append("%s/%s index_at_distance(%s)" % [mountain, id, d])
 				var p := road.points[rng.randi_range(0, n - 1)] + Vector3(rng.randf_range(-6.0, 6.0), rng.randf_range(-1.0, 1.0), rng.randf_range(-6.0, 6.0))
 				var hint := rng.randi_range(-5, n + 5) if rng.randf() < 0.3 else road.index_at_distance(d)
-				if int(native.nearest_index(p, hint)) != road.nearest_index(p, hint):
+				if int(native.nearest_index(p, hint)) != road.nearest_index_script(p, hint):
 					bad.append("%s/%s nearest_index(%s, %d)" % [mountain, id, p, hint])
 				var lateral := rng.randf_range(-4.0, 4.0)
 				if not road.traffic.is_empty() and rng.randf() < 0.7:

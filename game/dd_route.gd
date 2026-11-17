@@ -9,6 +9,7 @@ func build(p_doc: Dictionary) -> DotResult:
 	doc = p_doc
 	_sample()
 	_build_geometry()
+	_built = true
 	DotLog.debug(CHANNEL, "route built", {
 		"id": String(id()), "length": "%.0f m" % length(), "samples": points.size(),
 		"checkpoints": checkpoints.size(), "boulder_sites": boulder_sites.size(),
@@ -42,6 +43,7 @@ func clear() -> void:
 	_car_state = []
 	_native_road = null
 	_native_built = false
+	_built = false
 	zone_materials = {}
 	_painted = {}
 	_terrain_wanted = false
