@@ -5,6 +5,7 @@ extends RefCounted
 ## same on every machine (arithmetic over the route's samples).
 
 const DdWeather := preload("dd_weather.gd")
+const DdTerrainProfile := preload("dd_terrain_profile.gd")
 
 const CHANNEL := "delivery.terrain"
 
@@ -113,7 +114,6 @@ var tree: SceneTree = null
 func compute(route: Variant, wall_height: float, slab: float, drop_slope: float, p_water_y: float, pads: Array, pad_half: Vector2, keep: PackedVector3Array = PackedVector3Array()) -> void:
 	var points: PackedVector3Array = route.points
 	var yaws: PackedFloat32Array = route.yaws
-	var segment_of: PackedInt32Array = route.segment_of
 	var segments: Array = route.doc["segments"]
 	_id = str(route.doc.get("id", ""))
 	_points = points
@@ -126,39 +126,13 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	var started := Time.get_ticks_usec()
 
-	# Per sample: half width, bank drop, cliff on each side. The cliff tapers inside the wall's stretch
-	# (eroded, smoothed), never past it: dilated, the mountain began before its wall, with no collision.
-	var half := PackedFloat32Array()
-	var bank_drop := PackedFloat32Array()
-	var raw_left := PackedFloat32Array()
-	var raw_right := PackedFloat32Array()
-	half.resize(n)
-	bank_drop.resize(n)
-	raw_left.resize(n)
-	raw_right.resize(n)
-	zone_index = {"": 0}
-	_sample_zone.resize(n)
-
-	for i in n:
-		var seg: Dictionary = segments[segment_of[i]]
-		# The road's own eased width where it has one (DdRoute.widths), so the ground meets the edge.
-		half[i] = (float(route.widths[i]) if i < route.widths.size() else float(seg["width"])) * 0.5
-		var camber := DotRoadProfile.camber_slope_of(float(seg.get("camber", 0.0)))
-		if camber == 0.0:
-			bank_drop[i] = absf(tan(deg_to_rad(float(seg["bank"])))) * half[i]
-		else:
-			# A crowned deck's lower edge ([DotRoadProfile]): the ground stays under both.
-			var bank := DotRoadProfile.bank_slope_of(float(seg["bank"]))
-			bank_drop[i] = maxf(-DotRoadProfile.height_at(-half[i], bank, camber), -DotRoadProfile.height_at(half[i], bank, camber))
-		var wall := str(seg["wall"])
-		raw_left[i] = 1.0 if wall == "left" or wall == "both" else 0.0
-		raw_right[i] = 1.0 if wall == "right" or wall == "both" else 0.0
-		var zone := str(seg["zone"])
-
-		if not zone_index.has(zone):
-			zone_index[zone] = mini(zone_index.size(), MAX_ZONES - 1)
-
-		_sample_zone[i] = int(zone_index[zone])
+	var profile := DdTerrainProfile.sample(route, segments, MAX_ZONES)
+	var half: PackedFloat32Array = profile["half"]
+	var bank_drop: PackedFloat32Array = profile["bank_drop"]
+	var raw_left: PackedFloat32Array = profile["raw_left"]
+	var raw_right: PackedFloat32Array = profile["raw_right"]
+	zone_index = profile["zone_index"]
+	_sample_zone = profile["sample_zone"]
 
 	var cliff_left := _smooth(_erode(raw_left, 6), 6)
 	var cliff_right := _smooth(_erode(raw_right, 6), 6)
