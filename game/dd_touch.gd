@@ -57,6 +57,18 @@ func build(parent: Control) -> void:
 	left.offset_right = LEFT_WIDTH
 
 
+## Widens the left box to hold its buttons at the fitted [code]button_scale[/code]: a phone scales the buttons up, and a fixed box clipped the far one off the screen edge.
+func fit_left() -> void:
+	if left == null:
+		return
+	var reach := 0.0
+	for b in left_layout():
+		reach = maxf(reach, (b["offset"] as Vector2).x + float(b["radius"]))
+	var want := maxf(LEFT_WIDTH, reach * left.button_scale + left.margin * 2.0)
+	if not is_equal_approx(left.offset_right, want):
+		left.offset_right = want
+
+
 func _make(parent: Control, node_name: String, layout: Array[Dictionary]) -> DotTouchButtons:
 	var cluster := DotTouchButtons.new()
 	cluster.name = node_name

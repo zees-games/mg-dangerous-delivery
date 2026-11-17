@@ -820,6 +820,8 @@ func _speed_of(me: DdGame.Driver) -> float:
 
 
 func _process(delta: float) -> void:
+	if touch != null:
+		touch.fit_left()
 	if touch != null and touch.right.visible == garage.visible:
 		# The lot's panel takes the screen; the buttons wait behind it with nothing held.
 		touch.right.visible = not garage.visible

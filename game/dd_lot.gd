@@ -377,10 +377,10 @@ func _build_seller(id: StringName, i: int) -> void:
 	tag.name = "Tag"
 	tag.text = "%s · SALES" % STAFF[i % STAFF.size()]
 	tag.font_size = 40
-	tag.pixel_size = 0.006
+	tag.pixel_size = 0.003
 	tag.outline_size = 8
 	tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	tag.position = Vector3(0.0, 2.15, 0.0)
+	tag.position = Vector3(0.0, 2.2, 0.0)
 	tag.visibility_range_end = 70.0
 	seller.add_child(tag)
 	_labels.append(tag)
