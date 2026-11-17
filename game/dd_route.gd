@@ -115,10 +115,37 @@ func _edge(i: int, side: float, _segment_width: float, bank_deg: float) -> Vecto
 	return points[i] + right_of(yaws[i]) * side * width * 0.5 + Vector3(0.0, rise, 0.0)
 
 
+## A crowned deck's surface across sample [param i], left to right, from [DotRoadProfile]: the
+## two edges, and the crown between them where the strip reaches the centreline. A washout
+## ([param keep_side] -1 keeps the left, 1 the right, 0 both) keeps [constant WASHOUT_KEEP] of
+## the width, and its cut edge stands where the crowned deck stood.
+func _crowned_row(i: int, segment_width: float, bank_slope: float, camber_slope: float, keep_side: float) -> PackedVector3Array:
+	var width := widths[i] if i < widths.size() else segment_width
+	var left_x := -width * 0.5
+	var right_x := width * 0.5
+
+	if keep_side < 0.0:
+		right_x = left_x + width * WASHOUT_KEEP
+	elif keep_side > 0.0:
+		left_x = right_x - width * WASHOUT_KEEP
+
+	var row := PackedVector3Array()
+	var right := right_of(yaws[i])
+
+	for p: Vector2 in DotRoadProfile.cross_section(left_x, right_x, bank_slope, camber_slope):
+		row.append(points[i] + right * p.x + Vector3(0.0, p.y, 0.0))
+
+	return row
+
+
 func _build_segment(index: int, from_i: int, to_i: int) -> void:
 	var seg: Dictionary = doc["segments"][index]
 	var width: float = seg["width"]
 	var bank: float = seg["bank"]
+	# A camber of 0 (or a bank at least as steep) is the flat deck, built exactly as before.
+	var camber_slope := DotRoadProfile.camber_slope_of(float(seg.get("camber", 0.0)))
+	var bank_slope := DotRoadProfile.bank_slope_of(bank)
+	var crowned := DotRoadProfile.crowned(bank_slope, camber_slope)
 	var road := SurfaceTool.new()
 	var rock := SurfaceTool.new()
 	road.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -136,8 +163,12 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 		for bridge: Dictionary in bridges:
 			gap = gap or (i >= int(bridge["a"]) and i < int(bridge["b"]))
 
+		var keep_side := 0.0
+
 		for wash: Dictionary in washouts:
 			if i >= int(wash["a"]) and i < int(wash["b"]):
+				# A washout on the right keeps the left of the road, and the other way round.
+				keep_side = -1.0 if float(wash["side"]) > 0.0 else 1.0
 				if float(wash["side"]) > 0.0:
 					r0 = l0.lerp(r0, WASHOUT_KEEP)
 					r1 = l1.lerp(r1, WASHOUT_KEEP)
@@ -145,9 +176,29 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 					l0 = r0.lerp(l0, WASHOUT_KEEP)
 					l1 = r1.lerp(l1, WASHOUT_KEEP)
 
+		# A crowned deck: two strips meeting at the centreline, and its edges (for the walls,
+		# the drop and the rail) where the crowned surface ends.
+		var row0 := PackedVector3Array()
+		var row1 := PackedVector3Array()
+
+		if crowned:
+			row0 = _crowned_row(i, width, bank_slope, camber_slope, keep_side)
+			row1 = _crowned_row(i + 1, width, bank_slope, camber_slope, keep_side)
+			l0 = row0[0]
+			r0 = row0[row0.size() - 1]
+			l1 = row1[0]
+			r1 = row1[row1.size() - 1]
+
 		# The surface, and the slab's two sides and underside, all solid: a wheel that slips
 		# over the edge should catch the edge on the way down, not fall through it.
-		if not gap:
+		if not gap and crowned:
+			# Both rows have a crown or neither: their ends are the same share of the width.
+			for k in mini(row0.size(), row1.size()) - 1:
+				_quad(road, true, row0[k], row0[k + 1], row1[k + 1], row1[k], true)
+				_quad(rock, true, row1[k] + down, row1[k + 1] + down, row0[k + 1] + down, row0[k] + down, true)
+			_quad(rock, true, l0 + down, l0, l1, l1 + down, true)
+			_quad(rock, true, r1 + down, r1, r0, r0 + down, true)
+		elif not gap:
 			_quad(road, true, l0, r0, r1, l1, true)
 			_quad(rock, true, l1 + down, r1 + down, r0 + down, l0 + down, true)
 			_quad(rock, true, l0 + down, l0, l1, l1 + down, true)

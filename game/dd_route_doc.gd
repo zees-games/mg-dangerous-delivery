@@ -36,6 +36,11 @@ const WASHOUT_MIN_WIDTH := 6.0
 const MIN_TRAFFIC_WIDTH := 6.4
 const MAX_TRAFFIC_TURN := 0.7
 
+## A road's crown when the route and its segment do not say, percent: both halves of the deck
+## fall this much away from the centreline ([DotRoadProfile]), so a straight sheds water as a
+## real one does. 0 is the flat deck there was before; a bank at least this steep replaces it.
+const DEFAULT_CAMBER := 2.0
+
 
 ## Checks [param doc] and returns it normalised (every optional field filled, every number a
 ## float) or the reason it is refused. A refused document is never half-played.
@@ -61,6 +66,12 @@ static func normalise(doc: Variant) -> DotResult:
 	if width < 4.0 or width > 30.0:
 		return DotResult.fail(DotError.CODE_INVALID, "width %.1f is outside 4 to 30 metres." % width)
 
+	var camber := float(d.get("camber", DEFAULT_CAMBER))
+	var camber_why := DotRoadProfile.check_camber(DotRoadProfile.camber_slope_of(camber))
+
+	if camber_why != "":
+		return DotResult.fail(DotError.CODE_INVALID, "route camber: %s." % camber_why)
+
 	var zones_res := _normalise_zones(d.get("zones", {}))
 
 	if not zones_res.ok:
@@ -77,7 +88,7 @@ static func normalise(doc: Variant) -> DotResult:
 	var checkpoints := 0
 
 	for i in (raw_segments as Array).size():
-		var seg_res := _normalise_segment(i, raw_segments[i], zones, width)
+		var seg_res := _normalise_segment(i, raw_segments[i], zones, width, camber)
 
 		if not seg_res.ok:
 			return seg_res
@@ -99,6 +110,7 @@ static func normalise(doc: Variant) -> DotResult:
 		"level": clampi(int(d.get("level", 1)), 1, 99),
 		"pay": float(maxi(int(d.get("pay", 300)), 0)),
 		"width": width,
+		"camber": camber,
 		"cargo": str(d.get("cargo", "crates")),
 		"zones": zones,
 		"segments": segments,
@@ -131,7 +143,7 @@ static func _normalise_zones(p_zones: Variant) -> DotResult:
 
 
 ## One segment of a route, checked against its zones and the route's width.
-static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: float) -> DotResult:
+static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: float, camber: float = DEFAULT_CAMBER) -> DotResult:
 	if not (s is Dictionary):
 		return DotResult.fail(DotError.CODE_INVALID, "segment %d is not an object." % i)
 
@@ -169,6 +181,12 @@ static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: flo
 	if seg_width < 4.0 or seg_width > 30.0:
 		return DotResult.fail(DotError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
 
+	var seg_camber := float(seg.get("camber", camber))
+	var camber_why := DotRoadProfile.check_camber(DotRoadProfile.camber_slope_of(seg_camber))
+
+	if camber_why != "":
+		return DotResult.fail(DotError.CODE_INVALID, "segment %d: %s." % [i, camber_why])
+
 	var bad := _check_features(i, seg, seg_width, turn, length)
 
 	if not bad.ok:
@@ -190,6 +208,7 @@ static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: flo
 		"ledge": clampi(int(seg.get("ledge", 0)), 0, 2),
 		"broken": clampi(int(seg.get("broken", 0)), 0, 4),
 		"bank": clampf(float(seg.get("bank", 0.0)), -12.0, 12.0),
+		"camber": seg_camber,
 	})
 
 

@@ -170,7 +170,7 @@ A Label3D faces its +Z; in the road's frame (forward is -Z) that is back toward 
 
 ## Documents and delivered paths (moved from code comments)
 
-A route is a list of segments, each a length, a turn and a climb from where the last ended, because a point list is what a tool writes and a server owner writes their own maps; moving one bend moves everything after it. `ice`, `debris`, `works`, `gravel` and `traffic` place patches, piles, a closed lane, loose stone and oncoming cars along a segment.
+A route is a list of segments, each a length, a turn and a climb from where the last ended, because a point list is what a tool writes and a server owner writes their own maps; moving one bend moves everything after it. `ice`, `debris`, `works`, `gravel` and `traffic` place patches, piles, a closed lane, loose stone and oncoming cars along a segment. `bank` (degrees, positive falls to the right) tilts a segment's deck; `camber` (percent, on the route or a segment, default 2) crowns it, both halves falling away from the centreline (`DotRoadProfile` in dot-vehicle). 0 is the flat deck; a bank at least as steep as the camber is the plain banked deck; a negative camber is refused.
 
 ```json
 {"format": 1, "kind": "route", "id": "dd_foothills", "name": "Foothills", "level": 1, "pay": 400, "width": 7.5,

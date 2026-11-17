@@ -143,7 +143,13 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 		var seg: Dictionary = segments[segment_of[i]]
 		# The road's own eased width where it has one (DdRoute.widths), so the ground meets the edge.
 		half[i] = (float(route.widths[i]) if i < route.widths.size() else float(seg["width"])) * 0.5
-		bank_drop[i] = absf(tan(deg_to_rad(float(seg["bank"])))) * half[i]
+		var camber := DotRoadProfile.camber_slope_of(float(seg.get("camber", 0.0)))
+		if camber == 0.0:
+			bank_drop[i] = absf(tan(deg_to_rad(float(seg["bank"])))) * half[i]
+		else:
+			# A crowned deck's lower edge ([DotRoadProfile]): the ground stays under both.
+			var bank := DotRoadProfile.bank_slope_of(float(seg["bank"]))
+			bank_drop[i] = maxf(-DotRoadProfile.height_at(-half[i], bank, camber), -DotRoadProfile.height_at(half[i], bank, camber))
 		var wall := str(seg["wall"])
 		raw_left[i] = 1.0 if wall == "left" or wall == "both" else 0.0
 		raw_right[i] = 1.0 if wall == "right" or wall == "both" else 0.0
