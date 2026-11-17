@@ -79,9 +79,11 @@ const TRAFFIC_GAP := 6.0
 const TRAFFIC_CLEAR := 20.0
 
 ## A car stops for a truck less than this far ahead of it, metres, and nearer its lane's centre
-## than [constant TRAFFIC_LANE]: a truck's half width and the car's, and a little.
+## than [constant TRAFFIC_LANE]: a truck's half width and the car's, and a little. One just
+## behind it ([constant TRAFFIC_BEHIND], negative) stops it too.
 const TRAFFIC_YIELD := 14.0
 const TRAFFIC_LANE := 2.3
+const TRAFFIC_BEHIND := -2.0
 
 var doc: Dictionary = {}
 
@@ -145,6 +147,23 @@ var _cars: Array[AnimatableBody3D] = []
 var _car_at := PackedVector3Array()
 ## Per car: the scheduled run it is on, where along the road it is, whether it is on the road.
 var _car_state: Array[Dictionary] = []
+
+## Whether a car's yield ([method _car_blocked]) is asked of dot-sim's `DotSimRoad` when the
+## library has it: the samples written once per build, one call per car a tick instead of a
+## nearest-sample search per truck in script (the whole road for every truck outside the car's
+## window). Off, or with no library (the web): the script, as before.
+static var native_traffic := true
+## Whether every native ask is asked of the script too: any difference is an error and the
+## script's answer wins. `headless_native_traffic`'s live half; costly, not for play.
+static var traffic_verify := false
+## Asks checked and asks that differed under [member traffic_verify].
+static var traffic_checked := 0
+static var traffic_differ := 0
+
+## The native samples for this build: null before the first ask, without the module, or with no
+## road. Dropped by [method DdRoute.clear].
+var _native_road: Variant = null
+var _native_built := false
 
 ## Zone id -> the StandardMaterial3D every road surface in it shares, so weather recolours a
 ## zone with one assignment.
@@ -508,17 +527,67 @@ func step_traffic(tick: int, tick_rate: int, trucks: PackedVector3Array = Packed
 
 ## Whether a truck stands in the car's lane within [constant TRAFFIC_YIELD] metres ahead of it
 ## (down the road, the way it is going).
+## dot-sim's answer when the library has the road module, the script's otherwise; the same to the
+## bit (`headless_native_traffic`).
 func _car_blocked(spec: Dictionary, d: float, trucks: PackedVector3Array) -> bool:
+	var native: Variant = road_native()
+
+	if native == null:
+		return car_blocked_script(spec, d, trucks)
+
+	var blocked: bool = native.car_blocked(d, float(spec["lateral"]), trucks)
+
+	if traffic_verify:
+		var script := car_blocked_script(spec, d, trucks)
+		traffic_checked += 1
+
+		if script != blocked:
+			traffic_differ += 1
+			push_error("DdRoute._car_blocked: native %s, script %s for a car at %s lane %s, trucks %s" % [blocked, script, d, spec["lateral"], trucks])
+			return script
+
+	return blocked
+
+
+## [method _car_blocked] in script: the fallback with no library, and the twin
+## [member traffic_verify] holds it to.
+func car_blocked_script(spec: Dictionary, d: float, trucks: PackedVector3Array) -> bool:
 	for p in trucks:
 		var i := nearest_index(p, index_at_distance(d))
 		var along := distances[i] + forward_of(yaws[i]).dot(p - points[i])
 		var lateral := right_of(yaws[i]).dot(p - points[i])
 		var ahead := d - along
 
-		if ahead > -2.0 and ahead < TRAFFIC_YIELD and absf(lateral - float(spec["lateral"])) < TRAFFIC_LANE:
+		if ahead > TRAFFIC_BEHIND and ahead < TRAFFIC_YIELD and absf(lateral - float(spec["lateral"])) < TRAFFIC_LANE:
 			return true
 
 	return false
+
+
+## The native samples for the road as built, made on the first ask after [method DdRoute.build];
+## null when [member native_traffic] is off, the library has no road module, or there is no road.
+func road_native() -> Variant:
+	if not native_traffic:
+		return null
+
+	if not _native_built:
+		_native_built = true
+		_native_road = _make_native_road()
+
+	return _native_road
+
+
+func _make_native_road() -> Variant:
+	if points.is_empty() or not DotSim.has(&"road"):
+		return null
+
+	var road: Object = ClassDB.instantiate(&"DotSimRoad")
+
+	if road == null or not road.call(&"set_samples", points, distances, yaws):
+		return null
+
+	road.call(&"set_yield", TRAFFIC_BEHIND, TRAFFIC_YIELD, TRAFFIC_LANE)
+	return road
 
 
 ## Where each oncoming car on the road is as of the last [method step_traffic], route-local:

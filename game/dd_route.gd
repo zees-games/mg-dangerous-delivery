@@ -40,6 +40,8 @@ func clear() -> void:
 	_cars = []
 	_car_at = PackedVector3Array()
 	_car_state = []
+	_native_road = null
+	_native_built = false
 	zone_materials = {}
 	_painted = {}
 	_terrain_wanted = false
