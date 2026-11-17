@@ -31,3 +31,8 @@ metadata:
   # Unset keeps the game's defaults: 15 minutes a mountain, the change after the hauls in progress.
   # mountain_vote:
   #   duration_sec: 1200
+
+# The stock mountains pack the game suggests, not requires: a server offers it by default (suggested_maps: none turns that off)
+# and the Subscriptions page lists it for solo play (fetched in the background only on "Download all"; --no-suggested opts out).
+suggested:
+  - maps=gamemann/mg-dangerous-delivery-maps
