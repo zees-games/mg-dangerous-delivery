@@ -251,7 +251,7 @@ func _fill_chat(client: Node, chat_lines: int) -> void:
 		return
 	for i in chat_lines:
 		if i % 3 == 0:
-			client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, Arena (20s)")
+			client.chat.notice("[Server] Vote: Look At Me, Buses From Hell, Hide & Seek, FC (20s)")
 		else:
 			client.chat.say_locally("Driver %d: line %d of the chat log" % [i + 1, i + 1])
 	for _i in 10:
