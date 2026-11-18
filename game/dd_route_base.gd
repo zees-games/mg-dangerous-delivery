@@ -92,6 +92,15 @@ var draws: bool = true
 
 ## The samples: position, heading (yaw, radians), distance along, segment index.
 var points: PackedVector3Array = PackedVector3Array()
+
+## Whether [method nearest_index] keeps its last answer. Off only to measure or check it against the walk.
+static var memo_nearest := true
+
+## [method nearest_index]'s last question and answer; [code]_near_size[/code] -1 when there is none.
+var _near_at := Vector3.INF
+var _near_hint := -2
+var _near_size := -1
+var _near_index := 0
 var yaws: PackedFloat32Array = PackedFloat32Array()
 var distances: PackedFloat32Array = PackedFloat32Array()
 var segment_of: PackedInt32Array = PackedInt32Array()
@@ -620,6 +629,23 @@ func nearest_index(position: Vector3, hint: int = -1) -> int:
 	if points.is_empty():
 		return 0
 
+	# A truck's tick asks this for the same spot several times over (ice, gravel, a bridge, the
+	# distance): the last answer is kept, keyed on everything it reads. Points only grow while the
+	# road is built and a clear empties them, so their count stands for them.
+	if memo_nearest and position == _near_at and hint == _near_hint and points.size() == _near_size:
+		return _near_index
+
+	var found := _nearest_index_walk(position, hint)
+
+	_near_at = position
+	_near_hint = hint
+	_near_size = points.size()
+	_near_index = found
+	return found
+
+
+## [method nearest_index] without its memo.
+func _nearest_index_walk(position: Vector3, hint: int) -> int:
 	var lo := 0
 	var hi := points.size() - 1
 
@@ -640,7 +666,7 @@ func nearest_index(position: Vector3, hint: int = -1) -> int:
 	# A hint that put the truck at the window's edge is a truck that has moved further than
 	# the window in one call — a respawn or a teleport. Ask the whole road.
 	if hint >= 0 and (best == lo and lo > 0 or best == hi and hi < points.size() - 1):
-		return nearest_index(position, -1)
+		return _nearest_index_walk(position, -1)
 
 	return best
 

@@ -5,7 +5,7 @@ extends "res://examples/headless_run_settings.gd"
 ## Counts sections entered against finished AND the checks: a script error aborts a section.
 
 const SECTIONS := 34
-const CHECKS := 287
+const CHECKS := 289
 
 
 func _ready() -> void:
@@ -113,6 +113,32 @@ func _test_road() -> void:
 	for seg: Dictionary in doc["segments"]:
 		rocks += int(seg["boulders"])
 	_check(road.boulder_sites.size() == rocks, "every boulder the document asks for has a site", "%d" % road.boulder_sites.size())
+
+	# nearest_index keeps its last answer: seeded spots and hints, each asked twice and some again after
+	# another, answer as the walk does; and a road cleared and built again forgets it.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6113
+	var n := road.points.size()
+	var differ: Array[String] = []
+	var spot := Vector3.ZERO
+	var hint := -1
+	for ask in 4000:
+		if ask % 3 != 2:
+			spot = road.points[rng.randi_range(0, n - 1)] + Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(-2.0, 2.0), rng.randf_range(-8.0, 8.0))
+			hint = rng.randi_range(-3, n + 3) if rng.randf() < 0.3 else road.nearest_index(spot, -1)
+		for _again in 2:
+			var kept := road.nearest_index(spot, hint)
+			var walk := road._nearest_index_walk(spot, hint)
+			if kept != walk and differ.size() < 4:
+				differ.append("%s hint %d: kept %d, walk %d" % [spot, hint, kept, walk])
+	_check(differ.is_empty(), "nearest_index's kept answer is the walk's", "; ".join(differ))
+	var far := road.points[n - 1]
+	var _far := road.nearest_index(far, -1)
+	var other: Dictionary = DdRouteDoc.normalise(JSON.parse_string(FileAccess.get_file_as_string("res://routes/dd_foothills.json"))).value
+	road.clear()
+	var _rebuilt := road.build(other)
+	_check(road.nearest_index(far, -1) == road._nearest_index_walk(far, -1),
+		"and a road built again does not answer from the last one", "%d points" % road.points.size())
 	road.queue_free()
 	_finished_section()
 

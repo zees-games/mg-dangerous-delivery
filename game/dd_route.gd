@@ -22,6 +22,7 @@ func clear() -> void:
 		child.queue_free()
 
 	points = PackedVector3Array()
+	_near_size = -1
 	yaws = PackedFloat32Array()
 	distances = PackedFloat32Array()
 	segment_of = PackedInt32Array()
