@@ -1,4 +1,4 @@
-extends "dd_client_build.gd"
+extends "dd_client_camera.gd"
 
 ## One player, on foot in the lot or at the wheel: the walker, the lot's panel, the camera, the
 ## controls, the HUD and the sky. Actions go through [method _act] and [member command], and
@@ -7,12 +7,6 @@ extends "dd_client_build.gd"
 ## Where dot-server's client publishes its link before the game scene loads. Present: this
 ## client is connected; absent: it is offline and owns its world.
 const LINK_SERVICE := &"dot_client_link"
-
-## The chase camera opens up with speed: no change under FROM m/s, the full widening at FULL.
-const FOV_WIDEN_FROM := 8.0
-const FOV_WIDEN_FULL := 38.0
-const FOV_WIDEN_MAX := 10.0
-
 
 func _ready() -> void:
 	DdLoad.begin()
@@ -1429,25 +1423,6 @@ func _follow(truck: DdTruck, delta: float) -> void:
 	camera.look_at(_look)
 
 
-## Field of view for a speed: the player's own setting, plus up to [constant FOV_WIDEN_MAX]
-## degrees as the truck climbs from [constant FOV_WIDEN_FROM] to [constant FOV_WIDEN_FULL] m/s.
-## Standing still it is exactly the setting.
-static func fov_for_speed(base: float, speed_ms: float) -> float:
-	var t := clampf((speed_ms - FOV_WIDEN_FROM) / (FOV_WIDEN_FULL - FOV_WIDEN_FROM), 0.0, 1.0)
-	return base + FOV_WIDEN_MAX * t * t * (3.0 - 2.0 * t)
-
-
-func _widen_fov(speed_ms: float, delta: float) -> void:
-	var base := float(DdSettings.DEFAULT_FOV)
-
-	if settings != null and settings.settings != null:
-		base = float(settings.settings.get_int(&"field_of_view", DdSettings.DEFAULT_FOV))
-
-	var amount := 0.5 if camera_mode == CameraMode.CAB else 1.0
-	var wanted := base + (fov_for_speed(base, speed_ms) - base) * amount
-	camera.fov = lerpf(camera.fov, wanted, 1.0 - exp(-delta * 2.5))
-
-
 func _net_of(truck: DdTruck) -> DdTruckNet:
 	return truck.get_node_or_null("Net") as DdTruckNet
 
@@ -1462,16 +1437,6 @@ func _speed_of_truck(truck: DdTruck) -> float:
 		var look := _net_of  # on a new truck only, not per frame
 		_speed_net = look.call(truck)
 	return _speed_net.speed_ms() if _speed_net != null and is_instance_valid(_speed_net) else 0.0
-
-
-## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the
-## road, the gates and the debris (all on [constant DdRoute.CAMERA_LAYER]). Swept, not set, by
-## dot-core's [DotCameraProbe]; other trucks are on layer 1 and never stop it.
-func _clear_of_mountain(truck: DdTruck, wanted: Vector3, delta: float) -> Vector3:
-	if _probe == null:
-		_probe = DotCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER)
-		_probe.radius = 0.3
-	return _probe.resolve(truck.global_position + Vector3.UP * PIVOT_HEIGHT, wanted, delta)
 
 
 ## dot-game's chat box and microphone, with this game's channels and voice format. It also draws

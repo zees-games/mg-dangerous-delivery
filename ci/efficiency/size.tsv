@@ -4,12 +4,11 @@ examples/dedicated.gd::_test_a_covered_seat_is_not_harmed	86
 examples/dedicated.gd::_test_rotation_file	90
 examples/dedicated.gd::_test_the_mountain_vote	91
 examples/handling.gd::_test_hairpins	82
-examples/headless_run.gd	1299
+examples/headless_run.gd	1162
 examples/headless_run.gd::_test_mountain	87
 examples/headless_run.gd::_test_the_lot_makes_room	96
-game/dd_client.gd	1540
+game/dd_client.gd	1507
 game/dd_game.gd	2468
-game/dd_route.gd	863
 game/dd_trailer.gd::configure	96
 game/net/dd_net_bridge.gd	1230
 tools/damage_shot.gd::_ready	88
