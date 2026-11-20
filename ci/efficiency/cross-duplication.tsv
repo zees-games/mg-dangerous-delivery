@@ -1,0 +1,9 @@
+# duplication (cross-game)
+# Baselines only shrink: scripts/<gate> --update lowers or drops entries and refuses to add.
+examples/dedicated.gd	34
+examples/dedicated_base.gd	45
+game/dd_progress.gd	37
+game/dd_services.gd	39
+game/net/dd_net_bridge.gd	30
+game/net/dd_net_link.gd	121
+tools/render_cover.gd	46
