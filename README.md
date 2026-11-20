@@ -1,5 +1,3 @@
-# Dangerous Delivery
-
 Dangerous Delivery is a 3D multiplayer driving game. You drive a loaded truck up a mountain road with no guard rails, through snow, rain, wind and falling rock, and deliver the load to a depot. The harder the haul, the more it pays, and the money buys bigger trucks and upgrades.
 
 It is built on [Godot 4](https://godotengine.org/), the [Gamespice](https://gamespice.net) platform and addon collection.
