@@ -9,7 +9,7 @@ const DdAudio := preload("res://game/dd_audio.gd")
 
 ## The bus chain the game runs at (dB): the settings defaults with Master at 0.8.
 func buses_db() -> Dictionary:
-	var m := DotAudioMixer.new()
+	var m := GSAudioMixer.new()
 	m.master = 0.8
 	var out := {}
 	var lv := m.levels()
@@ -32,7 +32,7 @@ func rows() -> Array:
 
 	var ids := DdAudio.ids()
 
-	for toy: Dictionary in DotPropBodySounds.rows():
+	for toy: Dictionary in GSPropBodySounds.rows():
 		ids.append(toy["id"])
 
 	for id: StringName in ids:
@@ -40,22 +40,22 @@ func rows() -> Array:
 		if def == null or not (made.has(id) or ResourceLoader.exists(def.path) or FileAccess.file_exists(ProjectSettings.globalize_path(def.pick_path(0.0)))):
 			continue
 		var stream: Variant = made[id] if made.has(id) else def.pick_path(0.0)
-		if def.bus == &"SFX" and String(id).begins_with(DotAudioStock.FOOTSTEP_PREFIX):
-			if id != DotAudioStock.footstep_id(&"concrete") and id != DotAudioStock.footstep_id(&"grass"):
+		if def.bus == &"SFX" and String(id).begins_with(GSAudioStock.FOOTSTEP_PREFIX):
+			if id != GSAudioStock.footstep_id(&"concrete") and id != GSAudioStock.footstep_id(&"grass"):
 				continue
 		elif String(id).begins_with("amb_") and not (id in DdAudio.ROUTE_BED.values() or id == DdAudio.LOT_BED):
 			continue
-		elif not made.has(id) and not (String(id).begins_with("toy_") or String(id).begins_with("amb_") or String(id).begins_with(DotAudioStock.FOOTSTEP_PREFIX)):
+		elif not made.has(id) and not (String(id).begins_with("toy_") or String(id).begins_with("amb_") or String(id).begins_with(GSAudioStock.FOOTSTEP_PREFIX)):
 			# A weapon or other stock cue the game never plays.
 			continue
 
 		var levels: Array = drive.get(id, [[0.0, ""]])
 		var note_base := "stand-in" if made.has(id) else "file"
 
-		if String(id).begins_with(DotAudioStock.FOOTSTEP_PREFIX):
+		if String(id).begins_with(GSAudioStock.FOOTSTEP_PREFIX):
 			levels = [[DdAudio.STEP_DB, "run step"]]
 		elif String(id).begins_with("amb_"):
-			levels = [[linear_to_db(DotAudioAmbience.DEFAULT_LEVEL), "bed at level %.2f" % DotAudioAmbience.DEFAULT_LEVEL]]
+			levels = [[linear_to_db(GSAudioAmbience.DEFAULT_LEVEL), "bed at level %.2f" % GSAudioAmbience.DEFAULT_LEVEL]]
 
 		for lv: Array in levels:
 			out.append({

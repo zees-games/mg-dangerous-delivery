@@ -1,10 +1,10 @@
-extends DotNetBehaviour
+extends GSNetBehaviour
 
-## One of the map's toys on the wire (dot-props' [DotPropBody]): where its moving part is, how it is turned, whether it is on, and how often it was used.
+## One of the map's toys on the wire (dot-props' [GSPropBody]): where its moving part is, how it is turned, whether it is on, and how often it was used.
 ## The server's physics, never predicted; the client's toy is frozen and posed from these. Paired by index: both ends build the same toys in the same order.
 ## A use count, not an event: a client plays the sound when [member net_count] (eight bits, wraps) moves, so a lost packet costs only a late sound.
 
-var toy: DotPropBody = null
+var toy: GSPropBody = null
 
 var net_position: Vector3 = Vector3.ZERO
 var net_rotation: Quaternion = Quaternion.IDENTITY
@@ -13,11 +13,11 @@ var net_count: int = 0
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
+	replicate(&"net_position", GSNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
 	# Nine bits an element, under a degree: nobody lines a ball up to a degree.
-	replicate(&"net_rotation", DotNetVar.Type.QUATERNION).bits(9).interpolated().server_driven()
-	replicate(&"net_on", DotNetVar.Type.BOOL).server_driven()
-	replicate(&"net_count", DotNetVar.Type.UINT).bits(8).server_driven()
+	replicate(&"net_rotation", GSNetVar.Type.QUATERNION).bits(9).interpolated().server_driven()
+	replicate(&"net_on", GSNetVar.Type.BOOL).server_driven()
+	replicate(&"net_count", GSNetVar.Type.UINT).bits(8).server_driven()
 
 
 ## Authority only: the toy's state into the replicated fields.

@@ -1,4 +1,4 @@
-extends DotGameNetIo
+extends GSGameNetIo
 
 ## The bridge's constants, signals and state; [DdNetBridge] holds the wire.
 
@@ -54,7 +54,7 @@ const SUPERSEDED_REASON := "You joined from another tab or window"
 
 var game: DdGame = null
 ## Carries the game's profile runtime over this manager; null when the types would not register.
-var profile_link: DotNetProfileLink = null
+var profile_link: GSNetProfileLink = null
 
 ## The local player's key, from HELLO. Client side.
 var local_key: StringName = &""

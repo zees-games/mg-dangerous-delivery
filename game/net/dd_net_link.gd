@@ -10,7 +10,7 @@ const CHANNEL := "delivery.link"
 ## The node name both ends must use. It is the routing, so it is a constant.
 const NODE_NAME := &"DangerousDelivery"
 
-## Everything here rides [constant DotTransport.Channel.STATE], which dot-server reserves
+## Everything here rides [constant GSTransport.Channel.STATE], which dot-server reserves
 ## for exactly this and uses for nothing itself. Sharing chat's channel would make a burst
 ## of snapshots delay a chat line, and a chat line delay a snapshot.
 const CHANNEL_STATE := 1
@@ -64,7 +64,7 @@ func _live() -> bool:
 
 	if live != _was_live:
 		_was_live = live
-		DotLog.debug(CHANNEL, "the link went %s" % ("live" if live else "quiet"), {
+		GSLog.debug(CHANNEL, "the link went %s" % ("live" if live else "quiet"), {
 			"end": "server" if is_server else "client",
 			"loopback": loopback.is_valid(),
 		})
@@ -74,7 +74,7 @@ func _live() -> bool:
 
 
 ## One routed chat line, to one peer. It is an event on this game's own wire, not dot-server's
-## chat manager: [DotChatRouter] has the rules, and a second path would be a second set of rules.
+## chat manager: [GSChatRouter] has the rules, and a second path would be a second set of rules.
 func send_chat(peer_id: int, wire: Dictionary) -> void:
 	if bridge != null:
 		bridge.send_chat(peer_id, wire)
@@ -193,7 +193,7 @@ func _net_request(payload: PackedByteArray) -> void:
 
 
 ## A voice frame, either way. `any_peer`, so on the server the sender is a claim until the
-## transport is asked: [method DotVoiceRouter.relay] stamps the id the TRANSPORT reported over
+## transport is asked: [method GSVoiceRouter.relay] stamps the id the TRANSPORT reported over
 ## the packet's own speaker field, or any client could speak as any other.
 @rpc("any_peer", "unreliable", "call_remote", CHANNEL_VOICE)
 func _net_voice(payload: PackedByteArray) -> void:

@@ -4,7 +4,7 @@ const DdPaths := preload("dd_paths.gd")
 
 ## Every truck a player can buy, and every upgrade, as data. A harder truck pays more (`pay`). A
 ## server owner overrides any field from `user://cfg/delivery_trucks.json` (by truck id) or adds a
-## truck. Handling is in dot-vehicle's units and applied to a [DotVehicleTunables].
+## truck. Handling is in dot-vehicle's units and applied to a [GSVehicleTunables].
 
 ## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs' glass is painted on the body's one surface; [method DdTruck._open_glass] moves those triangles to a see-through surface at load, so the seat is inside the cab, seen through the windows.
 const SEATS := {
@@ -104,7 +104,7 @@ const DEFAULTS := [
 
 ## What comes off a truck, in the truck's frame as fractions of the body's box (x 0 left to 1
 ## right, y 0 bottom, z 0 front to 1 back). A model node named like the id is the part; a model
-## without one has the triangles inside the region carved off at load ([method DotVehicleDebris.carve]). `strength` is the knock (m/s) that takes it off.
+## without one has the triangles inside the region carved off at load ([method GSVehicleDebris.carve]). `strength` is the knock (m/s) that takes it off.
 const PARTS := [
 	{"id": "bumper_front", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.3], "z": [0.0, 0.07], "strength": 5.0, "mass": 40.0},
 	{"id": "bumper_rear", "kind": "bumper", "x": [0.0, 1.0], "y": [0.0, 0.25], "z": [0.94, 1.0], "strength": 5.0, "mass": 40.0},
@@ -158,13 +158,13 @@ func reset() -> void:
 
 ## Applies an owner's overrides: [code]{"hauler": {"price": 5000}, "my_truck": {...}}[/code].
 ## A new id must carry everything a truck needs; it is checked like the built-in ones.
-func apply_overrides(data: Dictionary) -> DotResult:
+func apply_overrides(data: Dictionary) -> GSResult:
 	for key: Variant in data:
 		var id := StringName(str(key))
 		var fields: Variant = data[key]
 
 		if not (fields is Dictionary):
-			return DotResult.fail(DotError.CODE_INVALID, "truck '%s' is not an object." % id)
+			return GSResult.fail(GSError.CODE_INVALID, "truck '%s' is not an object." % id)
 
 		var def: Dictionary = trucks.get(id, (DEFAULTS[0] as Dictionary).duplicate(true))
 		def.merge(fields, true)
@@ -175,17 +175,17 @@ func apply_overrides(data: Dictionary) -> DotResult:
 
 		trucks[id] = def
 
-	return DotResult.success(trucks.size())
+	return GSResult.success(trucks.size())
 
 
-func load_overrides(path: String) -> DotResult:
+func load_overrides(path: String) -> GSResult:
 	if path == "" or not FileAccess.file_exists(path):
-		return DotResult.success(0)
+		return GSResult.success(0)
 
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 
 	if not (parsed is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "%s is not a JSON object of truck id to fields." % path)
+		return GSResult.fail(GSError.CODE_INVALID, "%s is not a JSON object of truck id to fields." % path)
 
 	return apply_overrides(parsed)
 
@@ -235,9 +235,9 @@ func effective(truck_id: StringName, levels: Dictionary = {}) -> Dictionary:
 ## The tunables a truck drives with, its upgrades applied, carrying [param cargo_def] ([DdCargo]'s
 ## definition; empty is no load). The load's mass is on the truck unless it pulls a trailer,
 ## which carries it ([method trailer_mass]).
-func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dictionary = {}) -> DotVehicleTunables:
+func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dictionary = {}) -> GSVehicleTunables:
 	var def := effective(truck_id, levels)
-	var t := DotVehicleTunables.new()
+	var t := GSVehicleTunables.new()
 	var brakes := 1.0 + upgrade_step("brakes") * int(levels.get("brakes", 0))
 	var tyres := 1.0 + upgrade_step("tyres") * int(levels.get("tyres", 0))
 	var on_truck := 0.0 if def.has("trailer") or cargo_def.is_empty() else load_mass(def, cargo_def)

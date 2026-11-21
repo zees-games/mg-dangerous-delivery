@@ -38,7 +38,7 @@ const LOT_MIN_WIDTH := 720.0
 ## loses nothing but rows on screen; below this the routes column shows one route.
 const LOT_MIN_HEIGHT := 400.0
 
-## The chat box (a `DotChatWindow`), whose log the lot keeps clear of. Null for none.
+## The chat box (a `GSChatWindow`), whose log the lot keeps clear of. Null for none.
 ## The lot lifts and shortens above the log while it has lines, so a vote line never prints through the route list.
 var chat_window: Control = null
 

@@ -19,7 +19,7 @@ class _Identity extends RefCounted:
 ## Failure descriptions, empty when the split holds.
 static func run(game: DdGame, progress: DdProgress) -> Array[String]:
 	var bad: Array[String] = []
-	var session := DotClientSession.new()
+	var session := GSClientSession.new()
 	session.userid = 9001
 	session.identity = _Identity.new()
 	session.data["platform"] = _Platform.new()

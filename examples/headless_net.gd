@@ -53,10 +53,10 @@ func _ready() -> void:
 		child.free()
 	for path in ["res://game/dd_truck.gd", "res://game/dd_terrain.gd", "res://game/dd_route.gd"]:
 		(load(path) as GDScript).call(&"clear_cache")
-	DotHumanoidFigure.clear_cache()
-	DotHudPiece.clear_cache()
-	DotMenuKit.clear_cache()
-	DotRegistry.clear()
+	GSHumanoidFigure.clear_cache()
+	GSHudPiece.clear_cache()
+	GSMenuKit.clear_cache()
+	GSRegistry.clear()
 	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
@@ -185,10 +185,10 @@ func _test_buying_and_driving() -> void:
 		"DRIVE brings their truck round to a bay, and the client mirrors it with them at the wheel")
 	var truck := server_me.truck as DdTruck
 	var from := truck.global_position
-	var go := DotVehicleCommand.new()
+	var go := GSVehicleCommand.new()
 	go.throttle = 1.0
 	await _steps(80, go)
-	var stop := DotVehicleCommand.new()
+	var stop := GSVehicleCommand.new()
 	stop.brake = 1.0
 	await _steps(120, stop)
 	_exchange()
@@ -292,7 +292,7 @@ func _test_driving() -> void:
 	_section("driving over the wire")
 	var server_truck := _server_game.drivers[_key].truck as DdTruck
 	var start := server_truck.global_position
-	var go := DotVehicleCommand.new()
+	var go := GSVehicleCommand.new()
 	go.throttle = 1.0
 	await _steps(240, go)
 	var moved := server_truck.global_position.distance_to(start)
@@ -460,7 +460,7 @@ func _test_one_account_twice() -> void:
 	# What the kick sets off: the older session leaves, and the roster tells the bridge.
 	_server_bridge.remove_peer(TAB_ONE)
 	var driver: DdGame.Driver = _server_game.drivers.get(key, null)
-	var identity: DotNetIdentity = driver.walker.get_node_or_null("Identity") if driver != null and driver.walker != null else null
+	var identity: GSNetIdentity = driver.walker.get_node_or_null("Identity") if driver != null and driver.walker != null else null
 	_check(identity != null and identity.owner_peer_id == TAB_TWO and _server_bridge.peer_of(key) == TAB_TWO
 		and _server_net.registry.all().size() == entities_before + 1,
 		"the older connection's leave does not take the newcomer's driver",
@@ -505,8 +505,8 @@ func _test_rock_heard() -> void:
 	client.call("_build_effects")
 	client.call("_listen_for_rock")
 	var audio: Node = client.get("audio")
-	var effects: DotFxManager = client.get("effects")
-	var sink := audio.get("manager").get("sink") as DotAudioSinkNull if audio != null else null
+	var effects: GSFxManager = client.get("effects")
+	var sink := audio.get("manager").get("sink") as GSAudioSinkNull if audio != null else null
 	var before := sink.count_of(&"rockfall") if sink != null else -1
 	var truck := (_server_game.drivers[_key] as DdGame.Driver).truck as Node3D
 	var at := truck.global_position + Vector3(5.0, 0.0, 0.0)
@@ -537,7 +537,7 @@ func _test_rock_heard() -> void:
 ## panel and an edit that applies and replicates; a guest, a non-admin, a revoked admin and the cvar off are refused.
 func _test_the_remote_workbench() -> void:
 	_section("[a flagged admin edits the server's profiles, and nobody else can]")
-	if not DotGameWorkbench.available():
+	if not GSGameWorkbench.available():
 		print("  dot-workbench is not linked: skipped")
 		_passed += 16
 		_finished_section()
@@ -554,19 +554,19 @@ func _test_the_remote_workbench() -> void:
 	var cbinder := DdConfig.make_binder(cgame.config)
 	var _l1 := sbinder.load_layers()
 	var _l2 := cbinder.load_layers()
-	var set: DotProfileSet = sbinder.profile_sets()[0]
-	var swb := DotGameWorkbench.new()
+	var set: GSProfileSet = sbinder.profile_sets()[0]
+	var swb := GSGameWorkbench.new()
 	swb.dedicated = true
 	swb.config = {"enabled": false}
 	swb.add_set(set, "Game settings")
 	holder.add_child(swb)
 	var started := swb.start(sgame.ensure_runtime())
 	sbinder.attach(swb.api.runtime)
-	var made := DotGameWorkbenchRemote.serve(snet)
-	var slink := DotNetProfileLink.attach(snet, swb.api.runtime as DotProfileRuntime)
-	var cremote := DotGameWorkbenchRemoteClient.attach(cnet)
+	var made := GSGameWorkbenchRemote.serve(snet)
+	var slink := GSNetProfileLink.attach(snet, swb.api.runtime as GSProfileRuntime)
+	var cremote := GSGameWorkbenchRemoteClient.attach(cnet)
 	var crt := cgame.ensure_runtime()
-	var clink := DotNetProfileLink.attach(cnet, crt)
+	var clink := GSNetProfileLink.attach(cnet, crt)
 	snet.messages.seal()
 	cnet.messages.seal()
 	var remote := swb.serve_remote(snet)
@@ -582,8 +582,8 @@ func _test_the_remote_workbench() -> void:
 	remote.connected_fn = func(_p: int) -> bool: return true
 	remote.permit_uid_fn = func(uid: String, flag: String) -> bool: return (flags.get(uid, []) as Array).has(flag)
 	remote.now_fn = func() -> int: return state["now"]
-	remote.limiter = DotRateLimiter.new(1000.0, 1000.0)
-	var cwb := DotGameWorkbench.new()
+	remote.limiter = GSRateLimiter.new(1000.0, 1000.0)
+	var cwb := GSGameWorkbench.new()
 	cwb.panel_mode = 2
 	cwb.config = {"enabled": false}
 	cwb.remote_client = cremote
@@ -595,7 +595,7 @@ func _test_the_remote_workbench() -> void:
 	var kind: String = set.rel_path
 	var edit := {"op": "set", "kind": kind, "id": sbinder.profile_id, "key": "start_hold_seconds", "value": 11.0}
 	var base: float = sgame.config.start_hold_seconds
-	var srt := swb.api.runtime as DotProfileRuntime
+	var srt := swb.api.runtime as GSProfileRuntime
 
 	_remote_workbench_access({"state": state, "flags": flags, "cremote": cremote, "cwb": cwb, "edit": edit, "sgame": sgame, "crt": crt,
 			"kind": kind, "sbinder": sbinder, "srt": srt, "remote": remote, "base": base})
@@ -611,14 +611,14 @@ func _test_the_remote_workbench() -> void:
 func _remote_workbench_access(rig: Dictionary) -> void:
 	var state: Dictionary = rig["state"]
 	var flags: Dictionary = rig["flags"]
-	var cremote: DotGameWorkbenchRemoteClient = rig["cremote"]
-	var cwb: DotGameWorkbench = rig["cwb"]
+	var cremote: GSGameWorkbenchRemoteClient = rig["cremote"]
+	var cwb: GSGameWorkbench = rig["cwb"]
 	var edit: Dictionary = rig["edit"]
 	var sgame: DdGame = rig["sgame"]
-	var crt: DotProfileRuntime = rig["crt"]
+	var crt: GSProfileRuntime = rig["crt"]
 	var kind: String = rig["kind"]
 	var sbinder: Variant = rig["sbinder"]
-	var srt: DotProfileRuntime = rig["srt"]
+	var srt: GSProfileRuntime = rig["srt"]
 	var remote: Variant = rig["remote"]
 	var base: float = rig["base"]
 
@@ -632,7 +632,7 @@ func _remote_workbench_access(rig: Dictionary) -> void:
 	cremote.ask()
 	_check(cremote.allowed and cremote.flags.has("cvar"), "with the cvar on an admin is told the flags it holds")
 	_check(cwb.overlay != null, "and gets the panel")
-	var applied: DotResult = cwb.api.handle(DotGameWorkbenchRemoteClient.ACTOR, edit)
+	var applied: GSResult = cwb.api.handle(GSGameWorkbenchRemoteClient.ACTOR, edit)
 	_check(applied.ok and is_equal_approx(sgame.config.start_hold_seconds, 11.0), "an edit from the panel reaches the server's live config", "" if applied.ok else applied.error.message)
 	_check(crt.revision(kind, sbinder.profile_id) > 0 and crt.revision(kind, sbinder.profile_id) == srt.revision(kind, sbinder.profile_id), "and its row replicated to the client")
 

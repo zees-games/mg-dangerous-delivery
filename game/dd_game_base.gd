@@ -82,10 +82,10 @@ signal toy_sound(id: StringName, at: Vector3, strength: float)
 
 ## The lot's toys (dot-props' loose ones), placed from [constant TOY_SPOTS] on both ends in the
 ## same order; a truck ploughs them, a walker pushes them. Null before a lot.
-var toys: DotPropBodyBox = null
+var toys: GSPropBodyBox = null
 
 ## dot-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
-var toy_rules: DotPropBodyRules = DotPropBodyRules.new()
+var toy_rules: GSPropBodyRules = GSPropBodyRules.new()
 
 ## The collision bit a loose toy is on: nothing else here uses it, a walker's mask (1 and the
 ## walkers' wall) never meets it, and the slab, the fence and every truck are on layer 1.
@@ -114,7 +114,7 @@ signal walker_placed(key: StringName)
 ## A truck was built for somebody (a trip's, or one to drive round in): the bridge replicates it.
 signal truck_made(key: StringName)
 ## Something came off [param key]'s truck, a tyre burst or a wheel went ([param event] is
-## [signal DotVehicleBreakage.broke]'s, with `at` and `velocity`), or it was put right (empty).
+## [signal GSVehicleBreakage.broke]'s, with `at` and `velocity`), or it was put right (empty).
 ## The bridge sends the truck's whole damage state on; the client shows effects from it.
 signal truck_damaged(key: StringName, event: Dictionary)
 ## A wheel's hub is on the road at [param at], moving at [param speed]: sparks, every step.
@@ -139,8 +139,8 @@ class Driver:
 	var truck: Node = null
 	var trailer: Node = null
 	var trip: RefCounted = null
-	var command: DotVehicleCommand = DotVehicleCommand.new()
-	var autopilot: DotVehicleDriver = null
+	var command: GSVehicleCommand = GSVehicleCommand.new()
+	var autopilot: GSVehicleDriver = null
 	## A person whose wheel is handed to [member autopilot] (a screenshot, a suite). Not a
 	## stand-in: their deliveries pay and count. A stand-in is [member is_bot].
 	var assisted: bool = false
@@ -213,7 +213,7 @@ var maps: Array[Dictionary] = []
 var workshop: Dictionary = {}
 
 ## The Workshop's index and the `map_kind`s taken from it; see [method follow_content].
-var content_index: DotContentIndex = null
+var content_index: GSContentIndex = null
 var content_kinds: PackedStringArray = PackedStringArray()
 
 ## route id -> DdRoute (in the tree, offset).
@@ -291,23 +291,23 @@ var hold_clock: Callable = Callable()
 ## or a bolt, count a fall), assigned by the module from dot-game's `can_peer_be_harmed`. Unset
 ## offline, and a stand-in is never loading. See [method can_be_harmed].
 var harm_gate: Callable = Callable()
-var _debris: DotVehicleDebris = null
+var _debris: GSVehicleDebris = null
 
 var _terrain_gen: int = 0
 
 ## Binds [member config] to cvars, the cfg/ yml layers and the workbench; made in [method _ready] unless a caller set one.
-var config_binder: DotGameConfigBinder = null
+var config_binder: GSGameConfigBinder = null
 
 ## The workbench's profile rows, made on first ask: the bridge's profile link must exist before the netcode seals, the workbench after.
-var profile_runtime: DotProfileRuntime = null
+var profile_runtime: GSProfileRuntime = null
 
 
 ## `mp_solidplayers`. Off here: walkers share the lot and trucks collide by `trucks_collide`; on, a pair of trucks collides only when [member block_rules] says the two block.
-var body_rules: DotPlayerBodyRules = DotPlayerBodyRules.new()
+var body_rules: GSPlayerBodyRules = GSPlayerBodyRules.new()
 ## The ambience cvars (`dd_ambient*`): bound by the module (REPLICATED), followed by a client through its link.
-var ambient_rules: DotAmbienceRules = DdAmbience.make_rules()
+var ambient_rules: GSAmbienceRules = DdAmbience.make_rules()
 
-## dot-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `DotGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
+## dot-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `GSGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
 var block_rules: Object = null:
 	set(value):
 		if block_rules != null and block_rules.has_signal(&"changed") and block_rules.is_connected(&"changed", body_rules.refresh):
@@ -317,5 +317,5 @@ var block_rules: Object = null:
 			block_rules.connect(&"changed", body_rules.refresh)
 
 ## The `truck` and `cargo` profile kinds (see [DdProfiles]); null before [method _ready].
-var truck_profiles: DotProfileSet = null
-var cargo_profiles: DotProfileSet = null
+var truck_profiles: GSProfileSet = null
+var cargo_profiles: GSProfileSet = null

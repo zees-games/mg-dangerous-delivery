@@ -8,7 +8,7 @@ const CHANNEL := "delivery.trailer"
 const DdTrucks := preload("dd_trucks.gd")
 const DdTrailerDamage := preload("dd_trailer_damage.gd")
 
-## Something came off (the event is [signal DotVehicleBreakage.broke]'s), or it was put right (empty).
+## Something came off (the event is [signal GSVehicleBreakage.broke]'s), or it was put right (empty).
 signal damaged(event: Dictionary)
 
 ## The size art-src/trailer/build.py draws the trailer at.
@@ -30,12 +30,12 @@ var lead: float = 0.0
 var _wheels: Array[VehicleWheel3D] = []
 
 ## Parts, load and wheels that come off; null until [method configure] has built them.
-var breakage: DotVehicleBreakage = null
-var damage: DotVehicleDamage:
+var breakage: GSVehicleBreakage = null
+var damage: GSVehicleDamage:
 	get:
 		return breakage.damage if breakage != null else null
 ## Its tumble and explosion, as the tractor's; null with no breakage.
-var wreck: DotVehicleWreck = null
+var wreck: GSVehicleWreck = null
 
 ## The breakable load as configured ({units, each, strength}), so a joiner can build the same units.
 var load_spec: Dictionary = {}
@@ -191,7 +191,7 @@ func rehitch(truck: VehicleBody3D) -> void:
 		joint.queue_free()
 
 	joint = null
-	DotLog.debug(CHANNEL, "the trailer was re-hitched", {"at": truck.global_position})
+	GSLog.debug(CHANNEL, "the trailer was re-hitched", {"at": truck.global_position})
 	place_behind(truck.global_transform)
 	hitch(truck)
 	repair()
@@ -250,7 +250,7 @@ func repair() -> void:
 		return
 	var worn := not damage.lost_parts().is_empty() or damage.distress() > 0.0
 	for i in damage.wheels.size():
-		worn = worn or damage.wheel_state(i) != DotVehicleDamage.Wheel.INTACT
+		worn = worn or damage.wheel_state(i) != GSVehicleDamage.Wheel.INTACT
 	if worn:
 		breakage.repair()
 		damaged.emit({})
@@ -274,11 +274,11 @@ func _build_breakage(spec: Dictionary, box: AABB, draws: bool) -> void:
 	if breakage == null:
 		return
 	breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
-	wreck = DotVehicleWreck.new()
+	wreck = GSVehicleWreck.new()
 	wreck.name = "Wreck"
 	wreck.draws = draws
 	add_child(wreck)
-	DotLog.result(CHANNEL, "the trailer's wreck", wreck.setup(self, breakage))
+	GSLog.result(CHANNEL, "the trailer's wreck", wreck.setup(self, breakage))
 
 
 ## Over the edge with its tractor: it tumbles on the mountain's layer [param ground] and explodes.

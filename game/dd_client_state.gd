@@ -43,7 +43,7 @@ var _spark_at: Dictionary = {}
 
 ## A command to drive with instead of the keys, when set: what a headless client in a suite has
 ## in place of a keyboard, and the seam a touch control would use.
-var command_override: DotVehicleCommand = null
+var command_override: GSVehicleCommand = null
 
 enum CameraMode { CHASE, CAB, HIGH }
 
@@ -56,11 +56,11 @@ var hud: DdHud = null
 var garage: DdGarage = null
 var camera: Camera3D = null
 var camera_mode: CameraMode = CameraMode.CHASE
-var command := DotVehicleCommand.new()
+var command := GSVehicleCommand.new()
 
 ## dot-fx's shader weather, one node per kind, round the camera (a mountain's worth of
 ## particles is a browser's whole frame); see [method _build_weather].
-var _weather: DotWeather = null
+var _weather: GSWeather = null
 var _weather_key := ""
 var _sun: DirectionalLight3D = null
 ## The sun's strength under a clear sky on this machine's profile; weather dims from it.
@@ -78,7 +78,7 @@ var force_view: int = 0
 ## Where the chase or high camera is heading before the level has its say: eased toward the
 ## place behind the truck, then swept from over the truck by [member _probe].
 var _chase_at := Vector3.ZERO
-var _probe: DotCameraProbe = null
+var _probe: GSCameraProbe = null
 var _was_cab := true
 var _seated_actions: DdSeatedActions = null
 var _last_truck_at := Vector3.INF
@@ -94,15 +94,15 @@ const FOG_SNOW := 0.0028
 ## restart, a new route): the camera cuts to its place rather than easing across the map.
 const CUT_DISTANCE := 20.0
 
-var chat: DotGameChatClient = null
+var chat: GSGameChatClient = null
 ## The truck's and the mountain's sounds, through dot-audio. See [DdAudio].
 var audio: DdAudio = null
 ## Rock coming down near you, felt as well as heard: a dot-fx shake, so the settings' shake
 ## slider reaches it. See [method _build_effects].
-var effects: DotFxManager = null
+var effects: GSFxManager = null
 
 ## Where a thrown-out driver lies, built the first time a truck is wrecked.
-var _ragdolls: DotPlayerRagdolls = null
+var _ragdolls: GSPlayerRagdolls = null
 ## The shake added to the camera last frame, taken off again before the chase camera eases,
 ## so the jolt never feeds into where the camera is heading.
 var _shaken := Vector3.ZERO
@@ -112,17 +112,17 @@ var settings: DdSettings = null
 
 ## The player's console: the platform's, kept under this name for the suites.
 var console: Node = null
-var net: DotNetManager = null
+var net: GSNetManager = null
 var bridge: DdNetBridge = null
 var link: Node = null
 
 ## The Tab board, the menu's (held on [constant DdBindings.SCOREBOARD]). See [method _wire_board].
-var board: DotMenuScoreboard = null
+var board: GSMenuScoreboard = null
 
 ## The platform layer: loading gate, settings and menu, console, Tab, M, the input block and the
 ## browser flush. The pointer stays this client's ([method pointer_mode]), so its
-## [member DotGameClient.capture_pointer] is off.
-var platform: DotGameClient = null
+## [member GSGameClient.capture_pointer] is off.
+var platform: GSGameClient = null
 
 ## When this client started, for an offline board's "time".
 var _started_msec: int = Time.get_ticks_msec()
@@ -134,7 +134,7 @@ var walker: DdWalker = null
 
 ## An intent to walk with instead of the keys and mouse, when set: what a suite has in place
 ## of a keyboard (the walker's [member command_override]).
-var walk_override: DotPlayerIntent = null
+var walk_override: GSPlayerIntent = null
 
 ## The phone's buttons and look finger; null off a touch device.
 var touch: DdTouch = null
@@ -155,7 +155,7 @@ const ORBIT_PITCH_MAX := 1.0
 ## or the only view under `mp_forceview 1`).
 var foot_first_person: bool = false
 
-var _foot_probe: DotCameraProbe = null
+var _foot_probe: GSCameraProbe = null
 
 ## Metres the on-foot chase camera sits behind and over the walker's eyes.
 const FOOT_CAMERA_BACK := 4.2
@@ -173,18 +173,18 @@ var loading: DdLoadScreen = null
 
 ## Keeps the screen covered, the walker still and the world's clock stopped until the routes and
 ## mountains are laid and the player stands in the lot. See [method _build_gate].
-var gate: DotLoadGate = null
+var gate: GSLoadGate = null
 
 
 ## Rain and snow are particles round the camera, not over the mountain: what falls a kilometre
 ## away cannot be seen, and a mountain's worth of particles is a browser's whole frame.
 func _build_weather() -> void:
-	_weather = DotWeather.new()
+	_weather = GSWeather.new()
 	_weather.name = "Weather"
 	add_child(_weather)
 
 
-## Mist behind the driver's own tyres on a wet road (dot-vehicle's [code]DotVehicleSpray[/code]).
+## Mist behind the driver's own tyres on a wet road (dot-vehicle's [code]GSVehicleSpray[/code]).
 func _spray(me: DdGame.Driver, weather: Dictionary) -> void:
 	if me == null or me.truck == null or not is_instance_valid(me.truck):
 		return
@@ -226,20 +226,20 @@ func _set_weather(weather: Dictionary) -> void:
 ## The driver of a truck that exploded, thrown clear and left to tumble down the mountain.
 func _throw_out_driver(key: StringName, at: Vector3, velocity: Vector3) -> void:
 	if _ragdolls == null:
-		_ragdolls = DotPlayerRagdolls.new()
+		_ragdolls = GSPlayerRagdolls.new()
 		_ragdolls.name = "Ragdolls"
 		_ragdolls.rules.collision_mask = 1 | DdRoute.CAMERA_LAYER
 		_ragdolls.rules.max_sim_time = 20.0
 		_ragdolls.rules.lifetime = 14.0
 		game.add_child(_ragdolls)
 
-	var person := DotHumanoidFigure.new()
+	var person := GSHumanoidFigure.new()
 	person.name = "Thrown"
 	game.add_child(person)
-	person.build(DotHumanoidLook.stock(absi(String(key).hash())), DdWalker.HEIGHT)
+	person.build(GSHumanoidLook.stock(absi(String(key).hash())), DdWalker.HEIGHT)
 	person.global_position = at + Vector3(0.0, 1.0, 0.0)
-	var death := DotPlayerDeath.new()
-	death.reaction = DotPlayerDeathReactions.LIMP
+	var death := GSPlayerDeath.new()
+	death.reaction = GSPlayerDeathReactions.LIMP
 	death.direction = velocity.normalized() if velocity.length() > 0.1 else Vector3.FORWARD
 	death.damage = 100.0
 	var out := velocity * 0.8 + Vector3(0.0, 7.0, 0.0) + death.direction.cross(Vector3.UP) * 3.0

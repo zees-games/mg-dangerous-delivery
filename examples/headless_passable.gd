@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
@@ -30,7 +30,7 @@ var _completed := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -127,7 +127,7 @@ func _test_stress() -> void:
 	_completed += 1
 
 
-## The crown ([DotRoadProfile]): a route's camber is percent, defaults to [constant DdRouteDoc.DEFAULT_CAMBER],
+## The crown ([GSRoadProfile]): a route's camber is percent, defaults to [constant DdRouteDoc.DEFAULT_CAMBER],
 ## refuses a negative one, and the deck's collision falls away from the centreline by it; a camber of 0
 ## lays the flat deck there was before, its surface at the centreline's height all the way across.
 func _test_camber() -> void:
@@ -168,7 +168,7 @@ func _test_camber() -> void:
 	await get_tree().physics_frame
 	# On level stretches, 1.5 m either side of the centre: on the deck at every width, clear of the dash.
 	var x := 1.5
-	var fall := DotRoadProfile.camber_slope_of(DdRouteDoc.DEFAULT_CAMBER) * x
+	var fall := GSRoadProfile.camber_slope_of(DdRouteDoc.DEFAULT_CAMBER) * x
 	var samples := 0
 	var bad := PackedStringArray()
 	for i in range(1, crowned.points.size() - 1):

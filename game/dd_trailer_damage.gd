@@ -18,8 +18,8 @@ const PARTS := [
 ## Parts, load and wheels on [param trailer], whose box is [param box] in its frame. [param model]
 ## is the drawn trailer (null on a server). [param loads] is the load's `{units, each, strength}`
 ## (empty for none). Returns the breakage, or null when it could not be set up.
-static func build(trailer: VehicleBody3D, box: AABB, model: Node3D, tough: float, loads: Dictionary) -> DotVehicleBreakage:
-	var damage := DotVehicleDamage.new()
+static func build(trailer: VehicleBody3D, box: AABB, model: Node3D, tough: float, loads: Dictionary) -> GSVehicleBreakage:
+	var damage := GSVehicleDamage.new()
 
 	for p: Dictionary in PARTS:
 		var lo := Vector3(_frac(p, "x", 0), _frac(p, "y", 0), _frac(p, "z", 0))
@@ -37,7 +37,7 @@ static func build(trailer: VehicleBody3D, box: AABB, model: Node3D, tough: float
 
 		var added := damage.add_part(id, StringName(str(p["kind"])), region.get_center(),
 			float(p["strength"]) * tough, float(p.get("reach", 1.2)), float(p["mass"]), node_path)
-		DotLog.result(CHANNEL, "a trailer part", added)
+		GSLog.result(CHANNEL, "a trailer part", added)
 
 	var units := int(loads.get("units", 0))
 
@@ -47,11 +47,11 @@ static func build(trailer: VehicleBody3D, box: AABB, model: Node3D, tough: float
 		var _c := damage.add_part(StringName("trailer_cargo_%d" % k), &"cargo", at,
 			float(loads.get("strength", 9.0)) * tough, 1.6, float(loads.get("each", 0.0)))
 
-	var breakage := DotVehicleBreakage.new()
+	var breakage := GSVehicleBreakage.new()
 	breakage.name = "Breakage"
 	trailer.add_child(breakage)
 	var made := breakage.setup(trailer, damage, null, 10.0 * tough, 16.0 * tough)
-	DotLog.result(CHANNEL, "the trailer's breakage", made)
+	GSLog.result(CHANNEL, "the trailer's breakage", made)
 	return breakage if made.ok else null
 
 
@@ -68,7 +68,7 @@ static func _carve(model: Node3D, id: StringName, region: AABB) -> Node3D:
 			continue
 
 		var local := (model.transform * mesh.transform).affine_inverse() * region
-		var cut := DotVehicleDebris.carve(mesh, local)
+		var cut := GSVehicleDebris.carve(mesh, local)
 
 		if cut != null:
 			cut.name = "Part_%s" % id

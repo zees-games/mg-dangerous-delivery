@@ -40,7 +40,7 @@ static func shipped() -> Array[Dictionary]:
 			if normal.ok:
 				out.append(normal.value)
 			else:
-				DotLog.warn(CHANNEL, "a map was refused", {"file": file, "why": normal.error.message})
+				GSLog.warn(CHANNEL, "a map was refused", {"file": file, "why": normal.error.message})
 
 	if out.is_empty():
 		out.append(DdMapDoc.fallback(String(DEFAULT), "The Whole Range"))

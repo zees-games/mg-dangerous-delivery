@@ -1,10 +1,10 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 const DdGame := preload("res://game/dd_game.gd")
 const DdMountains := preload("res://game/dd_mountains.gd")
 const DdVote := preload("res://game/dd_vote.gd")
 
-## What a subscribed map pack does to this game's lists, against a fixture [DotContentIndex].
+## What a subscribed map pack does to this game's lists, against a fixture [GSContentIndex].
 ##   godot --headless --path . res://examples/headless_workshop.tscn
 ## A solo pack map is listed and playable, an online session lists none of it, an unaccepted kind is left out, the game's own ids win.
 
@@ -17,7 +17,7 @@ var _completed := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -48,8 +48,8 @@ func _write_fixture() -> void:
 
 ## A pack with a delivery map, a map of a kind the game does not accept, and a map that claims
 ## the id of one of the game's own.
-func _index(session: StringName) -> DotContentIndex:
-	var index := DotContentIndex.new()
+func _index(session: StringName) -> GSContentIndex:
+	var index := GSContentIndex.new()
 	index.set_session(session)
 	var added := index.add_pack({
 		"content_id": "fixture/passes", "version": "1.0.0", "prefix": DIR,
@@ -64,7 +64,7 @@ func _index(session: StringName) -> DotContentIndex:
 	return index
 
 
-func _world(index: DotContentIndex) -> DdGame:
+func _world(index: GSContentIndex) -> DdGame:
 	var world := DdGame.new()
 	world.draws = false
 	add_child(world)
@@ -103,7 +103,7 @@ func _test_solo() -> void:
 	_entered += 1
 	print("")
 	print("solo")
-	var world := _world(_index(DotContentIndex.SESSION_SOLO))
+	var world := _world(_index(GSContentIndex.SESSION_SOLO))
 	_check(_ids(world).has(String(MAP)), "the accepted map is in the M menu rows", str(_ids(world)))
 	_check(_names(world).has("Fixture Pass [Fixture Pack]"), "listed as Name [Pack]", str(_names(world)))
 	_check(not _ids(world).has("fixture_run"), "a map kind the game does not accept is filtered out")
@@ -119,16 +119,16 @@ func _test_online() -> void:
 	_entered += 1
 	print("")
 	print("online")
-	var index := _index(DotContentIndex.SESSION_SOLO)
+	var index := _index(GSContentIndex.SESSION_SOLO)
 	var world := _world(index)
 	_check(_ids(world).has(String(MAP)), "listed while the index is solo")
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	_check(not _ids(world).has(String(MAP)), "gone from the same world when the session turns online", str(_ids(world)))
 	_check(not world.set_mountain(MAP).ok, "and it cannot be chosen")
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	_check(_ids(world).has(String(MAP)), "back when it turns solo again")
-	var late := _index(DotContentIndex.SESSION_SOLO)
-	late.set_session(DotContentIndex.SESSION_ONLINE)
+	var late := _index(GSContentIndex.SESSION_SOLO)
+	late.set_session(GSContentIndex.SESSION_ONLINE)
 	var born_online := _world(late)
 	_check(not _ids(born_online).has(String(MAP)), "a world built online never lists it")
 	world.free()
@@ -140,7 +140,7 @@ func _test_ids() -> void:
 	_entered += 1
 	print("")
 	print("the game's own ids")
-	var world := _world(_index(DotContentIndex.SESSION_SOLO))
+	var world := _world(_index(GSContentIndex.SESSION_SOLO))
 	_check(world.label_of(&"low_country") == "Low Country" and not world.is_workshop(&"low_country"),
 		"a pack map claiming low_country does not replace the game's", world.label_of(&"low_country"))
 	world.free()
@@ -154,11 +154,11 @@ func _test_bad() -> void:
 	var file := FileAccess.open(DIR + "bad.json", FileAccess.WRITE)
 	file.store_string("{ this is not json")
 	file.close()
-	var index := DotContentIndex.new()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	var index := GSContentIndex.new()
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	var added := index.add_pack({
 		"content_id": "fixture/bad", "version": "1.0.0", "prefix": DIR,
-		"session": DotContentIndex.SESSION_SOLO, "source": &"subscription",
+		"session": GSContentIndex.SESSION_SOLO, "source": &"subscription",
 		"provides": {"schema": 1, "title": "Bad Pack", "kinds": ["map"], "entries": [
 			{"kind": "map", "id": "bad_json", "name": "Bad", "scene": "bad.json", "map_kind": "delivery"},
 			{"kind": "map", "id": "bad_missing", "name": "Gone", "scene": "nope.json", "map_kind": "delivery"},
@@ -187,7 +187,7 @@ func _test_vote() -> void:
 	_entered += 1
 	print("")
 	print("the ballot")
-	var index := _index(DotContentIndex.SESSION_SOLO)
+	var index := _index(GSContentIndex.SESSION_SOLO)
 	var world := _world(index)
 	var vote := DdVote.new()
 	vote.content_index = index
@@ -204,7 +204,7 @@ func _test_vote() -> void:
 	_check(labels.has("The Whole Range") or labels.has("Low Country"), "beside the game's own, unlabelled", str(labels))
 	_check(not labels.has("Fixture Run [Fixture Pack]"), "and not a kind the game does not accept")
 	_check(labels.count("Fixture Pass [Fixture Pack]") == 1, "once")
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	labels = _labels(vote)
 	_check(not labels.has("Fixture Pass [Fixture Pack]"), "online the same ballot lists none of it", str(labels))
 	_check(labels.has("Low Country"), "and still has the game's own")

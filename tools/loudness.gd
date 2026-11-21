@@ -37,7 +37,7 @@ func _ready() -> void:
 	client.game.end_trip(client.local_key)
 	client._act("start", {"route": str(client.auto_route)})
 	var sky := str(_args.get("sky", "snow"))
-	var _forced: DotResult = client.game.force_weather("clear" if sky == "wind" else sky, sky == "wind" or sky == "snow")
+	var _forced: GSResult = client.game.force_weather("clear" if sky == "wind" else sky, sky == "wind" or sky == "snow")
 
 	# The loud case from the first play test: a stand-in on the same road, its engine beside yours.
 	for k in int(_args.get("company", "2")):

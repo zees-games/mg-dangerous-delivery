@@ -27,7 +27,7 @@ func _test_damage() -> void:
 	game.truck_damaged.connect(func(_k: StringName, e: Dictionary) -> void: events.append("%s:%s" % [e.get("kind", ""), e.get("id", e.get("wheel", ""))]))
 
 	# Square on the front bumper (the front of the body's box is its -Z end).
-	var front: Vector3 = (truck.damage.parts[&"bumper_front"] as DotVehicleDamage.Part).centre
+	var front: Vector3 = (truck.damage.parts[&"bumper_front"] as GSVehicleDamage.Part).centre
 	var _h := truck.breakage.hit(front, 6.0)
 	_check(truck.damage.lost_parts().has(&"bumper_front") and not truck.damage.lost_parts().has(&"bumper_rear"),
 		"a knock at the front takes the front bumper and leaves the back one", str(truck.damage.lost_parts()))
@@ -41,7 +41,7 @@ func _test_damage() -> void:
 		"a hard knock at the back of the bed throws a unit of the load: the truck is lighter and the pay smaller",
 		"%d units, %.0f -> %.0f kg, cargo %.2f -> %.2f" % [gone, mass, truck.mass, pay, (me.trip as DdTrip).cargo])
 
-	var wheel := (truck.chassis as DotVehicleWheeled).wheels()[0]
+	var wheel := (truck.chassis as GSVehicleWheeled).wheels()[0]
 	var grip := wheel.wheel_friction_slip
 	var _p := truck.breakage.damage.pop(0)
 	truck.breakage._show(_p, wheel.position, 0.0)
@@ -50,14 +50,14 @@ func _test_damage() -> void:
 
 	var _l := truck.breakage.damage.lose_wheel(3)
 	truck.breakage._show(_l, Vector3.ZERO, 0.0)
-	_check(not (truck.chassis as DotVehicleWheeled).wheels()[3].use_as_traction and events.has("lost:3"),
+	_check(not (truck.chassis as GSVehicleWheeled).wheels()[3].use_as_traction and events.has("lost:3"),
 		"a lost wheel drives nothing", str(events))
 
 	game.end_trip(&"t")
 	me = _set_off(&"box_truck", &"crates", &"t_flat")
 	await _seconds(0.3)
 	truck = _truck(me)
-	_check(truck.damage.lost_parts().is_empty() and truck.damage.wheel_state(3) == DotVehicleDamage.Wheel.INTACT,
+	_check(truck.damage.lost_parts().is_empty() and truck.damage.wheel_state(3) == GSVehicleDamage.Wheel.INTACT,
 		"a new trip's truck is whole", str(truck.damage.describe()))
 	game.end_trip(&"t")
 	_finished_section()
@@ -74,7 +74,7 @@ func _test_trailer_damage() -> void:
 		"a trailer carries panels, doors, its load in units and four wheels", str(trailer.damage.describe() if trailer != null and trailer.damage != null else {}))
 	var events: Array = []
 	game.truck_damaged.connect(func(_k: StringName, e: Dictionary) -> void: events.append(e))
-	var back: Vector3 = (trailer.damage.parts[&"trailer_door_left"] as DotVehicleDamage.Part).centre
+	var back: Vector3 = (trailer.damage.parts[&"trailer_door_left"] as GSVehicleDamage.Part).centre
 	var _h: Variant = trailer.breakage.hit(back, 8.0)
 	_check(trailer.damage.lost_parts().has(&"trailer_door_left") and not trailer.damage.lost_parts().has(&"trailer_panel_left"),
 		"a knock at the back takes the rear door and leaves the side panel", str(trailer.damage.lost_parts()))
@@ -82,11 +82,11 @@ func _test_trailer_damage() -> void:
 		"the loss is announced tagged as the trailer's", str(events))
 	_check(_truck(me).damage.lost_parts().is_empty(), "and the tractor lost nothing", str(_truck(me).damage.lost_parts()))
 	var before: float = me.trip.cargo
-	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as DotVehicleDamage.Part).centre, 12.0)
+	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as GSVehicleDamage.Part).centre, 12.0)
 	_check(me.trip.cargo < before, "a unit of the trailer's load gone costs its share of the pay", "%.2f -> %.2f" % [before, me.trip.cargo])
 	var _l: Variant = trailer.breakage.damage.lose_wheel(1)
 	trailer.breakage._show(_l, Vector3.ZERO, 0.0)
-	_check(trailer.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST, "a trailer wheel comes off", str(trailer.damage.describe()))
+	_check(trailer.damage.wheel_state(1) == GSVehicleDamage.Wheel.LOST, "a trailer wheel comes off", str(trailer.damage.describe()))
 	game.end_trip(&"t")
 	_finished_section()
 

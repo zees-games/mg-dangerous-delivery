@@ -1,9 +1,9 @@
-extends DotMenuGameSettings
+extends GSMenuGameSettings
 
 const DdBindings := preload("dd_bindings.gd")
 
 ## A player's own settings and the menu that changes them: view, loudness, the window and the menu's look. The lot's SETTINGS button and O open it.
-## dot-menu's `DotMenuGameSettings` with this game's spec; `sensitivity` is ACCOUNT scope, `field_of_view` SERVER_CLAMPED, the volumes this machine's.
+## dot-menu's `GSMenuGameSettings` with this game's spec; `sensitivity` is ACCOUNT scope, `field_of_view` SERVER_CLAMPED, the volumes this machine's.
 ## Use: `setup()`, then `bind_look`, `bind_camera`, `bind_audio`, and `open()` (Escape does this in the client).
 
 const SCHEMA_VERSION := 1
@@ -30,8 +30,8 @@ func _init() -> void:
 
 
 ## The game's settings as data: names, field of view, extra settings, keys and the help screen's goal and rules.
-static func spec_for() -> DotMenuGameSpec:
-	var s := DotMenuGameSpec.new()
+static func spec_for() -> GSMenuGameSpec:
+	var s := GSMenuGameSpec.new()
 	s.schema_version = SCHEMA_VERSION
 	s.brand_name = "Dangerous Delivery"
 	s.settings_dir = SETTINGS_DIR
@@ -43,7 +43,7 @@ static func spec_for() -> DotMenuGameSpec:
 	s.open_on_pointer_release = false
 	s.ambient_text = "Quiet sounds under the mountain."
 	s.not_applied = NOT_APPLIED
-	s.bindings_maker = func() -> DotMenuBindings: return DdBindings.make()
+	s.bindings_maker = func() -> GSMenuBindings: return DdBindings.make()
 	s.help_about = "Drive a loaded truck up mountain roads with no rails, through the weather and falling rock, and deliver it. A route is a level; a harder truck and worse weather pay more."
 	s.help_cards = [
 		["The trip", "A fall or a truck on its side sends you back to the last checkpoint, and that costs money. Skipping a stage costs part of the pay. Solo hides you from everybody, so nobody can knock you off."],

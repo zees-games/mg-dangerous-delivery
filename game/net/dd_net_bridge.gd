@@ -12,14 +12,14 @@ func _exit_tree() -> void:
 		profile_link = null
 
 
-func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
+func attach(p_game: Object, p_net: GSNetManager) -> GSResult:
 	var world := p_game as DdGame
 
 	if world == null or p_net == null:
-		return DotResult.fail(DotError.CODE_INVALID, "A bridge needs a world and a manager.")
+		return GSResult.fail(GSError.CODE_INVALID, "A bridge needs a world and a manager.")
 
 	if world.authoritative != p_net.is_server:
-		return DotResult.fail(DotError.CODE_STATE, "The world and the manager disagree about who is authoritative.")
+		return GSResult.fail(GSError.CODE_STATE, "The world and the manager disagree about who is authoritative.")
 
 	game = world
 	net = p_net
@@ -28,12 +28,12 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 	if world.disasters != null and net.is_server:
 		world.disasters.send_fn = func(msg: Dictionary) -> void: _broadcast(DdEvents.Kind.DISASTER, msg)
 
-	var event := net.messages.register(DdEvent.NAME, DdEvent, DotNetMessage.Delivery.RELIABLE, DotNetMessage.Direction.TO_CLIENT)
+	var event := net.messages.register(DdEvent.NAME, DdEvent, GSNetMessage.Delivery.RELIABLE, GSNetMessage.Direction.TO_CLIENT)
 
 	if not event.ok:
 		return event
 
-	var request := net.messages.register(DdRequest.NAME, DdRequest, DotNetMessage.Delivery.RELIABLE, DotNetMessage.Direction.TO_SERVER)
+	var request := net.messages.register(DdRequest.NAME, DdRequest, GSNetMessage.Delivery.RELIABLE, GSNetMessage.Direction.TO_SERVER)
 
 	if not request.ok:
 		return request
@@ -42,7 +42,7 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 	net.messages.on(DdRequest.NAME, _on_request)
 
 	# Edited profiles reach every client, so a remote admin's panel shows what the server holds; edits go through the remote workbench.
-	profile_link = DotNetProfileLink.attach(net, world.ensure_runtime())
+	profile_link = GSNetProfileLink.attach(net, world.ensure_runtime())
 
 	# The bridge ticks the world on both ends; a world also ticking itself would step twice.
 	game.self_tick = false
@@ -63,7 +63,7 @@ func attach(p_game: Object, p_net: DotNetManager) -> DotResult:
 	if net.is_server:
 		_connect_server_signals()
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## What the server tells clients when the world changes.
@@ -111,7 +111,7 @@ func open_link(parent: Node) -> void:
 	# Not parent.add_child: the link must sit under the server node (RPCs route by path) but die
 	# with this bridge. A bare add_child left a second link after every module reload, Godot
 	# renamed the live one `@Node@n`, and RPCs to real clients were lost without an error.
-	DotGameLink.attach(link, parent, self, DdNetLink.NODE_NAME)
+	GSGameLink.attach(link, parent, self, DdNetLink.NODE_NAME)
 
 
 static func session_key(session_id: int) -> StringName:
@@ -119,9 +119,9 @@ static func session_key(session_id: int) -> StringName:
 
 
 
-func add_player(peer_id: int, session_id: int, display_name: String) -> DotResult:
+func add_player(peer_id: int, session_id: int, display_name: String) -> GSResult:
 	if net == null or not net.is_server:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Only the server adds players.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Only the server adds players.")
 
 	var key: StringName = key_fn.call(peer_id, session_id) if key_fn.is_valid() else session_key(session_id)
 
@@ -134,7 +134,7 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 	var held_by: int = int(_peer_of_key.get(key, 0))
 
 	if held_by != 0 and held_by != peer_id:
-		DotLog.info(CHANNEL, "a newer connection of the same account takes the driver", {"key": String(key), "old_peer": held_by, "new_peer": peer_id})
+		GSLog.info(CHANNEL, "a newer connection of the same account takes the driver", {"key": String(key), "old_peer": held_by, "new_peer": peer_id})
 		remove_peer(held_by)
 		superseded.emit(held_by, key)
 
@@ -150,7 +150,7 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> DotResul
 		_ready_unseated.erase(peer_id)
 		_admit(peer_id)
 
-	return DotResult.success(key)
+	return GSResult.success(key)
 
 
 ## A name that arrived after the driver was seated (dot-platform admits AFTER the seat) or an
@@ -228,7 +228,7 @@ func _register_toys() -> void:
 ## A toy's behaviour and identity under [param parent], registered under [param net_id] (0
 ## allocates: the server); null when the registry refused it. The behaviour before the
 ## identity, which collects behaviours in its `_ready`.
-func _toy_entity(toy: DotPropBody, parent: Node, net_id: int) -> DdToyNet:
+func _toy_entity(toy: GSPropBody, parent: Node, net_id: int) -> DdToyNet:
 	var behaviour := DdToyNet.new()
 	behaviour.name = "Net"
 	behaviour.toy = toy
@@ -240,14 +240,14 @@ func _toy_entity(toy: DotPropBody, parent: Node, net_id: int) -> DdToyNet:
 	at.add_child(behaviour)
 	if net.is_server:
 		behaviour.pull()
-	var identity := DotNetIdentity.new()
+	var identity := GSNetIdentity.new()
 	identity.name = "Identity"
 	identity.owner_peer_id = 0
-	identity.authority = DotNetIdentity.Authority.SERVER
+	identity.authority = GSNetIdentity.Authority.SERVER
 	at.add_child(identity)
 	var registered := net.registry.register(identity, net_id, net.clock.tick, net.config)
 	if not registered.ok:
-		DotLog.warn(CHANNEL, "could not replicate a toy", {"toy": _toy_nets.size(), "error": str(registered.error)})
+		GSLog.warn(CHANNEL, "could not replicate a toy", {"toy": _toy_nets.size(), "error": str(registered.error)})
 		at.remove_child(behaviour)
 		at.remove_child(identity)
 		behaviour.queue_free()
@@ -306,7 +306,7 @@ func _pair_pending_toys() -> void:
 		return
 	var box := game.toys if game.toys != null and _toys_map == LOT else null
 	if box != null and box.count() != _toy_nets.size():
-		DotLog.warn(CHANNEL, "the server's map has a different number of toys", {"server": _toy_nets.size(), "here": box.count()})
+		GSLog.warn(CHANNEL, "the server's map has a different number of toys", {"server": _toy_nets.size(), "here": box.count()})
 	for i in range(_toy_nets.size()):
 		var behaviour: DdToyNet = _toy_nets[i]
 		behaviour.toy = box.toy(i) if box != null else null
@@ -424,7 +424,7 @@ func _on_truck_damaged(key: StringName, event: Dictionary) -> void:
 
 	var truck := driver.truck as DdTruck
 	var of_trailer := str(event.get("body", "")) == "trailer"
-	var hurt: DotVehicleDamage = (driver.trailer as DdTrailer).damage if of_trailer and driver.trailer != null else truck.damage
+	var hurt: GSVehicleDamage = (driver.trailer as DdTrailer).damage if of_trailer and driver.trailer != null else truck.damage
 
 	if hurt == null:
 		return
@@ -557,14 +557,14 @@ func _on_boulder_gone(body: RigidBody3D) -> void:
 		_broadcast(DdEvents.Kind.BODY_GONE, {"net_id": net_id})
 
 
-## Behaviour before identity: [DotNetIdentity] collects its behaviours in `_ready`.
-func _replicate(behaviour: DotNetBehaviour, body: Node3D, owner_peer: int, net_id: int = 0) -> int:
+## Behaviour before identity: [GSNetIdentity] collects its behaviours in `_ready`.
+func _replicate(behaviour: GSNetBehaviour, body: Node3D, owner_peer: int, net_id: int = 0) -> int:
 	body.add_child(behaviour)
-	var identity := DotNetIdentity.new()
+	var identity := GSNetIdentity.new()
 	identity.name = "Identity"
 	identity.owner_peer_id = owner_peer
 	# SERVER: nothing here is predicted, so there is no owner to share authority with.
-	identity.authority = DotNetIdentity.Authority.SERVER
+	identity.authority = GSNetIdentity.Authority.SERVER
 	# Always: a mountain road has nothing tall enough to hide a truck behind, and culling one
 	# only ever produces a truck that vanishes on a bend.
 	identity.always_relevant = true
@@ -572,7 +572,7 @@ func _replicate(behaviour: DotNetBehaviour, body: Node3D, owner_peer: int, net_i
 	var registered := net.registry.register(identity, net_id, net.clock.tick, net.config)
 
 	if not registered.ok:
-		DotLog.warn(CHANNEL, "could not replicate a body", {"error": str(registered.error)})
+		GSLog.warn(CHANNEL, "could not replicate a body", {"error": str(registered.error)})
 		return 0
 
 	_entities[identity.net_id] = behaviour
@@ -689,37 +689,37 @@ func _tell(peer_id: int, kind: int, data: Dictionary) -> void:
 
 
 
-func receive_input(peer_id: int, payload: PackedByteArray) -> DotResult:
+func receive_input(peer_id: int, payload: PackedByteArray) -> GSResult:
 	if net == null or not net.is_server:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Only the server takes input.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Only the server takes input.")
 
 	var key: StringName = _player_of_peer.get(peer_id, &"")
 
 	if key == &"":
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "That peer has no player.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "That peer has no player.")
 
 	if payload.size() <= ACK_BYTES:
-		return DotResult.fail(DotError.CODE_PARSE, "Input packet is too short.")
+		return GSResult.fail(GSError.CODE_PARSE, "Input packet is too short.")
 
 	var _acked := net.receive_ack_payload(peer_id, payload.slice(0, ACK_BYTES))
-	game.set_command(key, DdEvents.read_drive(DotNetReader.new(payload.slice(ACK_BYTES, ACK_BYTES + DRIVE_BYTES))))
-	var walked := DdEvents.read_walk(DotNetReader.new(payload.slice(ACK_BYTES + DRIVE_BYTES)))
+	game.set_command(key, DdEvents.read_drive(GSNetReader.new(payload.slice(ACK_BYTES, ACK_BYTES + DRIVE_BYTES))))
+	var walked := DdEvents.read_walk(GSNetReader.new(payload.slice(ACK_BYTES + DRIVE_BYTES)))
 
 	if not walked.is_empty():
 		var _accepted := game.walk(key, walked["at"], float(walked["yaw"]))
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
-func receive_request(peer_id: int, payload: PackedByteArray) -> DotResult:
-	return net.receive(payload, peer_id) if net != null else DotResult.fail(DotError.CODE_STATE, "No manager.")
+func receive_request(peer_id: int, payload: PackedByteArray) -> GSResult:
+	return net.receive(payload, peer_id) if net != null else GSResult.fail(GSError.CODE_STATE, "No manager.")
 
 
-func receive_event(payload: PackedByteArray) -> DotResult:
-	return net.receive(payload, 1) if net != null else DotResult.fail(DotError.CODE_STATE, "No manager.")
+func receive_event(payload: PackedByteArray) -> GSResult:
+	return net.receive(payload, 1) if net != null else GSResult.fail(GSError.CODE_STATE, "No manager.")
 
 
-func _on_request(message: DotNetMessage) -> void:
+func _on_request(message: GSNetMessage) -> void:
 	var ask := message as DdRequest
 
 	if ask == null or net == null or not net.is_server:
@@ -755,7 +755,7 @@ func _on_request(message: DotNetMessage) -> void:
 
 ## What a garage button or a key asks for, answered by the world. Server side, and the same
 ## call an offline client makes against its own world.
-func act(key: StringName, args: Dictionary) -> DotResult:
+func act(key: StringName, args: Dictionary) -> GSResult:
 	return DdBridgeActs.run(game, key, args)
 
 
@@ -778,7 +778,7 @@ func _ask(kind: int, data: Dictionary) -> void:
 
 
 ## Once a tick on a connected client: what is pressed, with the latest snapshot acknowledged.
-func client_tick(tick: int, command: DotVehicleCommand) -> void:
+func client_tick(tick: int, command: GSVehicleCommand) -> void:
 	if net == null or net.is_server or game == null:
 		return
 
@@ -792,14 +792,14 @@ func client_tick(tick: int, command: DotVehicleCommand) -> void:
 	if link != null and command != null and local_key != &"":
 		var payload := net.encode_ack()
 		payload.append_array(DdEvents.write_drive(command))
-		var walk := DotNetWriter.new()
+		var walk := GSNetWriter.new()
 		var on_foot := walk_report.size() == 2
 		DdEvents.write_walk(walk, on_foot, walk_report[0] if on_foot else Vector3.ZERO, float(walk_report[1]) if on_foot else 0.0)
 		payload.append_array(walk.to_bytes())
 		link.send_input(payload)
 
 
-func _on_event(message: DotNetMessage) -> void:
+func _on_event(message: GSNetMessage) -> void:
 	var event := message as DdEvent
 
 	if event == null or game == null or net == null or net.is_server:
@@ -839,7 +839,7 @@ func _on_event(message: DotNetMessage) -> void:
 			game.apply_weather_config(data.get("config", {}))
 		DdEvents.Kind.DISASTER:
 			if game.disasters != null and game.disasters.linked():
-				DotLog.result(CHANNEL, "a disaster message", game.disasters.receive(data))
+				GSLog.result(CHANNEL, "a disaster message", game.disasters.receive(data))
 		DdEvents.Kind.BODY:
 			_apply_body(data)
 		DdEvents.Kind.MOUNTAIN:
@@ -975,7 +975,7 @@ func _apply_damage(data: Dictionary) -> void:
 	var of_trailer := str(data.get("body", "")) == "trailer"
 	var trailer := driver.trailer as DdTrailer if of_trailer else null
 	var body: VehicleBody3D = trailer if of_trailer else truck
-	var breakage: DotVehicleBreakage = trailer.breakage if trailer != null else (null if of_trailer else truck.breakage)
+	var breakage: GSVehicleBreakage = trailer.breakage if trailer != null else (null if of_trailer else truck.breakage)
 
 	if breakage == null:
 		return
@@ -1127,7 +1127,7 @@ func send_chat(peer_id: int, wire: Dictionary) -> void:
 	_tell(peer_id, DdEvents.Kind.SAY, {"text": "%s: %s" % [wire.get("from", ""), wire.get("text", "")], "tone": "chat", "wire": wire})
 
 
-func receive_voice(peer_id: int, payload: PackedByteArray) -> DotResult:
+func receive_voice(peer_id: int, payload: PackedByteArray) -> GSResult:
 	if net != null and net.is_server:
 		voice_requested.emit(peer_id, payload)
 
@@ -1136,7 +1136,7 @@ func receive_voice(peer_id: int, payload: PackedByteArray) -> DotResult:
 	else:
 		voice_arrived.emit(payload)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## A client's microphone frame, up to the server.
@@ -1180,7 +1180,7 @@ func describe_lines() -> PackedStringArray:
 ## request, an offline client for a key or a button. One place, so offline and online cannot
 ## mean different things by "skip".
 class DdBridgeActs:
-	static func run(world: Node, key: StringName, args: Dictionary) -> DotResult:
+	static func run(world: Node, key: StringName, args: Dictionary) -> GSResult:
 		var acct: Dictionary = world.bank.account(key)
 
 		var action := str(args.get("action", ""))
@@ -1188,7 +1188,7 @@ class DdBridgeActs:
 		# Trucks are bought, chosen and upgraded in the lot: at the panel (G) anywhere in it, or
 		# from a salesperson. A stand-in has no lot.
 		if action in ["buy_truck", "select_truck", "upgrade"] and not world.in_lot(key):
-			return DotResult.fail(DotError.CODE_FORBIDDEN, "Trucks are bought and upgraded in the lot.")
+			return GSResult.fail(GSError.CODE_FORBIDDEN, "Trucks are bought and upgraded in the lot.")
 
 		match action:
 			"start":
@@ -1225,6 +1225,6 @@ class DdBridgeActs:
 				return world.toggle_flashlight(key)
 			"garage":
 				world.end_trip(key)
-				return DotResult.success(null)
+				return GSResult.success(null)
 
-		return DotResult.fail(DotError.CODE_INVALID, "Nothing called '%s'." % args.get("action", ""))
+		return GSResult.fail(GSError.CODE_INVALID, "Nothing called '%s'." % args.get("action", ""))

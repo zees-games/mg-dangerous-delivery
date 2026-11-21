@@ -1,4 +1,4 @@
-extends DotNetBehaviour
+extends GSNetBehaviour
 
 ## A person on foot: where they stand and which way they face, for everybody else to draw.
 ## The owner walks on their own machine and says where they got to; the server checks the step and place (`DdGame.walk`) and this carries the accepted pose, interpolated (see docs/netcode.md).
@@ -11,8 +11,8 @@ var net_yaw: float = 0.0
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
-	replicate(&"net_yaw", DotNetVar.Type.ANGLE).bits(10).interpolated().server_driven()
+	replicate(&"net_position", GSNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
+	replicate(&"net_yaw", GSNetVar.Type.ANGLE).bits(10).interpolated().server_driven()
 
 
 func pull() -> void:

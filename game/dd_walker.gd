@@ -15,16 +15,16 @@ const HEIGHT := 1.8
 ## The hull, a capsule the controller moves with `move_and_slide`.
 const RADIUS := 0.35
 
-var player_node: DotPlayer = null
-var controller: DotTpsController = null
-var figure: DotHumanoidFigure = null
+var player_node: GSPlayer = null
+var controller: GSTpsController = null
+var figure: GSHumanoidFigure = null
 
 ## Ticks simulated, for the intent's stamp.
 var tick: int = 0
 
 
 ## Builds the body for [param key], dressed as [param look] (null for the stock look).
-func setup(key: StringName, look: DotHumanoidLook, draws: bool = true) -> void:
+func setup(key: StringName, look: GSHumanoidLook, draws: bool = true) -> void:
 	name = "Walker"
 	collision_layer = DdLot.WALKER_LAYER
 	collision_mask = 1 | DdLot.WALKER_WALL
@@ -41,22 +41,22 @@ func setup(key: StringName, look: DotHumanoidLook, draws: bool = true) -> void:
 	add_child(hull)
 
 	# The component root dot-player-controller binds through: a component finds its player by
-	# walking UP (`DotPlayer.of`), so the controller is the player node's child, and the
+	# walking UP (`GSPlayer.of`), so the controller is the player node's child, and the
 	# player finds the body through its ref.
-	player_node = DotPlayer.new()
+	player_node = GSPlayer.new()
 	player_node.name = "Player"
 	player_node.player_key = String(key)
 	player_node.is_local = true
-	player_node.body_ref = DotNodeRef.of_path(NodePath(".."))
+	player_node.body_ref = GSNodeRef.of_path(NodePath(".."))
 	add_child(player_node)
 
-	controller = DotTpsController.new()
+	controller = GSTpsController.new()
 	controller.name = "OnFoot"
 	controller.controller_id = &"tp"
 	controller.owns_camera = false
 	# The figure turns itself (below): the body's capsule does not need to.
 	controller.rotate_body = false
-	var tunables := DotTpsTunables.new()
+	var tunables := GSTpsTunables.new()
 	tunables.walk_speed = 4.2
 	tunables.run_speed = 7.5
 	tunables.gravity = 22.0
@@ -68,22 +68,22 @@ func setup(key: StringName, look: DotHumanoidLook, draws: bool = true) -> void:
 	controller.activate()
 
 	if draws:
-		figure = DotHumanoidFigure.new()
+		figure = GSHumanoidFigure.new()
 		figure.name = "Person"
 		add_child(figure)
-		figure.build(look if look != null else DotHumanoidLook.stock(0), HEIGHT)
+		figure.build(look if look != null else GSHumanoidLook.stock(0), HEIGHT)
 		tune(figure)
 
 
 ## Makes a person animate from how far it moved, as a walker rather than a runner. The walking pace (4.2) sits just over the state machine's default run threshold (4.0), which played the hunched run clip at a crawl; only the sprint (7.5) should run. The speed is averaged because the body moves in physics ticks or on 30 Hz snapshots, so its per-frame speed alternates and the clip flipped between states.
-static func tune(person: DotHumanoidFigure) -> void:
+static func tune(person: GSHumanoidFigure) -> void:
 	person.set_run_speeds(5.8, 5.2)
 	person.auto_smooth_time = 0.15
 	person.auto_animate = true
 
 
 ## One tick of walking.
-func step(intent: DotPlayerIntent, delta: float) -> void:
+func step(intent: GSPlayerIntent, delta: float) -> void:
 	tick += 1
 	intent.tick = tick
 	var _moved := controller.simulate(intent, delta)

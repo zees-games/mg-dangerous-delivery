@@ -60,10 +60,10 @@ func _ready() -> void:
 
 	for path in ["res://game/dd_truck.gd", "res://game/dd_terrain.gd", "res://game/dd_route.gd"]:
 		(load(path) as GDScript).call(&"clear_cache")
-	DotHumanoidFigure.clear_cache()
-	DotHudPiece.clear_cache()
-	DotMenuKit.clear_cache()
-	DotRegistry.clear()
+	GSHumanoidFigure.clear_cache()
+	GSHudPiece.clear_cache()
+	GSMenuKit.clear_cache()
+	GSRegistry.clear()
 	_report_sections(_entered, _finished, SECTIONS, CHECKS)
 
 
@@ -255,8 +255,8 @@ func _test_weather() -> void:
 
 	var drawn_ok := DdWeather.doc_for({"sky": DdWeather.CLEAR}).is_empty()
 	for w: Dictionary in [{"sky": DdWeather.RAIN}, {"sky": DdWeather.SNOW, "wind": true}, {"sky": DdWeather.RAIN, "storm": true, "wind": true}]:
-		drawn_ok = drawn_ok and DotWeatherDoc.parse(DdWeather.doc_for(w)).ok
-	_check(drawn_ok, "every sky is drawn from a DotWeatherDoc that parses, and a clear one from none")
+		drawn_ok = drawn_ok and GSWeatherDoc.parse(DdWeather.doc_for(w)).ok
+	_check(drawn_ok, "every sky is drawn from a GSWeatherDoc that parses, and a clear one from none")
 
 	# Extreme weather: a storm is rain that came up again, so it is always wet and windy.
 	var wet := {"snow": 0.0, "rain": 1.0, "wind": 0.0}
@@ -338,12 +338,12 @@ class FakeDriver:
 	var rows: Array = []
 	func dialect() -> int:
 		return which
-	func execute(sql: String, params: Array) -> DotResult:
+	func execute(sql: String, params: Array) -> GSResult:
 		statements.append({"sql": sql, "params": params})
-		return DotResult.success(true)
-	func query(sql: String, params: Array) -> DotResult:
+		return GSResult.success(true)
+	func query(sql: String, params: Array) -> GSResult:
 		statements.append({"sql": sql, "params": params})
-		return DotResult.success(rows)
+		return GSResult.success(rows)
 
 
 func _test_sql() -> void:
@@ -439,7 +439,7 @@ func _check_footsteps() -> void:
 	var on_road := (road_line[mid] + road_line[mid + 1]) * 0.5 + (road_line[mid + 1] - road_line[mid]).cross(Vector3.UP).normalized() * 1.5
 	# dot-audio's own footsteps asked what is underfoot, as DdAudio's are on a client: its ray,
 	# the ground's `surface` meta, and grass (the game's default_surface) for what says nothing.
-	var steps := DotAudioFootsteps.new()
+	var steps := GSAudioFootsteps.new()
 	steps.default_surface = &"grass"
 	add_child(steps)
 	var foot := Node3D.new()
@@ -461,7 +461,7 @@ func _check_gate_flow() -> void:
 	add_child(walker)
 	walker.setup(key, null, false)
 	walker.put(gate.waiting_spot(4.0))
-	var ahead := DotPlayerIntent.new()
+	var ahead := GSPlayerIntent.new()
 	ahead.move = Vector2(0.0, 1.0)
 	for _i in 120:
 		walker.step(ahead.copy_intent(), 1.0 / 60.0)
@@ -477,12 +477,12 @@ func _check_gate_flow() -> void:
 	var truck := me.truck as DdTruck
 	_check(set_off.ok and DdGame.roaming(me) and not me.on_foot and gate.at_gate(truck.global_position),
 		"SET OFF drives their truck to the route's gate", str(set_off.error) if not set_off.ok else "")
-	var go := DotVehicleCommand.new()
+	var go := GSVehicleCommand.new()
 	go.throttle = 1.0
 	game.set_command(key, go)
 	await _seconds(4.0)
 	_check(gate.to_local(truck.global_position).z > 0.0 and me.trip == null, "a truck driven into the barrier is stopped by it", str(gate.to_local(truck.global_position)))
-	game.set_command(key, DotVehicleCommand.new())
+	game.set_command(key, GSVehicleCommand.new())
 	var offer := game.use_choice(key, func(_id: StringName) -> bool: return true, 0)
 	_check(offer["action"] == "accept" and offer["route"] == "dd_foothills", "at the barrier the delivery is offered", str(offer))
 	var locked: DdGate = game.gates[&"dd_devils_spine"]
@@ -595,7 +595,7 @@ func _hazards_ledges(world: DdGame) -> void:
 	if not ledge.is_empty():
 		open = ledge_road.width_at(float(ledge["d"])) - float(ledge["intrusion"])
 		for child in ledge_road.get_children():
-			solid = solid or (child is DotPropLedge and child.collision_layer != 0)
+			solid = solid or (child is GSPropLedge and child.collision_layer != 0)
 	_check(open >= DdRouteDoc.MIN_OPEN_LANE and open < 6.0, "it leaves a lane a truck fits and not much more", "%.1f m" % open)
 	_check(solid and ledge_road.challenges().any(func(c: Dictionary) -> bool: return c["kind"] == "ledge"),
 		"the ledge is solid rock in the road and counts as a challenge")
@@ -861,7 +861,7 @@ func _test_ice_and_debris() -> void:
 	_finished_section()
 
 
-## dot-core's [DotCollisionAudit] over the world as a client draws it. The lenient audit is used because
+## dot-core's [GSCollisionAudit] over the world as a client draws it. The lenient audit is used because
 ## a route's drawing sits beside the one trimesh that serves it, not under a body of its own.
 func _test_collision_audit() -> void:
 	_section("nothing drawn is walked through")
@@ -875,11 +875,11 @@ func _test_collision_audit() -> void:
 	var _s := world.start_trip(&"auditor", world.route_order[0])
 	await _seconds(0.5)
 
-	var res := DotCollisionAudit.audit(world, true)
+	var res := GSCollisionAudit.audit(world, true)
 	var found := 0
 
 	if res.ok:
-		var report: DotCollisionAudit = res.value
+		var report: GSCollisionAudit = res.value
 		found = report.count()
 		print("  collision audit: %d of %d" % [found, report.examined])
 
@@ -909,24 +909,24 @@ func _test_walking_client() -> void:
 	var walker: CharacterBody3D = client.get("walker")
 	_check(walker != null and walker.global_position.distance_to(me.walk_at) < 0.5 and world.lot.contains(walker.global_position),
 		"the player's walker stands where the world put them, in the lot", str(walker.global_position) if walker != null else "none")
-	_check(walker != null and walker.get("figure") != null and bool((walker.get("figure") as DotHumanoidFigure).from_art),
+	_check(walker != null and walker.get("figure") != null and bool((walker.get("figure") as GSHumanoidFigure).from_art),
 		"drawn as one of the family's people, from the art")
 	var start := walker.global_position
-	var ahead := DotPlayerIntent.new()
+	var ahead := GSPlayerIntent.new()
 	ahead.move = Vector2(0.0, 1.0)
 	client.set("walk_override", ahead)
 	await _seconds(1.5)
 	var moved := start.distance_to(walker.global_position)
 	_check(moved > 4.0 and walker.global_position.z < start.z - 4.0 and me.walk_at.distance_to(walker.global_position) < 0.2,
 		"W walks them north, toward the trucks, and the world takes every step", "%.1f m, world %.2f m off" % [moved, me.walk_at.distance_to(walker.global_position)])
-	var running := DotPlayerIntent.new()
+	var running := GSPlayerIntent.new()
 	running.move = Vector2(1.0, 0.0)
-	running.buttons = DotPlayerIntent.Btn.SPRINT
+	running.buttons = GSPlayerIntent.Btn.SPRINT
 	client.set("walk_override", running)
 	var side_from := walker.global_position
 	await _seconds(1.0)
 	_check(walker.global_position.x - side_from.x > 5.5, "Shift runs, faster than a walk", "%.1f m in a second" % (walker.global_position.x - side_from.x))
-	client.set("walk_override", DotPlayerIntent.new())
+	client.set("walk_override", GSPlayerIntent.new())
 	await _seconds(0.3)
 	var camera: Camera3D = client.get("camera")
 	_check(camera.global_position.distance_to(walker.global_position) < 7.0 and camera.global_position.y > walker.global_position.y,
@@ -980,18 +980,18 @@ func _walking_wheel(client: Node, walker: CharacterBody3D) -> void:
 	tick.button_index = MOUSE_BUTTON_WHEEL_UP
 	tick.pressed = true
 	client.call("_unhandled_input", tick)
-	var wheel_intent: DotPlayerIntent = client.call("_sample_walk")
-	var again: DotPlayerIntent = client.call("_sample_walk")
-	_check((wheel_intent.buttons & DotPlayerIntent.Btn.JUMP) != 0 and (again.buttons & DotPlayerIntent.Btn.JUMP) == 0,
+	var wheel_intent: GSPlayerIntent = client.call("_sample_walk")
+	var again: GSPlayerIntent = client.call("_sample_walk")
+	_check((wheel_intent.buttons & GSPlayerIntent.Btn.JUMP) != 0 and (again.buttons & GSPlayerIntent.Btn.JUMP) == 0,
 		"a wheel tick on foot is one jump, latched from the event", str(wheel_intent.buttons))
-	client.set("walk_override", DotPlayerIntent.new())
+	client.set("walk_override", GSPlayerIntent.new())
 	var driver_now: DdGame.Driver = (client.get("game") as DdGame).drivers[client.get("local_key")]
 	driver_now.on_foot = false
 	client.call("_unhandled_input", tick)
-	var cmd: DotVehicleCommand = client.call("_sample", driver_now)
+	var cmd: GSVehicleCommand = client.call("_sample", driver_now)
 	# At the wheel an avatar action goes to the cab's seated person, and the full-body ones (which take the legs) are refused.
 	var cab := Node3D.new()
-	var cab_person := DotHumanoidFigure.new()
+	var cab_person := GSHumanoidFigure.new()
 	cab_person.name = "Driver"
 	cab.add_child(cab_person)
 	var truck_before: Node = driver_now.truck
@@ -1007,24 +1007,24 @@ func _walking_wheel(client: Node, walker: CharacterBody3D) -> void:
 	driver_now.on_foot = true
 	_check(client.call("_avatar_figure", 0) == walker.get("figure"), "on foot it plays on the walker again")
 	client.set("walk_override", null)
-	var after: DotPlayerIntent = client.call("_sample_walk")
-	client.set("walk_override", DotPlayerIntent.new())
-	_check(not cmd.handbrake and (after.buttons & DotPlayerIntent.Btn.JUMP) == 0,
+	var after: GSPlayerIntent = client.call("_sample_walk")
+	client.set("walk_override", GSPlayerIntent.new())
+	_check(not cmd.handbrake and (after.buttons & GSPlayerIntent.Btn.JUMP) == 0,
 		"in a truck the wheel does nothing: no handbrake, and no jump saved for later")
 	# A wheel row moved onto a key on the Controls page: that key jumps on foot too. The latch
 	# once tested for a mouse button only, so a key there did nothing.
 	var row_key := InputEventKey.new()
 	row_key.physical_keycode = KEY_J
-	InputMap.action_add_event(DotMenuBindings.JUMP_ACTION, row_key)
+	InputMap.action_add_event(GSMenuBindings.JUMP_ACTION, row_key)
 	var press := InputEventKey.new()
 	press.physical_keycode = KEY_J
 	press.pressed = true
 	client.set("walk_override", null)
 	client.call("_unhandled_input", press)
-	var key_intent: DotPlayerIntent = client.call("_sample_walk")
-	client.set("walk_override", DotPlayerIntent.new())
-	InputMap.action_erase_event(DotMenuBindings.JUMP_ACTION, row_key)
-	_check((key_intent.buttons & DotPlayerIntent.Btn.JUMP) != 0, "a key moved onto a wheel row jumps on foot",
+	var key_intent: GSPlayerIntent = client.call("_sample_walk")
+	client.set("walk_override", GSPlayerIntent.new())
+	InputMap.action_erase_event(GSMenuBindings.JUMP_ACTION, row_key)
+	_check((key_intent.buttons & GSPlayerIntent.Btn.JUMP) != 0, "a key moved onto a wheel row jumps on foot",
 		str(key_intent.buttons))
 
 
@@ -1097,7 +1097,7 @@ func _test_the_lot_makes_room() -> void:
 	screen.position = Vector2.ZERO
 	screen.size = Vector2(1280.0, 720.0)
 	chat_layer.add_child(screen)
-	var chat := DotChatWindow.new()
+	var chat := GSChatWindow.new()
 	screen.add_child(chat)
 	await get_tree().process_frame
 	lot.set("chat_window", chat)

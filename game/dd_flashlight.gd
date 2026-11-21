@@ -16,16 +16,16 @@ const CAB_AHEAD := 0.55
 
 
 ## A config with this game's defaults: F, on on a night mountain, off on a snow one.
-static func make_config() -> DotFlashlightConfig:
-	var cfg := DotFlashlightConfig.new()
+static func make_config() -> GSFlashlightConfig:
+	var cfg := GSFlashlightConfig.new()
 	cfg.key = "F"
 	cfg.dark_moods = DARK_MOODS
 	return cfg
 
 
 ## The binder: `dd_flashlight_<field>` cvars, `cfg/game/mg-dangerous-delivery/flashlight/game.yml`, a workbench set.
-static func make_binder(cfg: DotFlashlightConfig) -> DotGameConfigBinder:
-	var b := DotGameConfigBinder.create(cfg, GAME_ID, "dd_flashlight")
+static func make_binder(cfg: GSFlashlightConfig) -> GSGameConfigBinder:
+	var b := GSGameConfigBinder.create(cfg, GAME_ID, "dd_flashlight")
 	b.profile_kind = "flashlight"
 	return b
 
@@ -39,8 +39,8 @@ static func mood_of(mountain_id: String) -> String:
 
 
 ## Whether a person starts the mountain with the light on: its mood against the config's dark moods.
-static func starts_on(cfg: DotFlashlightConfig, mountain_id: String) -> bool:
-	return DotFlashlightRules.start_on(cfg, mountain_id, 1.0, mood_of(mountain_id))
+static func starts_on(cfg: GSFlashlightConfig, mountain_id: String) -> bool:
+	return GSFlashlightRules.start_on(cfg, mountain_id, 1.0, mood_of(mountain_id))
 
 
 ## Where a beam starts and which way it points for a person on foot ([param yaw] is their facing, [param pitch] the look's).

@@ -10,13 +10,13 @@ extends "res://examples/headless_run_settings.gd"
 func _test_sound_and_effects() -> void:
 	_section("the truck's sounds and a rockfall's jolt, through dot-audio and dot-fx")
 	var DdAudio: GDScript = load("res://game/dd_audio.gd")
-	var catalogue: DotAudioCatalogue = DdAudio.call("sound_catalogue")
+	var catalogue: GSAudioCatalogue = DdAudio.call("sound_catalogue")
 	var stand_ins: Dictionary = DdAudio.call("stand_ins")
 	var ids: Array = DdAudio.call("ids")
 	_check(
 		catalogue.validate().ok and ids.all(func(id: StringName) -> bool:
 			# dot-audio's stock beds and footsteps are files the addon ships: no stand-in needed.
-			return catalogue.find(id) != null and (stand_ins.has(id) or DotAudioStock.ids().has(id))),
+			return catalogue.find(id) != null and (stand_ins.has(id) or GSAudioStock.ids().has(id))),
 		"every sound the game names is in its catalogue, with a stand-in", str(ids))
 
 	# The world the sections above drove is in the same physics space, with its trucks and
@@ -39,9 +39,9 @@ func _test_sound_and_effects() -> void:
 	await _seconds(6.0)
 
 	var audio: Node = client.get("audio")
-	var effects: DotFxManager = client.get("effects")
+	var effects: GSFxManager = client.get("effects")
 	var settings: Variant = client.get("settings")
-	var sink := audio.get("manager").get("sink") as DotAudioSinkNull if audio != null else null
+	var sink := audio.get("manager").get("sink") as GSAudioSinkNull if audio != null else null
 	_check(
 		sink != null and effects != null and settings != null \
 			and bool(settings.describe().get("audio_bound", false)) \
@@ -149,14 +149,14 @@ func _brake_squeal(audio: Node) -> void:
 
 
 ## A boulder nearby is heard and felt, and a shake slider at zero is no jolt.
-func _rock_is_heard_and_felt(world: DdGame, client: Node, audio: Node, effects: DotFxManager, settings: Variant, sink: DotAudioSinkNull) -> void:
+func _rock_is_heard_and_felt(world: DdGame, client: Node, audio: Node, effects: GSFxManager, settings: Variant, sink: GSAudioSinkNull) -> void:
 	var me: Object = world.drivers[client.get("local_key")]
 	var at: Vector3 = (me.get("truck") as Node3D).global_position
 	world.boulder_dropped.emit(&"dd_foothills", at + Vector3(5.0, 0.0, 0.0))
 	_check(sink != null and sink.count_of(&"rockfall") == 1 and effects.shake.trauma() > 0.0,
 		"rock coming down nearby is heard and felt",
 		"%s trauma %.2f" % [sink.played_ids() if sink != null else [], effects.shake.trauma()])
-	var _zero: DotResult = settings.settings.set_value(&"shake_scale", 0.0)
+	var _zero: GSResult = settings.settings.set_value(&"shake_scale", 0.0)
 	# Two frames: process_frame is emitted before the nodes' _process, so one is not a frame
 	# of the client.
 	await get_tree().process_frame
@@ -164,4 +164,4 @@ func _rock_is_heard_and_felt(world: DdGame, client: Node, audio: Node, effects: 
 	_check(is_zero_approx(effects.config.shake_scale) and effects.shake.offset().is_zero_approx(),
 		"and a shake slider at zero is no jolt at all",
 		"scale %.2f offset %s" % [effects.config.shake_scale, effects.shake.offset()])
-	var _back: DotResult = settings.settings.set_value(&"shake_scale", 1.0)
+	var _back: GSResult = settings.settings.set_value(&"shake_scale", 1.0)

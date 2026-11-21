@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## The rig and the self-contained sections of headless_net.gd, split out to keep each script under the size gate.
 
@@ -24,8 +24,8 @@ var _finished := 0
 
 var _server_game: DdGame = null
 var _client_game: DdGame = null
-var _server_net: DotNetManager = null
-var _client_net: DotNetManager = null
+var _server_net: GSNetManager = null
+var _client_net: GSNetManager = null
 var _server_bridge: DdNetBridge = null
 var _client_bridge: DdNetBridge = null
 var _to_client: Array = []
@@ -50,14 +50,14 @@ func _make_game(authoritative: bool, parent: Node) -> DdGame:
 	return world
 
 
-func _make_manager(is_server: bool, parent: Node) -> DotNetManager:
-	var manager := DotNetManager.new()
+func _make_manager(is_server: bool, parent: Node) -> GSNetManager:
+	var manager := GSNetManager.new()
 	manager.name = "Net"
 	manager.is_server = is_server
 	manager.local_peer_id = 1 if is_server else CLIENT_PEER
 	manager.auto_tick = false
 	manager.config_file = ""
-	var config := DotNetConfig.new()
+	var config := GSNetConfig.new()
 	config.tick_rate = 60
 	config.snapshot_rate = DdGame.NET_SNAPSHOT_RATE
 	config.world_extent = DdGame.NET_WORLD_EXTENT
@@ -92,7 +92,7 @@ func _build() -> bool:
 	# This harness stamps every command itself, so the client must not ask for dot-net's
 	# input-lead report: steered by reports about commands it never stamped, the clock runs away.
 	# By the constant map, so it parses against a dot-net from before the report.
-	var lead_bit := int((DotNetMessageRegistry as Script).get_script_constant_map().get("FEATURE_INPUT_LEAD", 0))
+	var lead_bit := int((GSNetMessageRegistry as Script).get_script_constant_map().get("FEATURE_INPUT_LEAD", 0))
 	_client_net.messages.features &= ~lead_bit
 
 	_server_bridge = DdNetBridge.new()
@@ -140,17 +140,17 @@ func _exchange() -> void:
 	_flush()
 
 
-func _step(command: DotVehicleCommand = null) -> void:
+func _step(command: GSVehicleCommand = null) -> void:
 	_tick += 1
 	var _t := _client_net.clock.advance(1.0 / 60.0)
 	_server_bridge.server_tick(_tick)
 	_flush()
-	_client_bridge.client_tick(_tick, command if command != null else DotVehicleCommand.new())
+	_client_bridge.client_tick(_tick, command if command != null else GSVehicleCommand.new())
 	_flush()
 	await get_tree().physics_frame
 
 
-func _steps(count: int, command: DotVehicleCommand = null) -> void:
+func _steps(count: int, command: GSVehicleCommand = null) -> void:
 	for _i in count:
 		await _step(command)
 
@@ -168,10 +168,10 @@ func _finished_section() -> void:
 func _test_voice() -> void:
 	_section("voice crosses the wire")
 
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.name = "Voice"
 	router.config = DdServices.voice_format()
-	router.default_channel = DotVoiceRouter.Channel.ALL
+	router.default_channel = GSVoiceRouter.Channel.ALL
 	router.send_fn = func(peer_id: int, payload: PackedByteArray) -> void:
 		_server_bridge.link.send_voice(peer_id, payload)
 	add_child(router)
@@ -182,7 +182,7 @@ func _test_voice() -> void:
 	var arrived: Array[PackedByteArray] = []
 	_client_bridge.voice_arrived.connect(func(payload: PackedByteArray) -> void: arrived.append(payload))
 
-	var packet := DotVoicePacket.new()
+	var packet := GSVoicePacket.new()
 	packet.speaker = CLIENT_PEER + 1
 	packet.sequence = 1
 	packet.codec_id = DdServices.voice_format().codec_id
@@ -311,9 +311,9 @@ func _test_trailer_damage_wire() -> void:
 	var seen: Array = []
 	var on_hurt := func(_k: StringName, e: Dictionary) -> void: seen.append(e)
 	_server_game.truck_damaged.connect(on_hurt)
-	var _d: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_door_left"] as DotVehicleDamage.Part).centre, 8.0)
+	var _d: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_door_left"] as GSVehicleDamage.Part).centre, 8.0)
 	var pay: float = driver.trip.cargo
-	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as DotVehicleDamage.Part).centre, 12.0)
+	var _c: Variant = trailer.breakage.hit((trailer.damage.parts[&"trailer_cargo_3"] as GSVehicleDamage.Part).centre, 12.0)
 	var _w: Variant = trailer.damage.lose_wheel(1)
 	trailer.breakage._show(_w, Vector3.ZERO, 0.0)
 	_exchange()
@@ -325,7 +325,7 @@ func _test_trailer_damage_wire() -> void:
 	_check(driver.trip.cargo < pay, "and a unit of the load lost costs pay", "%.2f -> %.2f" % [pay, driver.trip.cargo])
 	_check(mirror.damage.lost_parts().has(&"trailer_door_left") and mirror.damage.lost_parts().size() == trailer.damage.lost_parts().size()
 		and mirror.damage.lost_parts().filter(func(id: StringName) -> bool: return String(id).begins_with("trailer_cargo_")).size() > 0
-		and mirror.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST and not (_client_game.drivers[_key].truck as DdTruck).damage.lost_parts().has(&"trailer_door_left"),
+		and mirror.damage.wheel_state(1) == GSVehicleDamage.Wheel.LOST and not (_client_game.drivers[_key].truck as DdTruck).damage.lost_parts().has(&"trailer_door_left"),
 		"the client's trailer lost the same door, unit and wheel, and its tractor none of them", "%s vs server %s; seen %s" % [mirror.damage.lost_parts(), trailer.damage.lost_parts(), seen])
 
 	var body := _server_bridge._driver_body(_key)
@@ -334,7 +334,7 @@ func _test_trailer_damage_wire() -> void:
 	_client_bridge._drop_mirror_truck(_key)
 	_client_bridge._apply_driver(body)
 	var joined := (_client_game.drivers[_key] as DdGame.Driver).trailer as DdTrailer
-	_check(joined != null and joined != mirror and joined.damage.lost_parts().has(&"trailer_door_left") and joined.damage.wheel_state(1) == DotVehicleDamage.Wheel.LOST,
+	_check(joined != null and joined != mirror and joined.damage.lost_parts().has(&"trailer_door_left") and joined.damage.wheel_state(1) == GSVehicleDamage.Wheel.LOST,
 		"and the rebuilt mirror starts as battered as the server's trailer")
 
 	trailer.begin_crash(DdRoute.CAMERA_LAYER)

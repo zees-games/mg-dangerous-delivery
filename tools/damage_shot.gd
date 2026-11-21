@@ -67,7 +67,7 @@ func _ready() -> void:
 	ground.add_child(floor_mesh)
 	add_child(ground)
 
-	var debris := DotVehicleDebris.new()
+	var debris := GSVehicleDebris.new()
 	debris.collision_layer = 0
 	debris.collision_mask = 1 << 19
 	debris.lifetime = 60.0
@@ -105,11 +105,11 @@ func _ready() -> void:
 	var ids: Array = [&"door_left", &"mirror_left", &"cargo_3", &"bumper_rear"] if lose.is_empty() else lose
 	for id: StringName in ids:
 		if b.damage.parts.has(id):
-			b._show(b.damage.lose_part(id), (b.damage.parts[id] as DotVehicleDamage.Part).centre, 5.0)
+			b._show(b.damage.lose_part(id), (b.damage.parts[id] as GSVehicleDamage.Part).centre, 5.0)
 
 	# Rolls on a little, dragging its hub, so the wheel lies behind it and the corner sits down.
 	for i in (150 if lose.is_empty() else 40):
-		var c := DotVehicleCommand.new()
+		var c := GSVehicleCommand.new()
 		c.throttle = 1.0 if lose.is_empty() else 0.0
 		c.brake = 0.0 if lose.is_empty() else 1.0
 		truck.drive(c, 1.0 / 60.0)

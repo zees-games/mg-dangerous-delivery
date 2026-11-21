@@ -29,12 +29,12 @@ const CARGO_FIELDS := {
 
 
 ## The `truck` kind: [param ids] exist without a file.
-static func truck_set(ids: PackedStringArray, strict: bool) -> DotProfileSet:
+static func truck_set(ids: PackedStringArray, strict: bool) -> GSProfileSet:
 	return _make_set("truck", TRUCK_FIELDS, DdTrucksRef.DEFAULTS, ids, strict)
 
 
 ## The `cargo` kind.
-static func cargo_set(ids: PackedStringArray, strict: bool) -> DotProfileSet:
+static func cargo_set(ids: PackedStringArray, strict: bool) -> GSProfileSet:
 	return _make_set("cargo", CARGO_FIELDS, DdCargoRef.DEFAULTS, ids, strict)
 
 
@@ -43,7 +43,7 @@ const FALLBACKS := {"reverse_ratio": 5.5, "rolling": 0.009, "traction_g": 0.42, 
 	"cargo_units": 4, "cargo_strength": 9.0, "wind_scale": 0.0}
 
 
-static func _make_set(kind: String, fields: Dictionary, catalogue: Array, ids: PackedStringArray, strict: bool) -> DotProfileSet:
+static func _make_set(kind: String, fields: Dictionary, catalogue: Array, ids: PackedStringArray, strict: bool) -> GSProfileSet:
 	var sample: Dictionary = catalogue[0]
 	var by_id := {}
 	for def: Dictionary in catalogue:
@@ -54,32 +54,32 @@ static func _make_set(kind: String, fields: Dictionary, catalogue: Array, ids: P
 		var opts := {}
 		if spec.size() == 3:
 			opts = {"min": spec[1], "max": spec[2]}
-		schema.append(DotProfileSet.field(key, spec[0], sample.get(key, FALLBACKS.get(key, "" if spec[0] == "string" else 0)), opts))
-	var set := DotProfileSet.create("", GAME, kind, schema)
+		schema.append(GSProfileSet.field(key, spec[0], sample.get(key, FALLBACKS.get(key, "" if spec[0] == "string" else 0)), opts))
+	var set := GSProfileSet.create("", GAME, kind, schema)
 	set.implicit_ids = ids
 	set.strict = strict
-	set.validator = func(p: DotProfile) -> DotResult: return _own_defaults(p, by_id)
+	set.validator = func(p: GSProfile) -> GSResult: return _own_defaults(p, by_id)
 	return set
 
 
 ## The schema default is the first entry's; a profile nothing set takes its own catalogue entry's value instead (the workbench shows these).
-static func _own_defaults(p: DotProfile, by_id: Dictionary) -> DotResult:
+static func _own_defaults(p: GSProfile, by_id: Dictionary) -> GSResult:
 	var def: Dictionary = by_id.get(p.id, {})
 	for key: String in p.values:
 		if def.has(key) and not p.file_keys.has(key) and not p.runtime_keys.has(key) and not p.overrides.has(key):
 			p.values[key] = def[key]
-	return DotResult.success(p)
+	return GSResult.success(p)
 
 
 ## Folds every file and runtime key of every profile in [param set] into [param catalogue]'s entries. Value: the number applied.
-static func apply(set: DotProfileSet, catalogue: Object) -> DotResult:
+static func apply(set: GSProfileSet, catalogue: Object) -> GSResult:
 	var overrides := {}
 	set.clear_cache()
 	for id in set.list_ids():
 		var loaded := set.load_profile(id)
 		if not loaded.ok:
-			return DotResult.fail(loaded.error.code, "%s profile %s: %s" % [set.rel_path, id, loaded.error])
-		var profile: DotProfile = loaded.value
+			return GSResult.fail(loaded.error.code, "%s profile %s: %s" % [set.rel_path, id, loaded.error])
+		var profile: GSProfile = loaded.value
 		var changed := {}
 		for key in profile.file_keys + profile.runtime_keys:
 			if profile.values.has(key):
@@ -87,6 +87,6 @@ static func apply(set: DotProfileSet, catalogue: Object) -> DotResult:
 		if not changed.is_empty():
 			overrides[id] = changed
 	if overrides.is_empty():
-		return DotResult.success(0)
-	var res: DotResult = catalogue.call(&"apply_overrides", overrides)
-	return res if not res.ok else DotResult.success(overrides.size())
+		return GSResult.success(0)
+	var res: GSResult = catalogue.call(&"apply_overrides", overrides)
+	return res if not res.ok else GSResult.success(overrides.size())

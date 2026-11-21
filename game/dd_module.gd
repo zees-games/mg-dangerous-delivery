@@ -26,9 +26,9 @@ static var bank_file: String = "user://delivery_accounts.json"
 var progress: DdProgress = null
 
 ## `dd_bots`, the old count, kept only as an alias that sets `bot_quota`. See [method _game_load].
-var _bots: DotConVar = null
+var _bots: GSConVar = null
 ## How many stand-ins, from how many people: dot-server's one rule for every game.
-var _quota: DotBotQuota = null
+var _quota: GSBotQuota = null
 var _bot_keys: Array[StringName] = []
 var _since_roster := 0.0
 
@@ -45,8 +45,8 @@ func _game_missing_hint() -> String:
 	return "load scenes/dd_server.tscn as the game scene: it builds the world this module drives"
 
 
-func _net_config() -> DotNetConfig:
-	var config := DotNetConfig.new()
+func _net_config() -> GSNetConfig:
+	var config := GSNetConfig.new()
 	config.tick_rate = (game as DdGame).tick_rate
 	config.snapshot_rate = DdGame.NET_SNAPSHOT_RATE
 	config.world_extent = DdGame.NET_WORLD_EXTENT
@@ -91,7 +91,7 @@ func _make_services() -> Node:
 ## Profiles and names: dot-platform's identity with no avatar schema (a person on foot is one of the family's people picked from their key).
 ## What it gives is the site's name over the session's, and admission; authentication is the host's.
 func _make_identity() -> Node:
-	return DotPlatformIdentity.new()
+	return GSPlatformIdentity.new()
 
 
 ## The Tab board's columns, from the bank, which only the server has: money, deliveries and
@@ -112,18 +112,18 @@ func _game_board_fields(session: Object) -> Dictionary:
 	}
 
 
-func _game_load() -> DotResult:
+func _game_load() -> GSResult:
 	var world := game as DdGame
 
 	if world == null:
-		return DotResult.fail(DotError.CODE_STATE, "The registered game is not a DdGame.")
+		return GSResult.fail(GSError.CODE_STATE, "The registered game is not a DdGame.")
 
 	world.bank.store = DdBank.SqlStore.new(bank_driver) if bank_driver != null else DdBank.JsonStore.new(bank_file)
 
 	# Routes from the map packs cfg/content.yml names, beside routes/.
 	var delivered := 0
 
-	for root in await DotGameContent.map_dirs(server, "routes"):
+	for root in await GSGameContent.map_dirs(server, "routes"):
 		delivered += world.load_directory(root)
 
 	if delivered > 0:
@@ -140,11 +140,11 @@ func _game_load() -> DotResult:
 
 	_bind_commands(world)
 
-	# Stand-ins: dot-server's DotBotQuota, defaulting to the config's `bots` in fill mode.
-	_quota = DotBotQuota.install(self, world.config.bots)
+	# Stand-ins: dot-server's GSBotQuota, defaulting to the config's `bots` in fill mode.
+	_quota = GSBotQuota.install(self, world.config.bots)
 
 	# dot-bot's `bot_difficulty` and bundled `bot_*` settings; a road reads `bot_aggression` and `bot_reaction` ([method DdGame.tune_stand_in]).
-	var _bot_cvars := DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)
+	var _bot_cvars := GSBotSettings.of(game).bind_cvars(add_cvar, GSConVar.FLAG_NOTIFY, add_command)
 
 	_bind_view_cvars(world)
 
@@ -152,12 +152,12 @@ func _game_load() -> DotResult:
 
 	# mp_solidplayers, REPLICATED: a client follows it with the block rules.
 	var _bodies := world.body_rules.bind_cvars(
-		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+		add_cvar, GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED)
 
 	# dd_ambient*: REPLICATED (each client plays its own ambience); the directory cvar stays local.
 	var _ambient := world.ambient_rules.bind_cvars(
-		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED,
-		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY)
+		add_cvar, GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED,
+		GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY)
 
 	var configured := _bind_config(world)
 	if not configured.ok:
@@ -175,20 +175,20 @@ func _game_load() -> DotResult:
 
 	_wire_map(world)
 	world.mountain_changed.connect(_on_mountain_changed)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## The dd_* commands and the rotation file cvar.
 func _bind_commands(world: DdGame) -> void:
 	add_command("dd_status", _cmd_status, "Show the routes and who is driving where")
 	add_command("dd_bank", _cmd_bank, "Show the accounts this server has loaded")
-	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", DotAdminFlags.CHANGEMAP)
-	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", DotAdminFlags.ROOT)
+	add_command("dd_weather", _cmd_weather, "Force the sky everywhere: clear, rain, snow, storm, fog, wind, or off", GSAdminFlags.CHANGEMAP)
+	add_command("dd_give", _cmd_give, "Give money: dd_give <name> <amount>", GSAdminFlags.ROOT)
 	# maps.yml's `commands: names:` renames the map command by the role "dd_mountain".
 	add_command(world.command_name("dd_mountain", "dd_mountain"), _cmd_mountain,
-		"Show the mountains, or move the server to one now: dd_mountain [id] (an unlisted one too)", DotAdminFlags.CHANGEMAP)
-	add_command("dd_rotation", _cmd_rotation, "dd_rotation [name]: switch to a rotation in maps.yml, or list them", DotAdminFlags.CHANGEMAP)
-	add_command("dd_maps_reload", _cmd_maps_reload, "Read maps.yml again", DotAdminFlags.CHANGEMAP)
+		"Show the mountains, or move the server to one now: dd_mountain [id] (an unlisted one too)", GSAdminFlags.CHANGEMAP)
+	add_command("dd_rotation", _cmd_rotation, "dd_rotation [name]: switch to a rotation in maps.yml, or list them", GSAdminFlags.CHANGEMAP)
+	add_command("dd_maps_reload", _cmd_maps_reload, "Read maps.yml again", GSAdminFlags.CHANGEMAP)
 	add_cvar("sv_map_rotation_file", world.config.map_rotation_file,
 		"maps.yml: the mountains that rotate, in named rotations. Unlisted mountains stay installed."
 	).changed.connect(
@@ -204,13 +204,13 @@ func _bind_commands(world: DdGame) -> void:
 func _bind_view_cvars(world: DdGame) -> void:
 	# The lot's toys: dot-props' sv_toys* set, REPLICATED so a client hides what the server took away.
 	var _toys := world.toy_rules.bind_cvars(
-		add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
+		add_cvar, GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED
 	)
 
 	# `mp_forceview` (dot-player-controller's numbering): 0 any camera, 1 cab only, 2 chase and high only. REPLICATED.
 	var _view := add_cvar("mp_forceview", "0",
 		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
-		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+		GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED)
 	if _view != null:
 		_view.with_range(0.0, 2.0)
 
@@ -241,7 +241,7 @@ func _bind_tunables(world: DdGame) -> void:
 
 
 ## dot-workbench over the config, the truck and cargo kinds and the block rules; the F9 panel off a dedicated server, the HTTP page only with `workbench.enabled`.
-var workbench: DotGameWorkbench = null
+var workbench: GSGameWorkbench = null
 
 ## Config fields whose hand-written cvar is not `dd_<field>`; the binder makes no second cvar for them and a workbench edit is pushed through the hand one.
 const HAND_RENAMES := {
@@ -261,16 +261,16 @@ func _hand_cvar(key: String) -> String:
 
 
 ## Every config field as a `dd_<field>` cvar (the hand-written ones keep their handlers and follow workbench edits), the cfg/ diff commands, the workbench and dot-team's block rules.
-func _bind_config(world: DdGame) -> DotResult:
+func _bind_config(world: DdGame) -> GSResult:
 	var _fl := world.flashlight_conf()
 	if world.flashlight_binder != null:
-		var _flash_cvars := world.flashlight_binder.bind_cvars(add_cvar, DotConVar.FLAG_ARCHIVE,
+		var _flash_cvars := world.flashlight_binder.bind_cvars(add_cvar, GSConVar.FLAG_ARCHIVE,
 			func(name: String) -> bool: return console.has_name(name))
 		world.flashlight_binder.bind_commands(add_command)
 	var binder := world.config_binder
 	if binder == null:
-		return DotResult.success(null)
-	workbench = DotGameWorkbench.new()
+		return GSResult.success(null)
+	workbench = GSGameWorkbench.new()
 	workbench.name = "Workbench"
 	workbench.lazy_panel = true
 	workbench.dedicated = DisplayServer.get_name() == "headless"
@@ -278,12 +278,12 @@ func _bind_config(world: DdGame) -> DotResult:
 	workbench.permit_fn = func(actor: Variant, flag: String) -> bool:
 		return server != null and server.admins != null and actor is String \
 			and bool(server.admins.uid_has_permission(actor, flag))
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		workbench.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
 	if world.flashlight_binder != null:
-		for set: DotProfileSet in world.flashlight_binder.profile_sets():
+		for set: GSProfileSet in world.flashlight_binder.profile_sets():
 			workbench.add_set(set, "Flashlight")
-	var ambient_set := DotGameWorkbench.cvar_set(console, DdAmbience.cvar_types(), AMBIENT_KIND)
+	var ambient_set := GSGameWorkbench.cvar_set(console, DdAmbience.cvar_types(), AMBIENT_KIND)
 	if ambient_set != null:
 		workbench.add_set(ambient_set, "Ambience (dd_ambient*)")
 	workbench.add_set(world.truck_profiles, "Trucks")
@@ -293,7 +293,7 @@ func _bind_config(world: DdGame) -> DotResult:
 	# Off until the owner sets sv_workbench_remote 1; then flagged admins edit from a client.
 	if started.ok and net != null:
 		var _served := workbench.serve_remote(net)
-	var runtime: DotProfileRuntime = workbench.api.runtime if started.ok and workbench.api != null else null
+	var runtime: GSProfileRuntime = workbench.api.runtime if started.ok and workbench.api != null else null
 	if not started.ok:
 		log_warn("the workbench did not start", {"why": started.error.message})
 
@@ -301,7 +301,7 @@ func _bind_config(world: DdGame) -> DotResult:
 	for key: String in HAND_RENAMES:
 		if console.has_name(HAND_RENAMES[key]):
 			renamed["dd_%s" % key] = true
-	binder.bind_cvars(add_cvar, DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY,
+	binder.bind_cvars(add_cvar, GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY,
 		func(name: String) -> bool: return console.has_name(name) or renamed.has(name))
 	binder.bind_commands(add_command)
 	binder.field_changed.connect(_on_config_field)
@@ -310,17 +310,17 @@ func _bind_config(world: DdGame) -> DotResult:
 		if world.flashlight_binder != null:
 			world.flashlight_binder.attach(runtime)
 		if ambient_set != null:
-			var _applied := DotGameWorkbench.bind_cvar_set(ambient_set, runtime, console)
+			var _applied := GSGameWorkbench.bind_cvar_set(ambient_set, runtime, console)
 		runtime.add_set(world.truck_profiles)
 		runtime.add_set(world.cargo_profiles)
 		runtime.profile_changed.connect(_on_catalogue_profile)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func _on_catalogue_profile(kind: String, _id: String, _rev: int) -> void:
 	var world := game as DdGame
 	if world != null and (kind == "truck" or kind == "cargo"):
-		DotLog.result(CHANNEL, "the catalogues after an edit", world.reload_catalogues())
+		GSLog.result(CHANNEL, "the catalogues after an edit", world.reload_catalogues())
 
 
 ## Everybody is one side: the whole mountain is played together.
@@ -334,7 +334,7 @@ func _noblock_runtime() -> Object:
 
 
 ## The block commands are keyed by the drivers' keys (`uid:<uid>`), not the session id.
-func _build_noblock() -> DotResult:
+func _build_noblock() -> GSResult:
 	var built := super()
 	if built.ok and noblock != null and noblock.commands != null:
 		noblock.commands.set(&"key_fn", func(ctx: Object) -> Variant:
@@ -430,7 +430,7 @@ func _build_progress(world: DdGame) -> void:
 	var made := progress.setup(world, world.config.progress_directory, world.config.report_progress)
 
 	if not made.ok:
-		DotLog.result(CHANNEL, "progress is off", made)
+		GSLog.result(CHANNEL, "progress is off", made)
 		progress.queue_free()
 		progress = null
 		return
@@ -470,7 +470,7 @@ func _tunable_weather(cvar_name: String, setting: String, low: float, high: floa
 		log_info("a setting changed", {"cvar": cvar_name, "now": new_value}))
 
 
-## Same truthiness as [method DotConVar.get_bool], from a signal's value string.
+## Same truthiness as [method GSConVar.get_bool], from a signal's value string.
 static func _truthy(value: String) -> bool:
 	var s := value.strip_edges().to_lower()
 	if s.is_valid_float():
@@ -508,7 +508,7 @@ func _game_tick(_tick: int, delta: float) -> void:
 	_keep_bots()
 
 
-## Stand-ins by [DotBotQuota]: in its default fill mode, `bot_quota` less one for each person.
+## Stand-ins by [GSBotQuota]: in its default fill mode, `bot_quota` less one for each person.
 ## They are there so the mountain is not empty, and a person who arrives takes one's place.
 func _keep_bots() -> void:
 	var world := game as DdGame
@@ -546,31 +546,31 @@ static func _bot_name(world: DdGame) -> String:
 	var taken: Array = []
 	for key: StringName in world.drivers:
 		taken.append((world.drivers[key] as DdGame.Driver).name)
-	return DotBotNames.pick(taken, world.drivers.size())
+	return GSBotNames.pick(taken, world.drivers.size())
 
 
 func _on_say_requested(peer_id: int, channel_id: StringName, text: String) -> void:
 	if services == null:
 		return
 
-	var said: DotResult = services.call("say", peer_id, channel_id, text)
+	var said: GSResult = services.call("say", peer_id, channel_id, text)
 
 	if not said.ok:
 		bridge.call("notice", peer_id, said.error.message)
 
 
-func _cmd_status(ctx: DotCmdContext) -> void:
+func _cmd_status(ctx: GSCmdContext) -> void:
 	ctx.reply_lines((game as DdGame).describe_lines())
 
 	if bridge != null:
 		ctx.reply_lines(bridge.call("describe_lines"))
 
 
-func _cmd_bank(ctx: DotCmdContext) -> void:
+func _cmd_bank(ctx: GSCmdContext) -> void:
 	ctx.reply_lines((game as DdGame).bank.describe_lines())
 
 
-func _cmd_weather(ctx: DotCmdContext) -> void:
+func _cmd_weather(ctx: GSCmdContext) -> void:
 	var sky := ctx.arg(0)
 	var world := game as DdGame
 	var forced := world.force_weather("" if sky == "off" else ("clear" if sky == "wind" else sky), sky == "wind")
@@ -583,7 +583,7 @@ func _cmd_weather(ctx: DotCmdContext) -> void:
 	ctx.reply("The sky is %s." % (sky if sky != "" and sky != "off" else "the mountain's own again"))
 
 
-func _cmd_mountain(ctx: DotCmdContext) -> void:
+func _cmd_mountain(ctx: GSCmdContext) -> void:
 	var world := game as DdGame
 	var id := ctx.arg(0)
 
@@ -603,7 +603,7 @@ func _cmd_mountain(ctx: DotCmdContext) -> void:
 	ctx.reply("The mountain is %s." % world.mountain_name())
 
 
-func _cmd_rotation(ctx: DotCmdContext) -> void:
+func _cmd_rotation(ctx: GSCmdContext) -> void:
 	var world := game as DdGame
 
 	if world.rotation_file == null or not world.rotation_file.has_rotations():
@@ -626,7 +626,7 @@ func _cmd_rotation(ctx: DotCmdContext) -> void:
 	ctx.reply("Rotation: %s" % ctx.arg(0))
 
 
-func _cmd_maps_reload(ctx: DotCmdContext) -> void:
+func _cmd_maps_reload(ctx: GSCmdContext) -> void:
 	var world := game as DdGame
 	var read := world.load_rotation()
 
@@ -636,7 +636,7 @@ func _cmd_maps_reload(ctx: DotCmdContext) -> void:
 	ctx.reply("maps.yml read." if read.ok else read.error.message)
 
 
-func _cmd_give(ctx: DotCmdContext) -> void:
+func _cmd_give(ctx: GSCmdContext) -> void:
 	var world := game as DdGame
 	var who := ctx.arg(0)
 	var amount := ctx.arg_int(1)
@@ -659,7 +659,7 @@ func describe() -> Dictionary:
 	return out
 
 
-func _on_profile(event: DotEvent) -> void:
+func _on_profile(event: GSEvent) -> void:
 	var session := server.session_by_userid(event.get_int("userid")) if server != null else null
 
 	if session != null and bridge != null:

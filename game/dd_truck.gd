@@ -19,8 +19,8 @@ var def: Dictionary = {}
 ## The player driving it, by id.
 var owner_key: StringName = &""
 
-var instance: DotVehicleInstance = null
-var chassis: DotVehicleWheeled = null
+var instance: GSVehicleInstance = null
+var chassis: GSVehicleWheeled = null
 
 ## The tunables as bought, before weather. Weather scales a copy's grip from these.
 var base_friction: float = 3.0
@@ -56,9 +56,9 @@ var _wheels: Array[VehicleWheel3D] = []
 ## What comes off it and what it has lost (dot-vehicle's), and the node that makes it physical.
 ## Built in [method configure] from [constant DdTrucks.PARTS] (or the truck's own `parts`) on
 ## every machine, so a part's id means the same piece on the server and on every client.
-var damage: DotVehicleDamage = null
-var breakage: DotVehicleBreakage = null
-var wreck: DotVehicleWreck = null
+var damage: GSVehicleDamage = null
+var breakage: GSVehicleBreakage = null
+var wreck: GSVehicleWreck = null
 
 var _mask_before: int = 1
 
@@ -72,7 +72,7 @@ signal damaged(event: Dictionary)
 ## Builds it from [param p_def] with [param tunables] (from [method DdTrucks.tunables_for]).
 ## Returns the body, ready to add to the tree; [method bind_chassis] once it is in. [param
 ## p_cargo] is the load ([DdCargo]); its mass is already in [param tunables].
-func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables, draws: bool = true, p_cargo: Dictionary = {}) -> DotResult:
+func configure(p_id: StringName, p_def: Dictionary, tunables: GSVehicleTunables, draws: bool = true, p_cargo: Dictionary = {}) -> GSResult:
 	truck_id = p_id
 	def = p_def
 	cargo_def = p_cargo
@@ -105,7 +105,7 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 			if String(child.name).begins_with("wheel"):
 				wheel_spots.append((child as Node3D).position)
 	else:
-		DotLog.warn(CHANNEL, "no model; drawing a box", {"truck": String(p_id), "path": model_path})
+		GSLog.warn(CHANNEL, "no model; drawing a box", {"truck": String(p_id), "path": model_path})
 
 	if wheel_spots.size() < 4:
 		wheel_spots = [Vector3(0.6, 0.3, 1.0), Vector3(-0.6, 0.3, 1.0), Vector3(0.6, 0.3, -1.0), Vector3(-0.6, 0.3, -1.0)]
@@ -139,8 +139,8 @@ func configure(p_id: StringName, p_def: Dictionary, tunables: DotVehicleTunables
 	return _bind_chassis(tunables, scale_f, draws)
 
 
-func _bind_chassis(tunables: DotVehicleTunables, scale_f: float, draws: bool) -> DotResult:
-	instance = DotVehicleInstance.new()
+func _bind_chassis(tunables: GSVehicleTunables, scale_f: float, draws: bool) -> GSResult:
+	instance = GSVehicleInstance.new()
 	instance.node = self
 	instance.alive = true
 	instance.health = 100.0
@@ -165,7 +165,7 @@ func _bind_chassis(tunables: DotVehicleTunables, scale_f: float, draws: bool) ->
 ## A part whose region holds no triangle of this model is still a part (the server draws
 ## nothing and must agree with every client on what the ids are); it just has nothing to throw.
 func _build_damage(draws: bool) -> void:
-	damage = DotVehicleDamage.new()
+	damage = GSVehicleDamage.new()
 	var tough := float(def.get("toughness", 1.0))
 	var list: Variant = def.get("parts", DdTrucks.PARTS)
 
@@ -185,7 +185,7 @@ func _build_damage(draws: bool) -> void:
 
 		var added := damage.add_part(id, StringName(str(p.get("kind", "panel"))), region.get_center(),
 			float(p.get("strength", 6.0)) * tough, float(p.get("reach", 1.2)), float(p.get("mass", 0.0)), node_path)
-		DotLog.result(CHANNEL, "a truck part", added)
+		GSLog.result(CHANNEL, "a truck part", added)
 
 	if not def.has("trailer") and not cargo_def.is_empty() and float(cargo_def.get("slosh", 0.0)) <= 0.0:
 		var units := maxi(int(def.get("cargo_units", DdTrucks.CARGO_UNITS)), 1)
@@ -199,19 +199,19 @@ func _build_damage(draws: bool) -> void:
 			var _c := damage.add_part(StringName("cargo_%d" % k), &"cargo", at, strength, 1.4, each,
 				NodePath(crate.name) if crate != null else NodePath(""))
 
-	breakage = DotVehicleBreakage.new()
+	breakage = GSVehicleBreakage.new()
 	breakage.name = "Breakage"
 	add_child(breakage)
-	var made := breakage.setup(self, damage, chassis as DotVehicleWheeled,
+	var made := breakage.setup(self, damage, chassis as GSVehicleWheeled,
 		float(def.get("tyre_strength", 10.0)) * tough, float(def.get("hub_strength", 16.0)) * tough)
-	DotLog.result(CHANNEL, "the truck's breakage", made)
+	GSLog.result(CHANNEL, "the truck's breakage", made)
 	breakage.broke.connect(func(e: Dictionary) -> void: damaged.emit(e))
 
-	wreck = DotVehicleWreck.new()
+	wreck = GSVehicleWreck.new()
 	wreck.name = "Wreck"
 	wreck.draws = draws
 	add_child(wreck)
-	DotLog.result(CHANNEL, "the truck's wreck", wreck.setup(self, breakage))
+	GSLog.result(CHANNEL, "the truck's wreck", wreck.setup(self, breakage))
 
 
 ## Unit [param k] of [param units] of the load, drawn on an open bed (the truck's `bed_floor`, a fraction of
@@ -277,7 +277,7 @@ func _part_node(p: Dictionary, id: StringName, region: AABB) -> Node3D:
 			continue
 
 		var local := (_model.transform * mesh.transform).affine_inverse() * region
-		var cut := DotVehicleDebris.carve(mesh, local)
+		var cut := GSVehicleDebris.carve(mesh, local)
 
 		if cut != null:
 			cut.name = "Part_%s" % id
@@ -313,14 +313,14 @@ func begin_crash(ground: int) -> void:
 
 ## Whether it has exploded (a crash that has run its course).
 func has_exploded() -> bool:
-	return wreck != null and wreck.phase == DotVehicleWreck.Phase.BURNING
+	return wreck != null and wreck.phase == GSVehicleWreck.Phase.BURNING
 
 
 func _any_wheel_down() -> bool:
 	if damage == null:
 		return false
 	for i in damage.wheels.size():
-		if damage.wheel_state(i) != DotVehicleDamage.Wheel.INTACT:
+		if damage.wheel_state(i) != GSVehicleDamage.Wheel.INTACT:
 			return true
 	return false
 
@@ -406,7 +406,7 @@ static func _measure(model: Node3D) -> AABB:
 	return out if not first else AABB(Vector3(-0.75, 0.0, -1.6), Vector3(1.5, 1.6, 3.2))
 
 
-func _add_wheel(spot: Vector3, scale_f: float, tunables: DotVehicleTunables) -> void:
+func _add_wheel(spot: Vector3, scale_f: float, tunables: GSVehicleTunables) -> void:
 	var wheel := VehicleWheel3D.new()
 	var radius := 0.3 * scale_f
 	# Turned like the model: +Z in the model is -Z here, and its left is our right.
@@ -449,7 +449,7 @@ func set_grip(value: float) -> void:
 	chassis._apply_wheel_tunables()
 
 
-func drive(command: DotVehicleCommand, delta: float) -> void:
+func drive(command: GSVehicleCommand, delta: float) -> void:
 	if chassis != null:
 		chassis.drive(command, delta)
 

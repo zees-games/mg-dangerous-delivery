@@ -21,7 +21,7 @@ func _ready() -> void:
 	_parse_args()
 
 	if str(_args.get("touch", "0")) == "1":
-		DotPlatform.touch_override = 1
+		GSPlatform.touch_override = 1
 
 	if str(_args.get("view", "")) in ["loading", "cover"]:
 		await _loading()
@@ -62,7 +62,7 @@ func _ready() -> void:
 	var mountain := str(_args.get("mountain", ""))
 
 	if mountain != "":
-		var moved: DotResult = client.game.set_mountain(StringName(mountain))
+		var moved: GSResult = client.game.set_mountain(StringName(mountain))
 
 		if not moved.ok:
 			push_error("shot: %s" % moved.error.message)
@@ -87,7 +87,7 @@ func _ready() -> void:
 	var sky := str(_args.get("sky", ""))
 
 	if sky != "":
-		var _forced: DotResult = client.game.force_weather("clear" if sky == "wind" else sky, sky == "wind")
+		var _forced: GSResult = client.game.force_weather("clear" if sky == "wind" else sky, sky == "wind")
 
 	# Put the truck this many metres along its route first: a hazard half a kilometre up a
 	# road is otherwise minutes of simulated driving under a renderer.
@@ -133,7 +133,7 @@ func _ready() -> void:
 		client._act("garage")
 
 	if view == "workbench":
-		var wb := client.get_node_or_null("Workbench") as DotGameWorkbench
+		var wb := client.get_node_or_null("Workbench") as GSGameWorkbench
 		if wb != null:
 			wb.open()
 			for _i in 20:
@@ -183,7 +183,7 @@ func _start_hazard(client: DdClient, hazard: String) -> void:
 	var road2 = client.game.routes[me2.trip.route_id]
 	var ahead: Transform3D = road2.transform_at(me2.trip.distance + 45.0, 0.0)
 	var cfg: Dictionary = client.game.disasters.hazards[hazard]
-	var made: DotResult = client.game.disasters.manager.call("start", client.game.disasters.KINDS[StringName(hazard)], {
+	var made: GSResult = client.game.disasters.manager.call("start", client.game.disasters.KINDS[StringName(hazard)], {
 		"origin": road2.position + ahead.origin, "heading": atan2(ahead.basis.x.x, ahead.basis.x.z),
 		"intensity": float(cfg["intensity"]) * float(_args.get("boost", "1")), "duration": float(cfg["duration"]),
 		"radius": float(cfg["radius"]),
@@ -214,7 +214,7 @@ func _wait_gate(client: DdClient) -> void:
 		await get_tree().physics_frame
 
 	# The gate open is not the cover gone: a frame saved now can still be the cover fading out.
-	if not await DotShotGate.wait_lifted(get_tree(), client.get("platform")):
+	if not await GSShotGate.wait_lifted(get_tree(), client.get("platform")):
 		printerr("shot: load cover still up after the wait; shooting anyway")
 
 
@@ -241,7 +241,7 @@ func _capture(client: DdClient, view: String) -> void:
 	var image := get_viewport().get_texture().get_image()
 	var saved := image.save_png(path)
 	print("saved %s (%s)" % [path, error_string(saved)])
-	await DotShotSeq.new().record(get_tree(), path)
+	await GSShotSeq.new().record(get_tree(), path)
 	get_tree().quit()
 
 
@@ -272,7 +272,7 @@ func _stage_view(client: Node, view: String, truck: String) -> void:
 
 		if view == "roam":
 			client._act("drive", {"truck": String(truck_id)})
-			var gentle := DotVehicleCommand.new()
+			var gentle := GSVehicleCommand.new()
 			gentle.throttle = 0.35
 			gentle.steer = 0.25
 			client.command_override = gentle
@@ -370,8 +370,8 @@ func _stage_action(client: Node, kind: StringName, id: String) -> void:
 		await get_tree().process_frame
 	var figure: Object = client.call("_avatar_figure", 0)
 	print("action %s/%s: figure=%s" % [kind, id, figure != null])
-	var entry := DotAvatarActions.defaults().find(kind, id)
-	var input: Object = (client.get("platform") as DotGameClient).avatar_actions.input
+	var entry := GSAvatarActions.defaults().find(kind, id)
+	var input: Object = (client.get("platform") as GSGameClient).avatar_actions.input
 	input.emit_signal(&"action_requested", entry)
 	var walker: Node3D = client.get("walker")
 	var yaw: float = walker.call("view_yaw")
@@ -403,11 +403,11 @@ func _subscribe_fixture() -> void:
 	file.store_string(JSON.stringify({"format": 1, "kind": "map", "id": "fixture_pass", "name": "Fixture Pass",
 		"blurb": "From the Workshop.", "routes": ["dd_foothills", "dd_snowline"], "layout": {"gap": 333}}))
 	file.close()
-	var index := DotContentIndex.shared()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	var index := GSContentIndex.shared()
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	var _added := index.add_pack({
 		"content_id": "fixture/passes", "version": "1.0.0", "prefix": dir,
-		"session": DotContentIndex.SESSION_SOLO, "source": &"subscription",
+		"session": GSContentIndex.SESSION_SOLO, "source": &"subscription",
 		"provides": {"schema": 1, "title": "Hilltop Pack", "kinds": ["map"], "entries": [
 			{"kind": "map", "id": "fixture_pass", "name": "Fixture Pass", "scene": "pass.json", "map_kind": "delivery"},
 			{"kind": "map", "id": "fixture_run", "name": "Fixture Run", "scene": "pass.json", "map_kind": "surf"},
@@ -485,8 +485,8 @@ func _show_ballot(world: Node) -> void:
 	add_child(vote)
 	var _set := vote.setup()
 	vote.note_map(world.get("mountain_id"))
-	var director: DotVoteDirector = vote.director
-	var _opened := director.open_vote(DotVoteClock.REASON_MANUAL)
+	var director: GSVoteDirector = vote.director
+	var _opened := director.open_vote(GSVoteClock.REASON_MANUAL)
 	var options := director.ballot.option_ids()
 	var _a := director.cast_one(&"1", options[0])
 	var _b := director.cast_one(&"2", options[1 % options.size()])
@@ -505,8 +505,8 @@ func _show_ballot(world: Node) -> void:
 	box.offset_top = 110.0
 	box.offset_bottom = -16.0
 	layer.add_child(box)
-	var panel := DotBallotPanel.new()
-	panel.ui_theme = DotUiTheme.space()
+	var panel := GSBallotPanel.new()
+	panel.ui_theme = GSUiTheme.space()
 	panel.local_voter = "1"
 	box.add_child(panel)
 	panel.show_state(states.back() if not states.is_empty() else {})

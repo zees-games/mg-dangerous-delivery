@@ -15,7 +15,7 @@ var with_trailer := false
 var trailer: DdTrailer = null
 
 
-func _add_trailer(trucks: DdTrucks, truck_id: StringName, truck: DdTruck, debris: DotVehicleDebris) -> void:
+func _add_trailer(trucks: DdTrucks, truck_id: StringName, truck: DdTruck, debris: GSVehicleDebris) -> void:
 	trailer = DdTrailer.new()
 	var spec: Dictionary = (trucks.get_truck(truck_id)["trailer"] as Dictionary).duplicate()
 	spec["load"] = {"units": 6, "each": 20.0, "strength": 9.0}
@@ -38,8 +38,8 @@ func _read_args() -> void:
 func _ready() -> void:
 	_read_args()
 	var built := _build_set()
-	var debris: DotVehicleDebris = built[0]
-	var ragdolls: DotPlayerRagdolls = built[1]
+	var debris: GSVehicleDebris = built[0]
+	var ragdolls: GSPlayerRagdolls = built[1]
 
 	var trucks := DdTrucks.new()
 	var truck_id: StringName = &"semi" if with_trailer else &"box_truck"
@@ -57,12 +57,12 @@ func _ready() -> void:
 	var boom: Array = [null]
 	truck.damaged.connect(func(e: Dictionary) -> void:
 		if str(e.get("kind", "")) == "wrecked":
-			boom[0] = DotVehicleExplosion.spawn(self, e["at"], 1.5)
-			var person := DotHumanoidFigure.new()
+			boom[0] = GSVehicleExplosion.spawn(self, e["at"], 1.5)
+			var person := GSHumanoidFigure.new()
 			add_child(person)
-			person.build(DotHumanoidLook.stock(0), DdWalker.HEIGHT)
+			person.build(GSHumanoidLook.stock(0), DdWalker.HEIGHT)
 			person.global_position = e["at"] + Vector3(0, 1, 0)
-			var death := DotPlayerDeath.new()
+			var death := GSPlayerDeath.new()
 			var v: Vector3 = e["velocity"]
 			var _r := ragdolls.spawn(person, death, v * 0.8 + Vector3(0, 7, 3))
 			person.queue_free())
@@ -74,7 +74,7 @@ func _ready() -> void:
 	for i in 30:
 		await get_tree().physics_frame
 
-	var c := DotVehicleCommand.new()
+	var c := GSVehicleCommand.new()
 	c.throttle = 1.0
 	var frames := 0
 	var shots := {40: "a_air", 150: "b_impacts", 260: "b2_slide", 0: "c_blast"}
@@ -136,12 +136,12 @@ func _build_set() -> Array:
 	top.get_parent_node_3d()
 	slope.get_parent_node_3d()
 
-	var debris := DotVehicleDebris.new()
+	var debris := GSVehicleDebris.new()
 	debris.collision_layer = 0
 	debris.collision_mask = 1 << 19
 	debris.lifetime = 60.0
 	add_child(debris)
-	var ragdolls := DotPlayerRagdolls.new()
+	var ragdolls := GSPlayerRagdolls.new()
 	ragdolls.rules.collision_mask = 1 | (1 << 19)
 	ragdolls.rules.max_sim_time = 20.0
 	add_child(ragdolls)

@@ -2,7 +2,7 @@ extends Node
 
 ## What a player has: their money, their trucks, their upgrades, how far they have got.
 ## The server's, always: a client asks to spend and the server checks the price against its balance.
-## The store is duck-typed (`load_account(key)`, `save_account(key, account) -> DotResult`); [JsonStore] is the default and [SqlStore] takes any dot-moderation-shaped driver. Saved on every change that matters, not on a timer.
+## The store is duck-typed (`load_account(key)`, `save_account(key, account) -> GSResult`); [JsonStore] is the default and [SqlStore] takes any dot-moderation-shaped driver. Saved on every change that matters, not on a timer.
 
 const CHANNEL := "delivery.bank"
 
@@ -92,24 +92,24 @@ func credit(key: StringName, amount: int, why: String) -> int:
 
 
 ## Spends [param price] if the balance covers it. The refusal is the reason, for the player.
-func spend(key: StringName, price: int, why: String) -> DotResult:
+func spend(key: StringName, price: int, why: String) -> GSResult:
 	var acct := account(key)
 
 	if price < 0:
-		return DotResult.fail(DotError.CODE_INVALID, "A price cannot be negative.")
+		return GSResult.fail(GSError.CODE_INVALID, "A price cannot be negative.")
 
 	if int(acct["money"]) < price:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "That costs %d and you have %d." % [price, int(acct["money"])])
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "That costs %d and you have %d." % [price, int(acct["money"])])
 
 	acct["money"] = int(acct["money"]) - price
 	money_moved.emit(key, -price, why)
 	_changed(key)
-	return DotResult.success(int(acct["money"]))
+	return GSResult.success(int(acct["money"]))
 
 
-func buy_truck(key: StringName, truck_id: StringName, price: int) -> DotResult:
+func buy_truck(key: StringName, truck_id: StringName, price: int) -> GSResult:
 	if owns(key, truck_id):
-		return DotResult.fail(DotError.CODE_STATE, "You already own that truck.")
+		return GSResult.fail(GSError.CODE_STATE, "You already own that truck.")
 
 	var paid := spend(key, price, "truck:%s" % truck_id)
 
@@ -119,24 +119,24 @@ func buy_truck(key: StringName, truck_id: StringName, price: int) -> DotResult:
 	(account(key)["trucks"] as Array).append(String(truck_id))
 	account(key)["truck"] = String(truck_id)
 	_changed(key)
-	return DotResult.success(truck_id)
+	return GSResult.success(truck_id)
 
 
-func select_truck(key: StringName, truck_id: StringName) -> DotResult:
+func select_truck(key: StringName, truck_id: StringName) -> GSResult:
 	if not owns(key, truck_id):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "You do not own that truck.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "You do not own that truck.")
 
 	account(key)["truck"] = String(truck_id)
 	_changed(key)
-	return DotResult.success(truck_id)
+	return GSResult.success(truck_id)
 
 
-func buy_upgrade(key: StringName, truck_id: StringName, kind: String, price: int) -> DotResult:
+func buy_upgrade(key: StringName, truck_id: StringName, kind: String, price: int) -> GSResult:
 	if not owns(key, truck_id):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "You do not own that truck.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "You do not own that truck.")
 
 	if price < 0:
-		return DotResult.fail(DotError.CODE_STATE, "That is as good as it gets.")
+		return GSResult.fail(GSError.CODE_STATE, "That is as good as it gets.")
 
 	var paid := spend(key, price, "upgrade:%s:%s" % [truck_id, kind])
 
@@ -148,7 +148,7 @@ func buy_upgrade(key: StringName, truck_id: StringName, kind: String, price: int
 	per_truck[kind] = int(per_truck.get(kind, 0)) + 1
 	upgrades[String(truck_id)] = per_truck
 	_changed(key)
-	return DotResult.success(per_truck[kind])
+	return GSResult.success(per_truck[kind])
 
 
 ## A trip delivered: the pay, and the route marked done.
@@ -173,9 +173,9 @@ func _changed(key: StringName) -> void:
 	if store != null:
 		var saved: Variant = store.call("save_account", String(key), accounts[key])
 
-		if saved is DotResult and not (saved as DotResult).ok:
-			DotLog.error(CHANNEL, "an account could not be saved", {
-				"key": String(key), "why": (saved as DotResult).error.message})
+		if saved is GSResult and not (saved as GSResult).ok:
+			GSLog.error(CHANNEL, "an account could not be saved", {
+				"key": String(key), "why": (saved as GSResult).error.message})
 
 	account_changed.emit(key)
 
@@ -218,19 +218,19 @@ class JsonStore:
 		_read_file()
 		return (_all.get(key, {}) as Dictionary).duplicate(true)
 
-	func save_account(key: String, account: Dictionary) -> DotResult:
+	func save_account(key: String, account: Dictionary) -> GSResult:
 		_read_file()
 		_all[key] = account.duplicate(true)
 		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 		var file := FileAccess.open(path, FileAccess.WRITE)
 
 		if file == null:
-			return DotResult.fail(DotError.CODE_IO, "Cannot write %s (%s)." % [path, error_string(FileAccess.get_open_error())])
+			return GSResult.fail(GSError.CODE_IO, "Cannot write %s (%s)." % [path, error_string(FileAccess.get_open_error())])
 
 		file.store_string(JSON.stringify(_all, "\t"))
 		file.close()
-		DotWeb.sync_filesystem()
-		return DotResult.success(true)
+		GSWeb.sync_filesystem()
+		return GSResult.success(true)
 
 	func _read_file() -> void:
 		if _read:
@@ -297,26 +297,26 @@ class SqlStore:
 		var mark := "$1" if dialect() == POSTGRES else "?"
 		return "SELECT player_key, display_name, money, deliveries, data FROM %s WHERE player_key = %s" % [table, mark]
 
-	func _ensure() -> DotResult:
+	func _ensure() -> GSResult:
 		if _ready:
-			return DotResult.success(true)
+			return GSResult.success(true)
 
 		if driver == null:
-			return DotResult.fail(DotError.CODE_STATE, "No SQL driver.")
+			return GSResult.fail(GSError.CODE_STATE, "No SQL driver.")
 
 		if driver.has_method("is_open") and not bool(driver.call("is_open")) and driver.has_method("open"):
 			var opened: Variant = driver.call("open")
 
-			if opened is DotResult and not (opened as DotResult).ok:
+			if opened is GSResult and not (opened as GSResult).ok:
 				return opened
 
 		var made: Variant = driver.call("execute", create_sql(), [])
 
-		if made is DotResult and not (made as DotResult).ok:
+		if made is GSResult and not (made as GSResult).ok:
 			return made
 
 		_ready = true
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 	func load_account(key: String) -> Dictionary:
 		if not _ensure().ok:
@@ -324,10 +324,10 @@ class SqlStore:
 
 		var got: Variant = driver.call("query", select_sql(), [key])
 
-		if not (got is DotResult) or not (got as DotResult).ok:
+		if not (got is GSResult) or not (got as GSResult).ok:
 			return {}
 
-		var rows: Variant = (got as DotResult).value
+		var rows: Variant = (got as GSResult).value
 
 		if not (rows is Array) or (rows as Array).is_empty():
 			return {}
@@ -362,7 +362,7 @@ class SqlStore:
 
 		return out
 
-	func save_account(key: String, account: Dictionary) -> DotResult:
+	func save_account(key: String, account: Dictionary) -> GSResult:
 		var ready := _ensure()
 
 		if not ready.ok:
@@ -373,4 +373,4 @@ class SqlStore:
 			int(account.get("deliveries", 0)), JSON.stringify(account), int(Time.get_unix_time_from_system()),
 		]
 		var done: Variant = driver.call("execute", upsert_sql(), params)
-		return done if done is DotResult else DotResult.success(true)
+		return done if done is GSResult else GSResult.success(true)

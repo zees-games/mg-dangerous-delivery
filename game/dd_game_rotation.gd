@@ -3,34 +3,34 @@ extends "dd_game_flashlight.gd"
 ## The mountain rotation of [code]dd_game.gd[/code]: the rotation file, the workshop mountains synced into it, and which mountains are in it. Path-based base, no class_name.
 
 ## The server's maps.yml, or null when there is none (every mountain rotates, as it always did).
-var rotation_file: DotMapRotationFile = null
-# dot-map's rotation file orders [DotMapDef]s in a [DotMapCatalogue]; this game keeps mountains
+var rotation_file: GSMapRotationFile = null
+# dot-map's rotation file orders [GSMapDef]s in a [GSMapCatalogue]; this game keeps mountains
 # as documents, so a def per mountain is mirrored. Rebuilt on every ask: the mountains on offer
 # change with the routes a server holds, and a stale mirror would rotate yesterday's set.
-var _rot: DotMapRotation = null
+var _rot: GSMapRotation = null
 
 
 ## Switches to the rotation [param name] in maps.yml; an unknown one changes nothing.
-func switch_rotation(name: String) -> DotResult:
+func switch_rotation(name: String) -> GSResult:
 	if rotation_file == null or not rotation_file.has_rotations():
-		return DotResult.fail(DotError.CODE_STATE, "There is no maps.yml; every mountain rotates.")
+		return GSResult.fail(GSError.CODE_STATE, "There is no maps.yml; every mountain rotates.")
 
 	var _mirror := _rotation_mirror()
 	return rotation_file.switch(_rot, name)
 
 
-func _rotation_mirror() -> DotMapCatalogue:
-	var mirror := DotMapCatalogue.new()
+func _rotation_mirror() -> GSMapCatalogue:
+	var mirror := GSMapCatalogue.new()
 	sync_content()
 
 	for mountain in DdMountains.allowed(library, maps):
-		var def := DotMapDef.new()
+		var def := GSMapDef.new()
 		def.id = StringName(str(mountain["id"]))
 		def.display_name = str(mountain["name"])
 		def.scene_path = "doc:%s" % def.id
 		var _added := mirror.add(def)
 
-	_rot = DotMapRotation.of(mirror)
+	_rot = GSMapRotation.of(mirror)
 	return mirror
 
 
@@ -45,7 +45,7 @@ func rotation_mountains() -> Array[Dictionary]:
 
 	var mirror := _rotation_mirror()
 	# An empty rotation plays every installed mountain: the same set as having no file.
-	rotation_file.fallback_in = func(_map: DotMapDef) -> bool: return true
+	rotation_file.fallback_in = func(_map: GSMapDef) -> bool: return true
 	var _applied := rotation_file.apply(_rot)
 	var kept: Array[Dictionary] = []
 
@@ -55,7 +55,7 @@ func rotation_mountains() -> Array[Dictionary]:
 		if def == null or def.in_rotation:
 			kept.append(mountain)
 
-	if _rot.mode != DotMapRotation.Mode.SEQUENTIAL or _rot.order.is_empty():
+	if _rot.mode != GSMapRotation.Mode.SEQUENTIAL or _rot.order.is_empty():
 		return kept
 
 	var ordered: Array[Dictionary] = []
@@ -130,7 +130,7 @@ func sync_content() -> void:
 		DdMountains.sort(maps)
 
 
-func _workshop_map(entry: DotContentEntry) -> Dictionary:
+func _workshop_map(entry: GSContentEntry) -> Dictionary:
 	if _workshop_docs.has(entry.key):
 		return _workshop_docs[entry.key]
 
@@ -158,7 +158,7 @@ func _workshop_map(entry: DotContentEntry) -> Dictionary:
 		refused[entry.key] = "empty or unreadable: %s" % path
 
 	if map.is_empty():
-		DotLog.warn(CHANNEL, "a Workshop map was refused", {"entry": entry.key, "why": refused[entry.key]})
+		GSLog.warn(CHANNEL, "a Workshop map was refused", {"entry": entry.key, "why": refused[entry.key]})
 
 	_workshop_docs[entry.key] = map
 	return map

@@ -1,4 +1,4 @@
-extends DotNetMessage
+extends GSNetMessage
 
 const DdEvents := preload("dd_events.gd")
 
@@ -13,8 +13,8 @@ var kind: int = 0
 var body: PackedByteArray = PackedByteArray()
 
 
-## Built with `new(kind, body)`, and this file does not preload itself: a `DotNetMessage` script preloading itself leaks the script graph at exit
-## when loaded from a module a running [DotServer] loads. The registry decodes with a bare `new()`, so both arguments default.
+## Built with `new(kind, body)`, and this file does not preload itself: a `GSNetMessage` script preloading itself leaks the script graph at exit
+## when loaded from a module a running [GSServer] loads. The registry decodes with a bare `new()`, so both arguments default.
 func _init(p_kind: int = 0, p_body: PackedByteArray = PackedByteArray()) -> void:
 	kind = p_kind
 	body = p_body
@@ -24,21 +24,21 @@ func _type_name() -> StringName:
 	return NAME
 
 
-func _write(writer: DotNetWriter) -> void:
+func _write(writer: GSNetWriter) -> void:
 	writer.write_uint(kind, KIND_BITS)
 	writer.write_bytes(body)
 
 
-func _read(reader: DotNetReader) -> void:
+func _read(reader: GSNetReader) -> void:
 	kind = reader.read_uint(KIND_BITS)
 	body = reader.read_bytes(MAX_BODY)
 
 
-func _validate() -> DotResult:
+func _validate() -> GSResult:
 	if kind < 0 or kind >= DdEvents.Ask.size():
-		return DotResult.fail(DotError.CODE_INVALID, "Unknown request kind %d." % kind)
+		return GSResult.fail(GSError.CODE_INVALID, "Unknown request kind %d." % kind)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## Whether every [enum DdEvents.Ask] fits in [constant KIND_BITS]. What a check reads: the writer
@@ -47,8 +47,8 @@ static func fits() -> bool:
 	return int(DdEvents.Ask.values().max()) < (1 << KIND_BITS)
 
 
-func reader() -> DotNetReader:
-	return DotNetReader.new(body)
+func reader() -> GSNetReader:
+	return GSNetReader.new(body)
 
 
 func _to_string() -> String:

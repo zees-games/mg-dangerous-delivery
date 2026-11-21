@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## The state and helpers every handling section shares: the test roads, a game, a truck set off on one.
 
@@ -57,7 +57,7 @@ func _set_off(truck: StringName, load_id: StringName, route_id: StringName) -> D
 	(game.documents[route_id] as Dictionary)["cargo"] = String(load_id)
 	var _t := game.start_trip(&"t", route_id)
 	var me: DdGame.Driver = game.drivers[&"t"]
-	me.command = DotVehicleCommand.new()
+	me.command = GSVehicleCommand.new()
 	return me
 
 
@@ -66,7 +66,7 @@ func _truck(me: DdGame.Driver) -> DdTruck:
 
 
 func _drive(me: DdGame.Driver, throttle: float, brake: float = 0.0) -> void:
-	var c := DotVehicleCommand.new()
+	var c := GSVehicleCommand.new()
 	c.throttle = throttle
 	c.brake = brake
 	me.command = c

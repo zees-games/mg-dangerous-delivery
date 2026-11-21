@@ -37,7 +37,7 @@ enum Kind {
 	## natural-disasters' own message (a storm's start, stop or a bolt), carried as it is.
 	## Dropped by a client without the addon.
 	DISASTER,
-	## What a truck has lost: [code]{key, state: DotVehicleDamage.to_dict(), velocities: {part
+	## What a truck has lost: [code]{key, state: GSVehicleDamage.to_dict(), velocities: {part
 	## id or "wheel<i>": [x, y, z]}, crates: [[x, y, z, vx, vy, vz]], event}[/code]. On every loss
 	## and on a repair (state with nothing lost). The client throws its own pieces from it.
 	DAMAGE,
@@ -66,13 +66,13 @@ const MAX_TEXT := 131072
 
 
 static func write_json(data: Variant) -> PackedByteArray:
-	var writer := DotNetWriter.new()
+	var writer := GSNetWriter.new()
 	writer.write_string(JSON.stringify(data), MAX_TEXT)
 	return writer.to_bytes()
 
 
 ## The body as a Dictionary, or {} for anything that is not one.
-static func read_json(reader: DotNetReader) -> Dictionary:
+static func read_json(reader: GSNetReader) -> Dictionary:
 	var text := reader.read_string(MAX_TEXT)
 
 	if not reader.ok():
@@ -83,8 +83,8 @@ static func read_json(reader: DotNetReader) -> Dictionary:
 
 
 ## A driving command as four bytes: throttle and steer signed, brake, handbrake.
-static func write_drive(command: DotVehicleCommand) -> PackedByteArray:
-	var writer := DotNetWriter.new()
+static func write_drive(command: GSVehicleCommand) -> PackedByteArray:
+	var writer := GSNetWriter.new()
 	writer.write_int(int(round(clampf(command.throttle, -1.0, 1.0) * 127.0)), 8)
 	writer.write_int(int(round(clampf(command.steer, -1.0, 1.0) * 127.0)), 8)
 	writer.write_uint(int(round(clampf(command.brake, 0.0, 1.0) * 255.0)), 8)
@@ -95,7 +95,7 @@ static func write_drive(command: DotVehicleCommand) -> PackedByteArray:
 ## Where the owner's walker got to, after the drive in the same packet: a bit for whether they
 ## are on foot, then the place as three floats and the facing in ten bits. Twenty-two bytes a
 ## tick while walking, one bit while driving.
-static func write_walk(writer: DotNetWriter, on_foot: bool, at: Vector3, yaw: float) -> void:
+static func write_walk(writer: GSNetWriter, on_foot: bool, at: Vector3, yaw: float) -> void:
 	writer.write_bool(on_foot)
 
 	if on_foot:
@@ -106,7 +106,7 @@ static func write_walk(writer: DotNetWriter, on_foot: bool, at: Vector3, yaw: fl
 
 
 ## [code]{"at": Vector3, "yaw": float}[/code], or {} for none (driving, or a short packet).
-static func read_walk(reader: DotNetReader) -> Dictionary:
+static func read_walk(reader: GSNetReader) -> Dictionary:
 	if not reader.read_bool() or not reader.ok():
 		return {}
 
@@ -115,10 +115,10 @@ static func read_walk(reader: DotNetReader) -> Dictionary:
 	return {"at": at, "yaw": yaw} if reader.ok() else {}
 
 
-static func read_drive(reader: DotNetReader) -> DotVehicleCommand:
-	var command := DotVehicleCommand.new()
+static func read_drive(reader: GSNetReader) -> GSVehicleCommand:
+	var command := GSVehicleCommand.new()
 	command.throttle = float(reader.read_int(8)) / 127.0
 	command.steer = float(reader.read_int(8)) / 127.0
 	command.brake = float(reader.read_uint(8)) / 255.0
 	command.handbrake = reader.read_bool()
-	return command.sanitise() if reader.ok() else DotVehicleCommand.new()
+	return command.sanitise() if reader.ok() else GSVehicleCommand.new()

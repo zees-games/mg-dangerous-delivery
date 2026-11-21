@@ -96,7 +96,7 @@ static func sky_name(sky: int) -> String:
 	return ["clear", "rain", "snow"][clampi(sky, 0, 2)]
 
 
-## The [DotWeatherDoc] dictionary that draws [param weather]: precipitation round the camera, harder in a storm, leaning in a wind (gusts reach it through DotWeather). Empty for a clear sky. Fog stays the client's (it eases with the light).
+## The [GSWeatherDoc] dictionary that draws [param weather]: precipitation round the camera, harder in a storm, leaning in a wind (gusts reach it through GSWeather). Empty for a clear sky. Fog stays the client's (it eases with the light).
 static func doc_for(weather: Dictionary) -> Dictionary:
 	var sky := int(weather.get("sky", CLEAR))
 	if sky == CLEAR:

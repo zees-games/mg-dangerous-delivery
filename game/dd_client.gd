@@ -64,12 +64,12 @@ func _ready() -> void:
 
 	if not _offline:
 		_show_garage(false)
-		DotLog.result(CHANNEL, "the netcode", _build_netcode())
-		DotLog.result(CHANNEL, "chat and voice", chat.attach(bridge))
+		GSLog.result(CHANNEL, "the netcode", _build_netcode())
+		GSLog.result(CHANNEL, "chat and voice", chat.attach(bridge))
 		_go()
 		return
 
-	DotLog.result(CHANNEL, "chat, offline", chat.attach(null))
+	GSLog.result(CHANNEL, "chat, offline", chat.attach(null))
 
 	_connect_offline_feedback()
 
@@ -102,7 +102,7 @@ func _make_world() -> void:
 	_hold_for_world()
 	game.terrain_progress.connect(func(done: int, total: int) -> void:
 		if done == total and total > 0 and OS.get_cmdline_user_args().has("--dd-load-times"):
-			DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()}))
+			GSLog.info(CHANNEL, "load times", {"report": DdLoad.report()}))
 
 
 ## The camera, current, on the lot.
@@ -154,7 +154,7 @@ func _connect_offline_feedback() -> void:
 			hud.say("SOLO" if on else "WITH EVERYBODY", 1.5, Color(0.6, 0.85, 1.0)))
 
 
-## The staged loading screen, built before the platform so [member DotGameClient.cover] hands it
+## The staged loading screen, built before the platform so [member GSGameClient.cover] hands it
 ## to the gate: the gate then never makes (or has to remove) a stock cover of its own.
 func _build_cover() -> void:
 	if not staged_load:
@@ -283,14 +283,14 @@ var _speed_truck: DdTruck = null
 var _speed_net: DdTruckNet = null
 
 
-func _build_netcode() -> DotResult:
-	net = DotNetManager.new()
+func _build_netcode() -> GSResult:
+	net = GSNetManager.new()
 	net.name = "Net"
 	net.is_server = false
 	net.local_peer_id = multiplayer.get_unique_id() if multiplayer != null else 2
 	net.auto_tick = false
 	net.config_file = ""
-	var config := DotNetConfig.new()
+	var config := GSNetConfig.new()
 	config.tick_rate = Engine.physics_ticks_per_second
 	config.snapshot_rate = DdGame.NET_SNAPSHOT_RATE
 	config.world_extent = DdGame.NET_WORLD_EXTENT
@@ -314,9 +314,9 @@ func _build_netcode() -> DotResult:
 
 	bridge.open_link(link)
 	# Before the seal and in the server's order (after the bridge), or the actions stay local.
-	DotLog.result(CHANNEL, "avatar action message", DotGameAvatarActionMessage.register(net))
+	GSLog.result(CHANNEL, "avatar action message", GSGameAvatarActionMessage.register(net))
 	# The server's order again (after the avatar frame): the remote workbench's frame.
-	workbench_remote = DotGameWorkbenchRemoteClient.attach(net)
+	workbench_remote = GSGameWorkbenchRemoteClient.attach(net)
 	net.messages.seal()
 	_follow_view_rule()
 
@@ -406,7 +406,7 @@ func _act(action: String, args: Dictionary = {}) -> void:
 
 	var body := args.duplicate()
 	body["action"] = action
-	var done: DotResult = DdNetBridge.DdBridgeActs.run(game, local_key, body)
+	var done: GSResult = DdNetBridge.DdBridgeActs.run(game, local_key, body)
 
 	if action == "restart" and done.ok and _driver() != null and _driver().trip == null and walker != null:
 		# From the lot: set at the course's gate in a truck, as SET OFF does.
@@ -421,7 +421,7 @@ func _act(action: String, args: Dictionary = {}) -> void:
 		if autopilot and _driver() != null and _driver().trip != null:
 			var me := _driver()
 			me.assisted = true
-			me.autopilot = DotVehicleDriver.new()
+			me.autopilot = GSVehicleDriver.new()
 			me.autopilot.target_speed = 10.0
 			me.autopilot.set_route(game._global_points(me.trip.route_id, 4.0))
 
@@ -473,12 +473,12 @@ func _build_settings() -> void:
 	platform.look_position_fn = _look_position
 	platform.board_snapshot_fn = board_snapshot
 	platform.maps_rows_fn = func() -> Array: return game.mountain_rows() if game != null else []
-	platform.maps_change_fn = func(id: StringName) -> DotResult: return game.set_mountain(id)
+	platform.maps_change_fn = func(id: StringName) -> GSResult: return game.set_mountain(id)
 	platform.maps_title = "Change mountain"
 	platform.maps_noun = "mountains"
-	DotLog.result(CHANNEL, "the platform", platform.setup())
+	GSLog.result(CHANNEL, "the platform", platform.setup())
 	# The starter set: the equipped list needs a credential the client does not hold (the server reads it).
-	DotLog.result(CHANNEL, "avatar actions", platform.add_avatar_actions(net, _avatar_figure))
+	GSLog.result(CHANNEL, "avatar actions", platform.add_avatar_actions(net, _avatar_figure))
 	_add_noblock_and_workbench()
 	settings = platform.settings as DdSettings
 	console = platform.console
@@ -544,16 +544,16 @@ func _build_settings() -> void:
 func _wire_board() -> void:
 	if platform.board == null:
 		return
-	board = platform.board as DotMenuScoreboard
+	board = platform.board as GSMenuScoreboard
 	board.title_text = "Dangerous Delivery"
 	board.columns = [
 		{"key": &"name", "title": "Driver", "width": 3.0},
 		{"key": &"truck", "title": "Truck", "width": 1.6},
-		{"key": &"money", "title": "Money", "kind": DotMenuScoreboard.KIND_NUMBER,
+		{"key": &"money", "title": "Money", "kind": GSMenuScoreboard.KIND_NUMBER,
 			"format": func(v: Variant, _row: Dictionary) -> String: return "$%d" % int(v) if v != null else "-"},
-		{"key": &"deliveries", "title": "Deliveries", "kind": DotMenuScoreboard.KIND_NUMBER},
-		{"key": &"seconds", "title": "Time", "kind": DotMenuScoreboard.KIND_DURATION},
-		{"key": &"ping", "title": "Ping", "kind": DotMenuScoreboard.KIND_PING},
+		{"key": &"deliveries", "title": "Deliveries", "kind": GSMenuScoreboard.KIND_NUMBER},
+		{"key": &"seconds", "title": "Time", "kind": GSMenuScoreboard.KIND_DURATION},
+		{"key": &"ping", "title": "Ping", "kind": GSMenuScoreboard.KIND_PING},
 	]
 	board.sort_by = &"money"
 
@@ -600,7 +600,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Any input on the row, not only a mouse button: a player who moved a wheel row onto a key
 	# on the Controls page expects that key to jump, and a button-only test left it doing nothing.
-	if event.is_action_pressed(DotMenuBindings.JUMP_ACTION):
+	if event.is_action_pressed(GSMenuBindings.JUMP_ACTION):
 		# Wheel up or down (Controls page), on foot only: in a truck the wheel does nothing.
 		if _walking() and not garage.visible and not (chat != null and chat.is_typing()):
 			_wheel_jump = true
@@ -610,7 +610,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _walking():
 			_mouse += motion.relative
 		elif _orbit_held and _can_orbit():
-			# The on-foot look, the same scale and signs ([DotTpsMotor]): drag right to swing the view right.
+			# The on-foot look, the same scale and signs ([GSTpsMotor]): drag right to swing the view right.
 			_orbit.x = wrapf(_orbit.x - motion.relative.x * MOUSE_SENSITIVITY, -PI, PI)
 			_orbit.y = clampf(_orbit.y + motion.relative.y * MOUSE_SENSITIVITY, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX)
 		return
@@ -654,7 +654,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## The touch controls, on a touch device only: the buttons are [DdTouch]'s, and a finger on the bare screen looks (on foot) or orbits the view (in a truck).
 func _build_touch() -> void:
-	if not DotPlatform.has_touch():
+	if not GSPlatform.has_touch():
 		return
 	touch = DdTouch.new()
 	touch.pressed_fn = _touch_pressed
@@ -715,7 +715,7 @@ func _can_orbit_touch() -> bool:
 	return me != null and me.truck != null and not _walking() and camera_mode != CameraMode.CAB
 
 
-func _say_refusal(result: DotResult) -> void:
+func _say_refusal(result: GSResult) -> void:
 	if result != null and not result.ok:
 		hud.say(result.error.message, 2.0, Color(1.0, 0.7, 0.4))
 
@@ -753,16 +753,16 @@ func _physics_process(delta: float) -> void:
 
 
 ## What the keys say, as a command. Idle in the garage, so a truck is not driven from a menu.
-func _sample(me: DdGame.Driver) -> DotVehicleCommand:
+func _sample(me: DdGame.Driver) -> GSVehicleCommand:
 	if _covered():
-		var held := DotVehicleCommand.new()
+		var held := GSVehicleCommand.new()
 		held.brake = 1.0
 		return held
 
 	if command_override != null:
 		return command_override
 
-	var out := DotVehicleCommand.new()
+	var out := GSVehicleCommand.new()
 
 	# Typing is not driving: W in a chat line must not floor the throttle.
 	if me == null or me.truck == null or me.on_foot or garage.visible or (chat != null and chat.is_typing()):
@@ -893,7 +893,7 @@ func _drive_audio(me: DdGame.Driver, facts: Dictionary, at_wheel: bool) -> void:
 		if at_wheel:
 			audio.speed = float(facts.get("speed", _speed_of(me)))
 			# Sampled keys say nothing about a truck the autopilot (a shot, a suite) is driving.
-			var driven: DotVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
+			var driven: GSVehicleCommand = me.command if me != null and me.assisted and me.command != null else command
 			audio.throttle = absf(driven.throttle) if driven != null else 0.0
 			audio.braking = driven != null and driven.brake > 0.1
 			audio.slide = _sideways_speed(me)
@@ -1012,7 +1012,7 @@ func pointer_mode() -> Input.MouseMode:
 	if me.truck == null:
 		return Input.MOUSE_MODE_VISIBLE
 
-	return Input.MOUSE_MODE_HIDDEN if DotPlatform.is_web() else Input.MOUSE_MODE_CAPTURED
+	return Input.MOUSE_MODE_HIDDEN if GSPlatform.is_web() else Input.MOUSE_MODE_CAPTURED
 
 
 func _apply_pointer() -> void:
@@ -1022,7 +1022,7 @@ func _apply_pointer() -> void:
 		# A browser grants pointer lock only inside a click; asked every frame without one it was
 		# refused every frame and then rate-limited, so the click itself could fail. The click takes
 		# it instead ([method _capture_on_click]).
-	if want == Input.MOUSE_MODE_CAPTURED and DotPlatform.is_web():
+	if want == Input.MOUSE_MODE_CAPTURED and GSPlatform.is_web():
 		return
 	Input.mouse_mode = want
 
@@ -1030,7 +1030,7 @@ func _apply_pointer() -> void:
 ## Takes the pointer in a browser on the click [method _apply_pointer] waits for. True when it did,
 ## so that click does not also orbit.
 func _capture_on_click(button: InputEventMouseButton) -> bool:
-	if not button.pressed or not DotPlatform.is_web():
+	if not button.pressed or not GSPlatform.is_web():
 		return false
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or pointer_mode() != Input.MOUSE_MODE_CAPTURED:
 		return false
@@ -1093,8 +1093,8 @@ func _place_walker(where: Transform3D) -> void:
 
 ## Somebody's look on foot, the same on every machine: picked from their key by the MD5 roll
 ## (never Godot's `hash()`, which this game keeps out of anything two machines must agree on).
-static func look_of(key: StringName) -> DotHumanoidLook:
-	return DotHumanoidLook.stock(int(DdWeather.unit("walker|%s" % key) * 1000000.0))
+static func look_of(key: StringName) -> GSHumanoidLook:
+	return GSHumanoidLook.stock(int(DdWeather.unit("walker|%s" % key) * 1000000.0))
 
 
 ## One tick on foot: the keys and the mouse into an intent, the walker moved, and the place
@@ -1116,7 +1116,7 @@ func _walk(me: DdGame.Driver, delta: float) -> void:
 	if _covered():
 		_mouse = Vector2.ZERO
 		_wheel_jump = false
-		walker.step(DotPlayerIntent.new(), delta)
+		walker.step(GSPlayerIntent.new(), delta)
 		return
 
 	walker.step(_sample_walk(), delta)
@@ -1128,11 +1128,11 @@ func _walk(me: DdGame.Driver, delta: float) -> void:
 ## What the keys and the mouse say on foot: the driving rows as directions (W ahead, S back, A
 ## and D sideways), the handbrake's key to jump and the run key to run. Idle under the panel, a
 ## menu or a chat line.
-func _sample_walk() -> DotPlayerIntent:
+func _sample_walk() -> GSPlayerIntent:
 	if walk_override != null:
 		return walk_override.copy_intent()
 
-	var intent := DotPlayerIntent.new()
+	var intent := GSPlayerIntent.new()
 	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
 
 	if garage.visible or menu_open or (chat != null and chat.is_typing()):
@@ -1147,12 +1147,12 @@ func _sample_walk() -> DotPlayerIntent:
 	intent.move = Vector2(clampf(right - left, -1.0, 1.0), clampf(forward - back, -1.0, 1.0))
 
 	if _held(DdBindings.HANDBRAKE, KEY_SPACE) > 0.0 or _wheel_jump or _tv(DdTouch.JUMP) > 0.0:
-		intent.buttons |= DotPlayerIntent.Btn.JUMP
+		intent.buttons |= GSPlayerIntent.Btn.JUMP
 
 	_wheel_jump = false
 
 	if _held(DdBindings.RUN, KEY_SHIFT) > 0.0:
-		intent.buttons |= DotPlayerIntent.Btn.SPRINT
+		intent.buttons |= GSPlayerIntent.Btn.SPRINT
 
 	intent.look = _mouse * MOUSE_SENSITIVITY
 	_mouse = Vector2.ZERO
@@ -1235,7 +1235,7 @@ func _follow_walker(delta: float) -> void:
 	if _foot_probe == null:
 		# Layer 1 as well as the mountain's: on foot a truck, a display or the fence is
 		# something to look past, not through.
-		_foot_probe = DotCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER | 1)
+		_foot_probe = GSCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER | 1)
 		_foot_probe.radius = 0.25
 
 	camera.global_position = _foot_probe.resolve(eyes, wanted, delta)
@@ -1261,10 +1261,10 @@ func _present_walkers(me: DdGame.Driver) -> void:
 			other.walker.visible = false
 			continue
 
-		var person := other.walker.get_node_or_null("Person") as DotHumanoidFigure
+		var person := other.walker.get_node_or_null("Person") as GSHumanoidFigure
 
 		if person == null:
-			person = DotHumanoidFigure.new()
+			person = GSHumanoidFigure.new()
 			person.name = "Person"
 			other.walker.add_child(person)
 			person.build(look_of(k), DdWalker.HEIGHT)
@@ -1289,10 +1289,10 @@ func _present_walkers(me: DdGame.Driver) -> void:
 
 ## The person at the wheel of [param other]'s truck, the same person as their walker: built the first time, a child of the truck so it rides the truck's snapshot with nothing of its own to sync, with no body and on no physics layer. Seated with the hands on the wheel at the cab's seat ([constant DdTrucks.SEATS]). Gone while they are on foot (the walker is the person then), and in the cab view for the local player, where it would be the inside of the head.
 ##
-## Not DotVehicleRide: that reparents the figure to a seat and a rider's body would have to be handed back on every exit and snapshot; this one is drawn and never owns the player.
+## Not GSVehicleRide: that reparents the figure to a seat and a rider's body would have to be handed back on every exit and snapshot; this one is drawn and never owns the player.
 func _seat_driver(k: StringName, other: DdGame.Driver, me: DdGame.Driver, truck_seen: bool) -> void:
 	var truck := other.truck as DdTruck
-	var person := truck.get_node_or_null("Driver") as DotHumanoidFigure
+	var person := truck.get_node_or_null("Driver") as GSHumanoidFigure
 	var wanted := game.draws and truck_seen and not other.on_foot
 	var seat: Dictionary = DdTrucks.seat_of(truck.truck_id)
 
@@ -1306,7 +1306,7 @@ func _seat_driver(k: StringName, other: DdGame.Driver, me: DdGame.Driver, truck_
 		return
 
 	if person == null:
-		person = DotHumanoidFigure.new()
+		person = GSHumanoidFigure.new()
 		person.name = "Driver"
 		truck.add_child(person)
 		person.build(look_of(k), float(seat["height"]))
@@ -1442,8 +1442,8 @@ func _speed_of_truck(truck: DdTruck) -> float:
 ## dot-game's chat box and microphone, with this game's channels and voice format. It also draws
 ## dot-server's own lines, which arrive on the shell's client link rather than this bridge.
 ## Static so a suite can build the same box the client does.
-static func new_chat() -> DotGameChatClient:
-	var box := DotGameChatClient.new()
+static func new_chat() -> GSGameChatClient:
+	var box := GSGameChatClient.new()
 	box.name = "Chat"
 	box.channels = [
 		{"id": DdServices.CH_ALL, "label": "All", "colour": Color(0.93, 0.94, 0.96)},
@@ -1473,9 +1473,9 @@ func _go() -> void:
 ## `--dd-load-times` logs where the time went at INFO; otherwise it is a debug line.
 func _report_load() -> void:
 	if OS.get_cmdline_user_args().has("--dd-load-times"):
-		DotLog.info(CHANNEL, "load times", {"report": DdLoad.report()})
+		GSLog.info(CHANNEL, "load times", {"report": DdLoad.report()})
 	else:
-		DotLog.debug(CHANNEL, "load times", {"report": DdLoad.report()})
+		GSLog.debug(CHANNEL, "load times", {"report": DdLoad.report()})
 
 
 ## Words and a fraction to the loading screen, while there is one.

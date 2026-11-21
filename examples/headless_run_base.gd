@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## The helpers and the self-contained sections of headless_run.gd, split out to keep each script under the size gate.
 
@@ -143,11 +143,11 @@ func _test_buying_and_driving() -> void:
 		"E again brings it round to a bay, with them at the wheel", str(handed.error) if not handed.ok else "")
 	await _seconds(0.5)
 	var from := truck.global_position
-	var go := DotVehicleCommand.new()
+	var go := GSVehicleCommand.new()
 	go.throttle = 1.0
 	game.set_command(key, go)
 	await _seconds(1.5)
-	var stop := DotVehicleCommand.new()
+	var stop := GSVehicleCommand.new()
 	stop.brake = 1.0
 	game.set_command(key, stop)
 	await _seconds(2.0)
@@ -161,8 +161,8 @@ func _test_buying_and_driving() -> void:
 	var _out_again := game.use(key)
 	var _r := game.start_trip(key, &"dd_foothills")
 	_check(me.on_road() and (not is_instance_valid(truck) or (truck as Node).is_queued_for_deletion()), "a trip takes the parked truck away")
-	var refused: DotResult = DdNetBridge.DdBridgeActs.run(game, key, {"action": "buy_truck", "truck": "hauler"})
-	_check(not refused.ok and refused.error.code == DotError.CODE_FORBIDDEN, "trucks are bought in the lot, not from a road", str(refused.error))
+	var refused: GSResult = DdNetBridge.DdBridgeActs.run(game, key, {"action": "buy_truck", "truck": "hauler"})
+	_check(not refused.ok and refused.error.code == GSError.CODE_FORBIDDEN, "trucks are bought in the lot, not from a road", str(refused.error))
 	game.end_trip(key)
 	_check(me.on_foot and me.truck != null and me.trip == null and game.lot.contains((me.truck as Node3D).global_position),
 		"back from the road their truck is parked in the lot, and they are on foot beside it")
@@ -401,7 +401,7 @@ func _test_a_delivery() -> void:
 	_check((me.trip as DdTrip).stage == stages - 1 and (me.trip as DdTrip).skips == stages - 1, "skipping counts every stage it skips")
 	me.assisted = true
 	me.idle = 999.0
-	me.autopilot = DotVehicleDriver.new()
+	me.autopilot = GSVehicleDriver.new()
 	me.autopilot.target_speed = 11.0
 	me.autopilot.set_route(game._global_points(&"dd_foothills", (me.trip as DdTrip).distance))
 	var paid := [-1]
@@ -468,7 +468,7 @@ func _test_a_fall() -> void:
 	_check(progress.session_values(&"p1").get_value(DdProgress.FALLS) == 1.0, "and is counted")
 	var split: Array[String] = ProgressKeysCheck.run(game, progress)
 	_check(split.is_empty(), "stats file under the stable key, the wallet under the driver key", str(split))
-	var held := DotStatsValues.new()
+	var held := GSStatsValues.new()
 	held.values = {String(DdProgress.DELIVERIES): 10.0}
 	progress.rank.seed_baseline(&"p1", held)
 	var alone: float = progress.rank.weighted(progress.session_values(&"p1").to_dictionary())
@@ -498,7 +498,7 @@ func _seconds(s: float) -> void:
 ## Waits for a booted client's load gate to open (the world and the player are in, nothing acts
 ## before), with a cap so a gate that never opens fails the checks that follow, not the run.
 func _uncovered(client: Node) -> void:
-	var gate: DotLoadGate = client.get("gate")
+	var gate: GSLoadGate = client.get("gate")
 
 	for i in 600:
 		if gate == null or gate.is_open():

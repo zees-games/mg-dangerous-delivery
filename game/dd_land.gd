@@ -152,7 +152,7 @@ func build(route_points: PackedVector3Array, lot_centre: Vector3, lot_size: Vect
 	if draws:
 		_build_ground()
 
-	DotLog.debug(CHANNEL, "land built", {"grid": "%dx%d" % [nx, nz], "roads": roads.size(), "ms": (Time.get_ticks_usec() - started) / 1000})
+	GSLog.debug(CHANNEL, "land built", {"grid": "%dx%d" % [nx, nz], "roads": roads.size(), "ms": (Time.get_ticks_usec() - started) / 1000})
 
 
 # Queries
@@ -399,7 +399,7 @@ func _build_collision() -> void:
 	var body := StaticBody3D.new()
 	body.name = "Ground"
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
-	# What a footstep on it sounds like (DotAudioFootsteps reads the meta): the plain.
+	# What a footstep on it sounds like (GSAudioFootsteps reads the meta): the plain.
 	body.set_meta(&"surface", "grass")
 	body.collision_mask = 0
 	var shape := HeightMapShape3D.new()

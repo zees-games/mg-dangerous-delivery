@@ -37,40 +37,40 @@ const MIN_TRAFFIC_WIDTH := 6.4
 const MAX_TRAFFIC_TURN := 0.7
 
 ## A road's crown when the route and its segment do not say, percent: both halves of the deck
-## fall this much away from the centreline ([DotRoadProfile]), so a straight sheds water as a
+## fall this much away from the centreline ([GSRoadProfile]), so a straight sheds water as a
 ## real one does. 0 is the flat deck there was before; a bank at least this steep replaces it.
 const DEFAULT_CAMBER := 2.0
 
 
 ## Checks [param doc] and returns it normalised (every optional field filled, every number a
 ## float) or the reason it is refused. A refused document is never half-played.
-static func normalise(doc: Variant) -> DotResult:
+static func normalise(doc: Variant) -> GSResult:
 	if not (doc is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "A route is a JSON object.")
+		return GSResult.fail(GSError.CODE_INVALID, "A route is a JSON object.")
 
 	var d: Dictionary = doc
 
 	if int(d.get("format", 0)) != FORMAT:
-		return DotResult.fail(DotError.CODE_INVALID, "format is %s; this game reads %d." % [d.get("format"), FORMAT])
+		return GSResult.fail(GSError.CODE_INVALID, "format is %s; this game reads %d." % [d.get("format"), FORMAT])
 
 	if str(d.get("kind", "")) != "route":
-		return DotResult.fail(DotError.CODE_INVALID, "kind is '%s'; a route says \"route\"." % d.get("kind", ""))
+		return GSResult.fail(GSError.CODE_INVALID, "kind is '%s'; a route says \"route\"." % d.get("kind", ""))
 
 	var id := str(d.get("id", ""))
 
 	if id == "" or not id.is_valid_identifier():
-		return DotResult.fail(DotError.CODE_INVALID, "id '%s' is not a plain identifier." % id)
+		return GSResult.fail(GSError.CODE_INVALID, "id '%s' is not a plain identifier." % id)
 
 	var width := float(d.get("width", 7.5))
 
 	if width < 4.0 or width > 30.0:
-		return DotResult.fail(DotError.CODE_INVALID, "width %.1f is outside 4 to 30 metres." % width)
+		return GSResult.fail(GSError.CODE_INVALID, "width %.1f is outside 4 to 30 metres." % width)
 
 	var camber := float(d.get("camber", DEFAULT_CAMBER))
-	var camber_why := DotRoadProfile.check_camber(DotRoadProfile.camber_slope_of(camber))
+	var camber_why := GSRoadProfile.check_camber(GSRoadProfile.camber_slope_of(camber))
 
 	if camber_why != "":
-		return DotResult.fail(DotError.CODE_INVALID, "route camber: %s." % camber_why)
+		return GSResult.fail(GSError.CODE_INVALID, "route camber: %s." % camber_why)
 
 	var zones_res := _normalise_zones(d.get("zones", {}))
 
@@ -82,7 +82,7 @@ static func normalise(doc: Variant) -> DotResult:
 	var raw_segments: Variant = d.get("segments", [])
 
 	if not (raw_segments is Array) or (raw_segments as Array).is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "A route needs at least one segment.")
+		return GSResult.fail(GSError.CODE_INVALID, "A route needs at least one segment.")
 
 	var segments: Array = []
 	var checkpoints := 0
@@ -100,7 +100,7 @@ static func normalise(doc: Variant) -> DotResult:
 
 		segments.append(seg_out)
 
-	return DotResult.success({
+	return GSResult.success({
 		"format": FORMAT,
 		"kind": "route",
 		"id": id,
@@ -119,9 +119,9 @@ static func normalise(doc: Variant) -> DotResult:
 
 
 ## The zones object, each clamped to 0..1 weather.
-static func _normalise_zones(p_zones: Variant) -> DotResult:
+static func _normalise_zones(p_zones: Variant) -> GSResult:
 	if not (p_zones is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "zones is an object of zone id to weather.")
+		return GSResult.fail(GSError.CODE_INVALID, "zones is an object of zone id to weather.")
 
 	var zones: Dictionary = {}
 
@@ -129,7 +129,7 @@ static func _normalise_zones(p_zones: Variant) -> DotResult:
 		var z: Variant = p_zones[zone_id]
 
 		if not (z is Dictionary):
-			return DotResult.fail(DotError.CODE_INVALID, "zone '%s' is not an object." % zone_id)
+			return GSResult.fail(GSError.CODE_INVALID, "zone '%s' is not an object." % zone_id)
 
 		var zone := {
 			"name": str((z as Dictionary).get("name", zone_id)),
@@ -139,53 +139,53 @@ static func _normalise_zones(p_zones: Variant) -> DotResult:
 		}
 		zones[str(zone_id)] = zone
 
-	return DotResult.success(zones)
+	return GSResult.success(zones)
 
 
 ## One segment of a route, checked against its zones and the route's width.
-static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: float, camber: float = DEFAULT_CAMBER) -> DotResult:
+static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: float, camber: float = DEFAULT_CAMBER) -> GSResult:
 	if not (s is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d is not an object." % i)
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d is not an object." % i)
 
 	var seg: Dictionary = s
 	var length := float(seg.get("length", 0.0))
 
 	if length < 2.0 or length > 2000.0:
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: length %.1f is outside 2 to 2000 metres." % [i, length])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: length %.1f is outside 2 to 2000 metres." % [i, length])
 
 	var turn := float(seg.get("turn", 0.0))
 
 	if absf(turn) / length > MAX_TURN_PER_METRE:
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"segment %d turns %.0f degrees in %.0f metres; a truck cannot take that." % [i, turn, length])
 
 	var climb := float(seg.get("climb", 0.0))
 
 	if absf(climb) / length > MAX_GRADE:
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"segment %d climbs %.0f metres in %.0f; the most is %.0f%%." % [i, climb, length, MAX_GRADE * 100.0])
 
 	var wall := str(seg.get("wall", "none"))
 	var rail := str(seg.get("rail", "none"))
 
 	if not WALLS.has(wall) or not WALLS.has(rail):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: wall and rail are one of %s." % [i, WALLS])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: wall and rail are one of %s." % [i, WALLS])
 
 	var zone := str(seg.get("zone", ""))
 
 	if zone != "" and not zones.has(zone):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d names zone '%s', which is not in zones." % [i, zone])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d names zone '%s', which is not in zones." % [i, zone])
 
 	var seg_width := float(seg.get("width", width))
 
 	if seg_width < 4.0 or seg_width > 30.0:
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: width %.1f is outside 4 to 30 metres." % [i, seg_width])
 
 	var seg_camber := float(seg.get("camber", camber))
-	var camber_why := DotRoadProfile.check_camber(DotRoadProfile.camber_slope_of(seg_camber))
+	var camber_why := GSRoadProfile.check_camber(GSRoadProfile.camber_slope_of(seg_camber))
 
 	if camber_why != "":
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: %s." % [i, camber_why])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: %s." % [i, camber_why])
 
 	var bad := _check_features(i, seg, seg_width, turn, length)
 
@@ -194,7 +194,7 @@ static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: flo
 
 	var checkpoint := bool(seg.get("checkpoint", false))
 
-	return DotResult.success({
+	return GSResult.success({
 		"length": length, "turn": turn, "climb": climb, "width": seg_width,
 		"wall": wall, "rail": rail, "zone": zone, "checkpoint": checkpoint,
 		"boulders": clampi(int(seg.get("boulders", 0)), 0, 32),
@@ -213,19 +213,19 @@ static func _normalise_segment(i: int, s: Variant, zones: Dictionary, width: flo
 
 
 ## A segment's roadworks, traffic, bridge, washout and ledge against the road under them.
-static func _check_features(i: int, seg: Dictionary, seg_width: float, turn: float, length: float) -> DotResult:
+static func _check_features(i: int, seg: Dictionary, seg_width: float, turn: float, length: float) -> GSResult:
 	# Roadworks close 42% of the road, and what is left has to be a lane a truck fits.
 	var works := clampi(int(seg.get("works", 0)), 0, 32)
 
 	if works > 0 and seg_width * 0.58 < MIN_OPEN_LANE:
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"segment %d: roadworks on a %.1f m road leave %.1f m; a truck needs %.1f." % [i, seg_width, seg_width * 0.58, MIN_OPEN_LANE])
 
 	# Oncoming cars only on a road wide enough to pass them and straight enough to see them.
 	var traffic := clampi(int(seg.get("traffic", 0)), 0, 8)
 
 	if traffic > 0 and (seg_width < MIN_TRAFFIC_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 80.0):
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"segment %d: oncoming traffic needs 80 m of road %.1f m wide turning at most %.1f degrees a metre." % [i, MIN_TRAFFIC_WIDTH, MAX_TRAFFIC_TURN])
 
 	# A bridge spans a straight stretch, a washout takes a side of a road wide enough to keep
@@ -234,24 +234,24 @@ static func _check_features(i: int, seg: Dictionary, seg_width: float, turn: flo
 	var washout := clampi(int(seg.get("washout", 0)), 0, 2)
 
 	if bridge > 0 and (absf(turn) > 4.0 or length < BRIDGE_MIN_SEGMENT):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge needs %.0f m of straight road." % [i, BRIDGE_MIN_SEGMENT])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: a bridge needs %.0f m of straight road." % [i, BRIDGE_MIN_SEGMENT])
 
 	if washout > 0 and (seg_width < 7.0 or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: a washout needs 60 m of road at least 7 m wide, nearly straight." % i)
 
 	var ledge := clampi(int(seg.get("ledge", 0)), 0, 2)
 
 	if ledge > 0 and (seg_width < LEDGE_MIN_WIDTH or absf(turn) / length > MAX_TRAFFIC_TURN or length < 60.0):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a ledge needs 60 m of nearly straight road at least %.1f m wide." % [i, LEDGE_MIN_WIDTH])
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: a ledge needs 60 m of nearly straight road at least %.1f m wide." % [i, LEDGE_MIN_WIDTH])
 
 	if bridge > 0 and washout > 0:
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: a bridge and a washout cannot share a segment." % i)
 
 	var shares := washout == 1 and ledge == 1 and length >= SHARE_LENGTH
 	if (1 if works > 0 else 0) + (1 if washout > 0 else 0) + (1 if ledge > 0 else 0) > (2 if shares and works == 0 else 1):
-		return DotResult.fail(DotError.CODE_INVALID, "segment %d: roadworks, a washout and a ledge each take a side of the road, so a segment holds one (a long one a washout and a ledge)." % i)
+		return GSResult.fail(GSError.CODE_INVALID, "segment %d: roadworks, a washout and a ledge each take a side of the road, so a segment holds one (a long one a washout and a ledge)." % i)
 
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## How long the road is, in metres, without building it.

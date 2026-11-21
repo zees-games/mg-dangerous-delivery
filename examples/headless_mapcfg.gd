@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## A mountain's file sets its cvars and the next mountain gets the old values back, through the real module's whitelist.
 ## Run: godot --headless --path . res://examples/headless_mapcfg.tscn
@@ -9,7 +9,7 @@ const SECTIONS := 1
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -22,12 +22,12 @@ func _run() -> void:
 	_check(module._map_config_game() == "mg-dangerous-delivery", "the module's config game is the repo name")
 	module.free()
 
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	console.cvar("dd_weather_storms", "0.3", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("mp_forceview", "0", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("dd_other", "5", "", DotConVar.FLAG_ARCHIVE)
-	var cfg := DotGameMapConfig.for_console("mg-dangerous-delivery", console, keys)
+	console.cvar("dd_weather_storms", "0.3", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("mp_forceview", "0", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("dd_other", "5", "", GSConVar.FLAG_ARCHIVE)
+	var cfg := GSGameMapConfig.for_console("mg-dangerous-delivery", console, keys)
 
 	var dir := DirAccess.open("res://cfg/game/mg-dangerous-delivery/dot_map/map")
 	_check(dir != null and dir.file_exists("range.yml") and dir.file_exists("long_haul.yml"), "every mountain ships a starter file")

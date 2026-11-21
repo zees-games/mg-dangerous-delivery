@@ -5,8 +5,8 @@ extends "dd_client_state.gd"
 const DdFlashlight := preload("dd_flashlight.gd")
 
 ## The flashlight on the eye (first person on foot, or the cab view) and everybody else's beam.
-var flash: DotFlashlight = null
-var flash_crowd: DotFlashlightCrowd = null
+var flash: GSFlashlight = null
+var flash_crowd: GSFlashlightCrowd = null
 var _flash_msec := -100000
 var _flash_retain := 0.0
 
@@ -30,10 +30,10 @@ func _flash_pressed() -> void:
 
 
 ## The sound manager the flashlight clicks play through, or null before audio is up.
-func _flash_audio_ref() -> DotNodeRef:
+func _flash_audio_ref() -> GSNodeRef:
 	if audio == null or audio.manager == null or not audio.manager.is_inside_tree():
 		return null
-	return DotNodeRef.of_path(audio.manager.get_path())
+	return GSNodeRef.of_path(audio.manager.get_path())
 
 
 ## Where [param d]'s beam starts and points: `[origin, direction]`, or empty when they have no body in the world. The local player's walker is the client's own, everybody else's the mirror.
@@ -58,10 +58,10 @@ func _present_flashlights(delta: float, me: DdGame.Driver) -> void:
 		return
 
 	var cfg := game.flashlight_conf()
-	var allowed := DotFlashlightRules.allowed_on(cfg, String(game.mountain_id))
+	var allowed := GSFlashlightRules.allowed_on(cfg, String(game.mountain_id))
 
 	if flash == null or not is_instance_valid(flash):
-		flash = DotFlashlight.new()
+		flash = GSFlashlight.new()
 		flash.name = "Flashlight"
 		flash.config = cfg
 		flash.handle_input = false
@@ -73,7 +73,7 @@ func _present_flashlights(delta: float, me: DdGame.Driver) -> void:
 	flash.allowed = allowed
 
 	if flash_crowd == null:
-		flash_crowd = DotFlashlightCrowd.new()
+		flash_crowd = GSFlashlightCrowd.new()
 		flash_crowd.name = "Flashlights"
 		flash_crowd.config = cfg
 		flash_crowd.audio = _flash_audio_ref()

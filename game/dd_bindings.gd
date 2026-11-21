@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Every key this game reads, as one dot-menu [DotMenuBindings] table: the action, the setting
+## Every key this game reads, as one dot-menu [GSMenuBindings] table: the action, the setting
 ## that stores it, the words a player sees, the default, and the card it goes on.
 ## The arrows drive through `ui_*`, which no row holds; Escape and G are the lot, H is help, so no row may default to them.
 
@@ -22,8 +22,8 @@ const RUN := &"dd_run"
 const FLASHLIGHT := &"dd_flashlight"
 
 
-static func make() -> DotMenuBindings:
-	var keys := DotMenuBindings.new()
+static func make() -> GSMenuBindings:
+	var keys := GSMenuBindings.new()
 	# The driving rows walk as well: W ahead, S back, A and D sideways, Space jumps.
 	keys.add(THROTTLE, &"bind_throttle", "Accelerate; walk ahead", "W", "Driving")
 	keys.add(BRAKE, &"bind_brake", "Brake, then reverse once stopped; walk back", "S", "Driving")
@@ -58,9 +58,9 @@ static func make() -> DotMenuBindings:
 
 
 ## The HUD's short key list, as bound now: `[[key, what], ...]`.
-static func hud_lines(keys: DotMenuBindings) -> Array:
+static func hud_lines(keys: GSMenuBindings) -> Array:
 	var out: Array = []
 	for row in [[USE, "use"], [RESPAWN, "respawn"], [RESTART, "restart"], [SKIP, "skip stage"], [SOLO, "solo"],
-			[CAMERA, "camera"], [GARAGE, "the lot"], [DotMenuBindings.HELP_ACTION, "help"]]:
+			[CAMERA, "camera"], [GARAGE, "the lot"], [GSMenuBindings.HELP_ACTION, "help"]]:
 		out.append([keys.key_for(row[0]) if keys != null else "?", row[1]])
 	return out

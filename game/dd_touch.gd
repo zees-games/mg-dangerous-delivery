@@ -1,6 +1,6 @@
 extends RefCounted
 
-## The on-screen controls of a phone: two clusters of [DotTouchButtons], steering and menus on the left, pedals and use on the right.
+## The on-screen controls of a phone: two clusters of [GSTouchButtons], steering and menus on the left, pedals and use on the right.
 ## It holds which button is down; [DdClient] reads that where it reads keys, and the look is a finger dragged on the bare screen.
 
 const GAS := &"gas"
@@ -38,8 +38,8 @@ static func left_layout() -> Array[Dictionary]:
 		{"id": LOT, "label": "LOT", "offset": Vector2(68, 200), "radius": 24.0},
 	]
 
-var right: DotTouchButtons = null
-var left: DotTouchButtons = null
+var right: GSTouchButtons = null
+var left: GSTouchButtons = null
 ## Button id -> held.
 var down: Dictionary = {}
 ## Called with an id when a button goes down (the ones that act once: use, back, camera, lot).
@@ -69,8 +69,8 @@ func fit_left() -> void:
 		left.offset_right = want
 
 
-func _make(parent: Control, node_name: String, layout: Array[Dictionary]) -> DotTouchButtons:
-	var cluster := DotTouchButtons.new()
+func _make(parent: Control, node_name: String, layout: Array[Dictionary]) -> GSTouchButtons:
+	var cluster := GSTouchButtons.new()
 	cluster.name = node_name
 	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cluster.set_buttons(layout)

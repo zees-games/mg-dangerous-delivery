@@ -175,7 +175,7 @@ func _build_slab() -> void:
 	var body := StaticBody3D.new()
 	body.name = "Slab"
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
-	# What a footstep on it sounds like (DotAudioFootsteps reads the meta).
+	# What a footstep on it sounds like (GSAudioFootsteps reads the meta).
 	body.set_meta(&"surface", "concrete")
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(SIZE.x, SLAB, SIZE.y)
@@ -365,10 +365,10 @@ func _build_seller(id: StringName, i: int) -> void:
 	seller.global_position = sellers[id]
 	# Facing the spawn, a little toward their truck.
 	seller.rotation.y = PI - 0.35
-	var person := DotHumanoidFigure.new()
+	var person := GSHumanoidFigure.new()
 	person.name = "Person"
 	seller.add_child(person)
-	var look := DotHumanoidLook.stock(int(DdWeather.unit("lot|staff|%s" % id) * 100000.0))
+	var look := GSHumanoidLook.stock(int(DdWeather.unit("lot|staff|%s" % id) * 100000.0))
 	# The lot's staff wear its colours: amber tops, dark trousers.
 	look.top = Color(0.95, 0.68, 0.12)
 	look.bottom = Color(0.16, 0.17, 0.2)
@@ -508,7 +508,7 @@ func _truck_model(file: String, scale_f: float) -> Node3D:
 	var packed: PackedScene = load(path) if ResourceLoader.exists(path) else null
 
 	if packed == null:
-		DotLog.warn(CHANNEL, "a truck model is missing", {"path": path})
+		GSLog.warn(CHANNEL, "a truck model is missing", {"path": path})
 		return null
 
 	var model := packed.instantiate() as Node3D

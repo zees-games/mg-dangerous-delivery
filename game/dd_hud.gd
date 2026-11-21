@@ -21,7 +21,7 @@ var _message: Label = null
 var _keys: Label = null
 var _speed_plate: PanelContainer = null
 ## What E does here, bottom middle; hidden when it does nothing.
-var _prompt: DotKeyPrompt = null
+var _prompt: GSKeyPrompt = null
 var _message_left: float = 0.0
 
 ## The plates behind the strip and the three corners, restyled from the theme's `plate` and
@@ -37,7 +37,7 @@ var _menu: Object = null
 ## The rest is the theme's. Static so a render tool can use it.
 static func piece_theme() -> Theme:
 	var t := Theme.new()
-	var type := DotHudPiece.THEME_TYPE
+	var type := GSHudPiece.THEME_TYPE
 	t.set_color(&"plate_edge", type, Color(AMBER, 0.3))
 	t.set_color(&"highlight", type, AMBER)
 	t.set_color(&"good", type, MONEY_GREEN)
@@ -56,9 +56,9 @@ func _follow() -> void:
 
 ## A theme colour on dot-ui's piece type, or the piece's own default without one.
 func colour(key: StringName) -> Color:
-	if has_theme_color(key, DotHudPiece.THEME_TYPE):
-		return get_theme_color(key, DotHudPiece.THEME_TYPE)
-	return DotHudPiece.DEFAULTS.get(key, Color.WHITE)
+	if has_theme_color(key, GSHudPiece.THEME_TYPE):
+		return get_theme_color(key, GSHudPiece.THEME_TYPE)
+	return GSHudPiece.DEFAULTS.get(key, Color.WHITE)
 
 
 func _notification(what: int) -> void:
@@ -126,7 +126,7 @@ func _ready() -> void:
 	_solo.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	_solo.visible = false
 
-	if DotPlatform.has_touch():
+	if GSPlatform.has_touch():
 		# The menu button holds the top left and the steering buttons the left edge, so the numbers go top right, beside a narrower strip.
 		top.offset_left = -200.0
 		top.offset_right = 200.0
@@ -164,11 +164,11 @@ func _build_corner_plates() -> void:
 	# On a plate, in the theme's words: it is read over snow and sky, where the faded list
 	# disappeared.
 	# A phone has the buttons, and the key list sat under them.
-	keys_plate.visible = not DotPlatform.has_touch()
+	keys_plate.visible = not GSPlatform.has_touch()
 	_keys = _label(keys_plate, "R  respawn\nT  restart\nN  skip stage\nB  solo\nC  camera\nG  garage\nH  help", 15)
 
 	# What the use key does where the player stands: buy from a salesperson, get in, accept.
-	_prompt = DotKeyPrompt.new()
+	_prompt = GSKeyPrompt.new()
 	_prompt.name = "Prompt"
 	_prompt.font_size = 22
 	_prompt.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)

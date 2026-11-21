@@ -15,11 +15,11 @@ func _trailer_load(truck_id: StringName, load_def: Dictionary, tough: float) -> 
 ## Where every truck's lost pieces go: one budget for the whole mountain. Null when nothing is
 ## drawn (a dedicated server). The pieces touch the road and the rock but never a truck: each
 ## machine throws its own, and a piece that shoved a truck would put the client out of step.
-func debris() -> DotVehicleDebris:
+func debris() -> GSVehicleDebris:
 	if not draws:
 		return null
 	if _debris == null or not is_instance_valid(_debris):
-		_debris = DotVehicleDebris.new()
+		_debris = GSVehicleDebris.new()
 		_debris.name = "Debris"
 		_debris.collision_layer = 0
 		_debris.collision_mask = DdRoute.CAMERA_LAYER
@@ -31,7 +31,7 @@ func _on_truck_damaged(event: Dictionary, key: StringName) -> void:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver != null and str(event.get("kind", "")) == "part" and driver.truck != null:
-		var part: DotVehicleDamage.Part = (driver.truck as DdTruck).damage.parts.get(event.get("id", &""), null)
+		var part: GSVehicleDamage.Part = (driver.truck as DdTruck).damage.parts.get(event.get("id", &""), null)
 
 		# A unit of the load gone is its share of the pay gone (the knock test's cargo is the
 		# same 0..1), and a crate in the road where it fell.
@@ -56,14 +56,14 @@ func _on_trailer_damaged(event: Dictionary, key: StringName) -> void:
 
 	if driver != null and driver.trailer != null and str(event.get("kind", "")) == "part":
 		var trailer := driver.trailer as DdTrailer
-		var part: DotVehicleDamage.Part = trailer.damage.parts.get(event.get("id", &""), null)
+		var part: GSVehicleDamage.Part = trailer.damage.parts.get(event.get("id", &""), null)
 
 		if part != null and part.kind == &"cargo":
 			var trip: DdTrip = driver.trip
 			if trip != null and not (driver.truck as DdTruck).wreck.is_wrecked():
 				var units := 0
 				for id: StringName in trailer.damage.parts:
-					units += 1 if (trailer.damage.parts[id] as DotVehicleDamage.Part).kind == &"cargo" else 0
+					units += 1 if (trailer.damage.parts[id] as GSVehicleDamage.Part).kind == &"cargo" else 0
 				trip.cargo = maxf(trip.cargo - 1.0 / float(maxi(units, 1)), 0.0)
 			drop_crate(driver.truck as DdTruck, event)
 
@@ -73,7 +73,7 @@ func _on_trailer_damaged(event: Dictionary, key: StringName) -> void:
 func _cargo_units(truck: DdTruck) -> int:
 	var n := 0
 	for id: StringName in truck.damage.parts:
-		if (truck.damage.parts[id] as DotVehicleDamage.Part).kind == &"cargo":
+		if (truck.damage.parts[id] as GSVehicleDamage.Part).kind == &"cargo":
 			n += 1
 	return n
 

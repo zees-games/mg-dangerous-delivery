@@ -1,4 +1,4 @@
-extends DotNetBehaviour
+extends GSNetBehaviour
 
 ## A replicated rigid body: a boulder, and the base of a truck's.
 ## Server-authoritative and never predicted (dot-vehicle's and dot-props' decision): the server pulls the pose, a client draws it
@@ -11,8 +11,8 @@ var net_rotation: Quaternion = Quaternion.IDENTITY
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
-	replicate(&"net_rotation", DotNetVar.Type.QUATERNION).bits(10).interpolated().server_driven()
+	replicate(&"net_position", GSNetVar.Type.VECTOR3_POSITION).interpolated().server_driven()
+	replicate(&"net_rotation", GSNetVar.Type.QUATERNION).bits(10).interpolated().server_driven()
 
 
 func pull() -> void:

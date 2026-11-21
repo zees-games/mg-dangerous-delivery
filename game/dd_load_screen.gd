@@ -60,7 +60,7 @@ func follow_menu(menu: Object) -> void:
 		menu.call(&"follow_hud", self, DdHud.piece_theme())
 
 
-## The load gate's cover contract (`DotLoadGate.cover`). The screen is told each step through [method set_step],
+## The load gate's cover contract (`GSLoadGate.cover`). The screen is told each step through [method set_step],
 ## so the gate's own status is ignored; [method hide_cover] is the gate opening, after warm-up.
 func show_cover() -> void:
 	visible = true
@@ -114,10 +114,10 @@ func _restyle() -> void:
 
 
 func _colour(key: StringName) -> Color:
-	if has_theme_color(key, DotHudPiece.THEME_TYPE):
-		return get_theme_color(key, DotHudPiece.THEME_TYPE)
+	if has_theme_color(key, GSHudPiece.THEME_TYPE):
+		return get_theme_color(key, GSHudPiece.THEME_TYPE)
 
-	return DotHudPiece.DEFAULTS.get(key, Color.WHITE)
+	return GSHudPiece.DEFAULTS.get(key, Color.WHITE)
 
 
 func _label(parent: Node, text: String, size: int) -> Label:

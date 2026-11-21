@@ -196,7 +196,7 @@ func engine_force_for(throttle: float) -> float:
 	return 0.0
 
 
-func _drive(command: DotVehicleCommand, delta: float) -> void:
+func _drive(command: GSVehicleCommand, delta: float) -> void:
 	var body := vehicle.node as VehicleBody3D
 
 	if body == null:

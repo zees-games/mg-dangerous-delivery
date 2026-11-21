@@ -249,18 +249,18 @@ func _swerve(load_id: StringName) -> Dictionary:
 	while _truck(me).forward_speed() < 50.0 / 3.6 and t < 40.0:
 		await get_tree().physics_frame
 		t += TICK
-	var c := DotVehicleCommand.new()
+	var c := GSVehicleCommand.new()
 	c.throttle = 0.3
 	c.steer = 1.0
 	me.command = c
 	var peak_slosh := 0.0
 	await _seconds(0.9)
-	c = DotVehicleCommand.new()
+	c = GSVehicleCommand.new()
 	c.throttle = 0.3
 	c.steer = -1.0
 	me.command = c
 	await _seconds(0.9)
-	c = DotVehicleCommand.new()
+	c = GSVehicleCommand.new()
 	c.throttle = 0.3
 	me.command = c
 	var sway := 0.0
@@ -292,7 +292,7 @@ func _over_gravel(load_id: StringName, kmh: float) -> float:
 	var t := 0.0
 	while (me.trip as DdTrip).distance < 590.0 and t < 120.0:
 		var v := _truck(me).forward_speed() * 3.6
-		var c := DotVehicleCommand.new()
+		var c := GSVehicleCommand.new()
 		c.throttle = clampf((kmh - v) * 0.3, 0.0, 1.0)
 		c.brake = clampf((v - kmh - 3.0) * 0.2, 0.0, 1.0)
 		me.command = c
@@ -508,7 +508,7 @@ func _test_traffic() -> void:
 	game.tick = start - 2 * 60
 	me.assisted = true
 	me.idle = 999.0
-	me.autopilot = DotVehicleDriver.new()
+	me.autopilot = GSVehicleDriver.new()
 	me.autopilot.target_speed = 9.0
 	_place_at(me, road, &"dd_river_cut", float(car["from"]) - 25.0)
 	var met := false
@@ -556,7 +556,7 @@ func _test_every_start() -> void:
 			for stage in trip.stages:
 				if stage > 0:
 					var _k := game.skip(&"t")
-				me.autopilot = DotVehicleDriver.new()
+				me.autopilot = GSVehicleDriver.new()
 				me.autopilot.target_speed = 6.0
 				me.autopilot.set_route(game._global_points(id, trip.distance))
 				var from := trip.distance
@@ -596,7 +596,7 @@ func _test_piles() -> void:
 	var me := _set_off(&"box_truck", &"gravel", id)
 	me.assisted = true
 	me.idle = 999.0
-	me.autopilot = DotVehicleDriver.new()
+	me.autopilot = GSVehicleDriver.new()
 	me.autopilot.target_speed = 17.0
 	await _seconds(0.3)
 	_place_at(me, road, id, 440.0)
@@ -636,7 +636,7 @@ func _test_hung() -> void:
 	at.origin += road.position + at.basis.x * (road.width_at(d) * 0.5 + 0.2)
 	_truck(me).place(at)
 	(me.trip as DdTrip).hint = road.index_at_distance(d)
-	var c := DotVehicleCommand.new()
+	var c := GSVehicleCommand.new()
 	c.throttle = 0.15
 	me.command = c
 	var t := 0.0
@@ -644,7 +644,7 @@ func _test_hung() -> void:
 		await get_tree().physics_frame
 		t += TICK
 	_check(why[0] == "fell" or why[0] == "hung", "a truck half over the edge goes over or is put back, never sits there", "%s after %.1f s" % [why[0], t])
-	me.command = DotVehicleCommand.new()
+	me.command = GSVehicleCommand.new()
 	await _seconds(game.config.respawn_seconds + 1.0)
 	_check(_truck(me).wheels_on_ground() == 4 and (me.trip as DdTrip).state == DdTrip.State.DRIVING, "and is back on the road on four wheels")
 	game.fell.disconnect(on_fell)
@@ -677,7 +677,7 @@ func _test_hairpins() -> void:
 					var me := _set_off(truck, &"crates", id)
 					me.assisted = true
 					me.idle = 999.0
-					me.autopilot = DotVehicleDriver.new()
+					me.autopilot = GSVehicleDriver.new()
 					me.autopilot.target_speed = 7.0
 					await _seconds(0.3)
 					# The same clock for every attempt: the oncoming cars are part of the road.
@@ -685,7 +685,7 @@ func _test_hairpins() -> void:
 					_place_at(me, road, id, start - 15.0)
 					# A careful driver stopped on a steep snowy grade is on the brakes.
 					me.assisted = false
-					var hold := DotVehicleCommand.new()
+					var hold := GSVehicleCommand.new()
 					hold.brake = 1.0
 					me.command = hold
 					await _seconds(1.0)
@@ -726,7 +726,7 @@ func _test_hairpins() -> void:
 	at.origin += road.position
 	_truck(me).place(at)
 	(me.trip as DdTrip).hint = road.index_at_distance(hairpin_mid)
-	var c := DotVehicleCommand.new()
+	var c := GSVehicleCommand.new()
 	c.throttle = 0.35
 	me.command = c
 	await _seconds(6.0)

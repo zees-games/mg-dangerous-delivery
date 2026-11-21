@@ -1,4 +1,4 @@
-extends DotConfig
+extends GSConfig
 
 ## Every rule a haul is played under. Routes are documents (`routes/`), trucks a catalogue
 ## (`DdTrucks`); this is the rest, layered: defaults < JSON file < DD_* environment < --dd-*
@@ -280,8 +280,8 @@ extends DotConfig
 
 ## The file that says which mountains a server ROTATES: `maps.yml` in
 ## `cfg/game/mg-dangerous-delivery/dot_map/` or `cfg/server/addons/dot_map/` (dot-map's
-## `DotMapRotationFile`). Empty or absent rotates every mountain; one left out is never balloted.
-@export var map_rotation_file: String = DotMapRotationFile.DEFAULT_STEM
+## `GSMapRotationFile`). Empty or absent rotates every mountain; one left out is never balloted.
+@export var map_rotation_file: String = GSMapRotationFile.DEFAULT_STEM
 
 
 ## `@export_group` -> the cfg file it lives in: `cfg/game/mg-dangerous-delivery/config_<file>/game.yml`.
@@ -293,8 +293,8 @@ const CFG_FILES := {
 
 
 ## The binder every entry point uses: [param config] layered, one cfg file per [constant CFG_FILES] entry.
-static func make_binder(config: DotConfig, json_path := "") -> DotGameConfigBinder:
-	var b := DotGameConfigBinder.create(config, "mg-dangerous-delivery", "dd", json_path)
+static func make_binder(config: GSConfig, json_path := "") -> GSGameConfigBinder:
+	var b := GSGameConfigBinder.create(config, "mg-dangerous-delivery", "dd", json_path)
 	b.grouped = true
 	b.group_files = CFG_FILES
 	return b
@@ -308,11 +308,11 @@ func cli_prefix() -> String:
 	return "--dd-"
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if gravity <= 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "gravity has to pull down.")
+		return GSResult.fail(GSError.CODE_INVALID, "gravity has to pull down.")
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func describe() -> Dictionary:

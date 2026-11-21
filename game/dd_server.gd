@@ -18,4 +18,4 @@ func _ready() -> void:
 	# The engine's rate, which the server has already set from `sv_tickrate`.
 	game.tick_rate = Engine.physics_ticks_per_second
 	add_child(game)
-	DotLog.info(CHANNEL, "the mountain is up", game.describe())
+	GSLog.info(CHANNEL, "the mountain is up", game.describe())

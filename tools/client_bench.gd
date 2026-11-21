@@ -1,8 +1,8 @@
-extends DotGameClientBench
+extends GSGameClientBench
 
 const DdModule := preload("../game/dd_module.gd")
 
-## Client prediction bench (dot-game's DotGameClientBench): see that class for the flags.
+## Client prediction bench (dot-game's GSGameClientBench): see that class for the flags.
 ## The lot has no server bots, so `--bots` is ignored; `--play` holds the throttle and steers.
 
 
@@ -13,23 +13,23 @@ func _configure() -> void:
 	jump_action = &""
 
 
-func _boot_server(_bots_wanted: int, data_dir: String) -> DotNetManager:
+func _boot_server(_bots_wanted: int, data_dir: String) -> GSNetManager:
 	var dir := ProjectSettings.globalize_path(data_dir)
 	var config := make_server_config(data_dir)
 	config.max_players = 8
-	var server := DotServer.new()
+	var server := GSServer.new()
 	server.name = "Server"
 	server.config = config
 	add_child(server)
 	for _i in 60:
 		await get_tree().process_frame
-		if server.state == DotServer.State.RUNNING:
+		if server.state == GSServer.State.RUNNING:
 			break
 	var scene: Node = (load("res://scenes/dd_server.tscn") as PackedScene).instantiate()
 	add_child(scene)
 	await get_tree().process_frame
 	(DdModule as GDScript).set("bank_file", "%s/accounts.json" % dir)
-	var loaded: DotResult = await server.modules.load_module("res://game/dd_module.gd")
+	var loaded: GSResult = await server.modules.load_module("res://game/dd_module.gd")
 	if not loaded.ok:
 		printerr("client_bench server: ", loaded.error)
 		return null

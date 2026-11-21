@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## The touch layout: two clusters that fit a phone without overlapping, a finger on a button kept off the look, and the hidden state off a touch device.
 
@@ -8,13 +8,13 @@ const CHECKS := 17
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	print("mg-dangerous-delivery: touch buttons")
-	DotPlatform.touch_override = 1
+	GSPlatform.touch_override = 1
 	for size: Vector2 in [Vector2(844, 390), Vector2(667, 375), Vector2(932, 430)]:
 		var root := Control.new()
 		root.size = size
@@ -26,7 +26,7 @@ func _run() -> void:
 		var tag := "%dx%d" % [size.x, size.y]
 		var bounds := Rect2(Vector2.ZERO, size)
 		var all: Array[Dictionary] = []
-		for cluster: DotTouchButtons in [touch.right, touch.left]:
+		for cluster: GSTouchButtons in [touch.right, touch.left]:
 			var origin := cluster.position
 			var foot := cluster.footprint()
 			_check(bounds.encloses(Rect2(origin + foot.position, foot.size)), "a cluster fits %s" % tag, str(foot))
@@ -62,10 +62,10 @@ func _run() -> void:
 	config = null
 	settings.free()
 
-	DotPlatform.touch_override = 0
-	var off := DotTouchButtons.new()
+	GSPlatform.touch_override = 0
+	var off := GSTouchButtons.new()
 	add_child(off)
 	_check(not off.visible, "no touch: the buttons are hidden")
 	off.free()
-	DotPlatform.touch_override = -1
+	GSPlatform.touch_override = -1
 	_report(CHECKS)

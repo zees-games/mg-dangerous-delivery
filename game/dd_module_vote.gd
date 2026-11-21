@@ -1,4 +1,4 @@
-extends DotGameModule
+extends GSGameModule
 
 ## The mountain vote of the delivery module: the ballot, its menu and callbacks, and the change of mountain it ends in.
 
@@ -28,13 +28,13 @@ func _build_vote(world: DdGame) -> void:
 	var made := vote.setup()
 
 	if not made.ok:
-		DotLog.result(CHANNEL, "the mountain vote; the server stays on its mountain", made)
+		GSLog.result(CHANNEL, "the mountain vote; the server stays on its mountain", made)
 		vote.queue_free()
 		vote = null
 		return
 
 	var commanded := vote.install_commands(self)
-	DotLog.result(CHANNEL, "the mountain vote's commands", commanded)
+	GSLog.result(CHANNEL, "the mountain vote's commands", commanded)
 
 	_wire_vote_menu(world)
 
@@ -53,7 +53,7 @@ func _wire_vote_callbacks(world: DdGame) -> void:
 				out.append([mountain["id"], mountain["name"]])
 
 		return out
-	vote.apply_fn = func(id: StringName) -> DotResult:
+	vote.apply_fn = func(id: StringName) -> GSResult:
 		return _change_mountain(id)
 	vote.voters_fn = func() -> Array:
 		var out: Array = []
@@ -72,7 +72,7 @@ func _wire_vote_callbacks(world: DdGame) -> void:
 			server.broadcast_message(line)
 	vote.is_admin_fn = func(voter: StringName) -> bool:
 		var session := server.session_by_userid(String(voter).to_int()) if server != null else null
-		return session != null and session.has_permission(DotAdminFlags.CHANGEMAP)
+		return session != null and session.has_permission(GSAdminFlags.CHANGEMAP)
 	vote.busy_fn = func() -> bool:
 		return server != null and server.votes != null and server.votes.is_active()
 	vote.ballot_fn = func(state: Dictionary) -> void:
@@ -82,7 +82,7 @@ func _wire_vote_callbacks(world: DdGame) -> void:
 		for session in server.playing_sessions():
 			var data := state.duplicate()
 			data["you"] = str(session.userid)
-			server.send_notice(session, DotNotice.make(
+			server.send_notice(session, GSNotice.make(
 				&"", "", float(state.get("seconds", -1.0)), MOUNTAIN_BALLOT_TOPIC, data
 			))
 	vote.people_fn = func(voter: StringName) -> Dictionary:
@@ -117,7 +117,7 @@ func _wire_vote_menu(world: DdGame) -> void:
 	vote.note_map(world.mountain_id)
 
 	if server != null:
-		server.client_disconnected.connect(func(session: DotClientSession, _reason: String) -> void:
+		server.client_disconnected.connect(func(session: GSClientSession, _reason: String) -> void:
 			if vote != null:
 				vote.forget_voter(StringName(str(session.userid)))
 		)
@@ -125,7 +125,7 @@ func _wire_vote_menu(world: DdGame) -> void:
 
 ## Builds [param id] and starts the vote's clock over on it. What a vote's winner, an operator's
 ## `dd_mountain` and nothing else call, so the clock and the world never disagree.
-func _change_mountain(id: StringName) -> DotResult:
+func _change_mountain(id: StringName) -> GSResult:
 	var world := game as DdGame
 	var changed := world.set_mountain(id)
 
@@ -135,7 +135,7 @@ func _change_mountain(id: StringName) -> DotResult:
 	if vote != null:
 		vote.note_map(world.mountain_id)
 
-	return DotResult.success(id)
+	return GSResult.success(id)
 
 
 ## Whether a person is mid-haul: on a road and not yet delivered. Stand-ins never hold the

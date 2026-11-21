@@ -1,10 +1,10 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteBase := preload("res://game/dd_route_base.gd")
 
-## The oncoming cars' yield in dot-sim's `DotSimRoad` answers exactly as the script does
+## The oncoming cars' yield in dot-sim's `GSSimRoad` answers exactly as the script does
 ## (godot --headless --path . res://examples/headless_native_traffic.tscn): seeded asks on every
 ## road of every mountain (trucks near and far, hints in and out of a road), a live bot run with
 ## [member DdRouteBase.traffic_verify] on, and an alternated native/script bench of the traffic
@@ -23,7 +23,7 @@ var _finished := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -31,13 +31,13 @@ func _run() -> void:
 	print("mg-dangerous-delivery — native traffic yield")
 	_entered += 1
 	print("the library has the road module")
-	if not DotSim.has(&"road"):
+	if not GSSim.has(&"road"):
 		print("  dot-sim's road module is not loaded: the native half is skipped")
 		_check(_require_env() != "1", "the library is loaded (GS_SIM_REQUIRE_NATIVE=1)")
 		_finished += 1
 		_report_sections(_entered, _finished, 1)
 		return
-	_check(true, "DotSim.has(&\"road\")")
+	_check(true, "GSSim.has(&\"road\")")
 	_finished += 1
 
 	var world := DdGame.new()

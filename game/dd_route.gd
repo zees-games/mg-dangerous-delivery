@@ -4,16 +4,16 @@ extends "dd_route_props.gd"
 ## The same build on every machine; nothing here is random (weather and rock are [DdWeather]'s and [DdGame]'s).
 ## The road is sampled every [constant STEP] metres and every query is over the samples, which is what the mesh is built from.
 
-func build(p_doc: Dictionary) -> DotResult:
+func build(p_doc: Dictionary) -> GSResult:
 	clear()
 	doc = p_doc
 	_sample()
 	_build_geometry()
-	DotLog.debug(CHANNEL, "route built", {
+	GSLog.debug(CHANNEL, "route built", {
 		"id": String(id()), "length": "%.0f m" % length(), "samples": points.size(),
 		"checkpoints": checkpoints.size(), "boulder_sites": boulder_sites.size(),
 	})
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
 func clear() -> void:
@@ -117,7 +117,7 @@ func _edge(i: int, side: float, _segment_width: float, bank_deg: float) -> Vecto
 	return points[i] + right_of(yaws[i]) * side * width * 0.5 + Vector3(0.0, rise, 0.0)
 
 
-## A crowned deck's surface across sample [param i], left to right, from [DotRoadProfile]: the
+## A crowned deck's surface across sample [param i], left to right, from [GSRoadProfile]: the
 ## two edges, and the crown between them where the strip reaches the centreline. A washout
 ## ([param keep_side] -1 keeps the left, 1 the right, 0 both) keeps [constant WASHOUT_KEEP] of
 ## the width, and its cut edge stands where the crowned deck stood.
@@ -134,7 +134,7 @@ func _crowned_row(i: int, segment_width: float, bank_slope: float, camber_slope:
 	var row := PackedVector3Array()
 	var right := right_of(yaws[i])
 
-	for p: Vector2 in DotRoadProfile.cross_section(left_x, right_x, bank_slope, camber_slope):
+	for p: Vector2 in GSRoadProfile.cross_section(left_x, right_x, bank_slope, camber_slope):
 		row.append(points[i] + right * p.x + Vector3(0.0, p.y, 0.0))
 
 	return row
@@ -167,9 +167,9 @@ func _build_segment(index: int, from_i: int, to_i: int) -> void:
 	var width: float = seg["width"]
 	var bank: float = seg["bank"]
 	# A camber of 0 (or a bank at least as steep) is the flat deck, built exactly as before.
-	var camber_slope := DotRoadProfile.camber_slope_of(float(seg.get("camber", 0.0)))
-	var bank_slope := DotRoadProfile.bank_slope_of(bank)
-	var crowned := DotRoadProfile.crowned(bank_slope, camber_slope)
+	var camber_slope := GSRoadProfile.camber_slope_of(float(seg.get("camber", 0.0)))
+	var bank_slope := GSRoadProfile.bank_slope_of(bank)
+	var crowned := GSRoadProfile.crowned(bank_slope, camber_slope)
 	var road := SurfaceTool.new()
 	var rock := SurfaceTool.new()
 	road.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -552,7 +552,7 @@ func _build_ice() -> void:
 		sheet.transform = Transform3D(at.basis, at.origin + at.basis.x * float(patch["lateral"]))
 
 
-## Fallen rock: a low heap across one lane (dot-props' [code]DotPropRubble[/code]), a bump to
+## Fallen rock: a low heap across one lane (dot-props' [code]GSPropRubble[/code]), a bump to
 ## take slowly or swing round, not a pillar.
 func _build_debris() -> void:
 	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
@@ -566,7 +566,7 @@ func _build_debris() -> void:
 		heap.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]))
 
 
-## Narrow ledges: dot-props' [code]DotPropLedge[/code], a rock outcrop growing out of the cliff.
+## Narrow ledges: dot-props' [code]GSPropLedge[/code], a rock outcrop growing out of the cliff.
 func _build_ledges() -> void:
 	var Ledge: GDScript = load("res://addons/dot_props/runtime/dot_prop_ledge.gd")
 	for k in ledges.size():
@@ -619,7 +619,7 @@ func _fray_ledge(entry: Dictionary, d: float, half: float) -> void:
 		DdFord.scatter(self, edge, pose.basis.z, pose.basis.x, 6, Vector2(1.2, 0.8), _rock_material(), 300 + int(d))
 
 
-## Broken road: low heaps of rock ([code]DotPropRubble[/code]) that must be crossed or held to one side of.
+## Broken road: low heaps of rock ([code]GSPropRubble[/code]) that must be crossed or held to one side of.
 func _build_broken() -> void:
 	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
 	for k in broken.size():

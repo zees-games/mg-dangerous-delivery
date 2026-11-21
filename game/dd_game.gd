@@ -9,12 +9,12 @@ extends "dd_game_rotation.gd"
 func _init() -> void:
 	config = DdConfig.new()
 	maps.assign(DdMountains.shipped())
-	follow_content(DotContentIndex.shared(), DdMountains.accepted_map_kinds())
+	follow_content(GSContentIndex.shared(), DdMountains.accepted_map_kinds())
 
 
-func ensure_runtime() -> DotProfileRuntime:
+func ensure_runtime() -> GSProfileRuntime:
 	if profile_runtime == null:
-		profile_runtime = DotProfileRuntime.new()
+		profile_runtime = GSProfileRuntime.new()
 		profile_runtime.permit = func(actor: Variant, _flag: String) -> bool:
 			return typeof(actor) == TYPE_STRING_NAME and actor == &"local"
 	return profile_runtime
@@ -32,7 +32,7 @@ func _ready() -> void:
 		config_binder = DdConfig.make_binder(config, "user://cfg/delivery.json")
 	var loaded := config_binder.load_layers()
 	if not loaded.ok:
-		DotGameConfigBinder.fail_boot(get_tree(), loaded)
+		GSGameConfigBinder.fail_boot(get_tree(), loaded)
 		return
 	body_rules.solid = false
 	body_rules.changed.connect(_refresh_exceptions)
@@ -49,9 +49,9 @@ func _ready() -> void:
 	trucks.config = config
 	var catalogued := reload_catalogues()
 	if not catalogued.ok:
-		DotLog.result(CHANNEL, "the truck and cargo profiles", catalogued)
+		GSLog.result(CHANNEL, "the truck and cargo profiles", catalogued)
 		if config_binder.strict:
-			DotGameConfigBinder.fail_boot(get_tree(), catalogued)
+			GSGameConfigBinder.fail_boot(get_tree(), catalogued)
 			return
 
 	if bank == null:
@@ -78,15 +78,15 @@ func _ready() -> void:
 		var _rotation := load_rotation()
 
 	if register_service:
-		DotRegistry.register(SERVICE, self)
+		GSRegistry.register(SERVICE, self)
 
 	set_physics_process(self_tick)
-	DotLog.info(CHANNEL, "the mountain is ready", {"routes": routes.size(), "refused": refused.size()})
+	GSLog.info(CHANNEL, "the mountain is ready", {"routes": routes.size(), "refused": refused.size()})
 
 
 func _exit_tree() -> void:
 	if register_service:
-		DotRegistry.unregister_instance(SERVICE, self)
+		GSRegistry.unregister_instance(SERVICE, self)
 
 
 func _apply_gravity() -> void:
@@ -102,7 +102,7 @@ func load_directory(directory: String) -> int:
 	var dir := DirAccess.open(directory)
 
 	if dir == null:
-		DotLog.warn(CHANNEL, "no route directory", {"path": directory})
+		GSLog.warn(CHANNEL, "no route directory", {"path": directory})
 		return 0
 
 	var accepted := 0
@@ -119,7 +119,7 @@ func load_directory(directory: String) -> int:
 
 			if not added.ok:
 				refused[file] = added.error.message
-				DotLog.warn(CHANNEL, "a map was refused", {"file": file, "why": added.error.message})
+				GSLog.warn(CHANNEL, "a map was refused", {"file": file, "why": added.error.message})
 
 			continue
 
@@ -127,7 +127,7 @@ func load_directory(directory: String) -> int:
 
 		if not normal.ok:
 			refused[file] = normal.error.message
-			DotLog.warn(CHANNEL, "a route was refused", {"file": file, "why": normal.error.message})
+			GSLog.warn(CHANNEL, "a route was refused", {"file": file, "why": normal.error.message})
 			continue
 
 		var doc: Dictionary = normal.value
@@ -183,16 +183,16 @@ func mountain_rows() -> Array:
 ## Reads maps.yml (the `--config` directory searched too, under [member DdConfig.map_rotation_file])
 ## and keeps it for [method rotation_mountains]. A file that is present and unreadable is an ERROR
 ## and changes nothing: rotating every mountain is a better failure than rotating none.
-func load_rotation() -> DotResult:
+func load_rotation() -> GSResult:
 	var stem := config.map_rotation_file if config != null else ""
-	var dir := DotMapRotationFile.config_dir_arg()
-	DotAddonConfig.game = "mg-dangerous-delivery"
-	var found := DotMapRotationFile.find(stem, dir)
+	var dir := GSMapRotationFile.config_dir_arg()
+	GSAddonConfig.game = "mg-dangerous-delivery"
+	var found := GSMapRotationFile.find(stem, dir)
 
 	if found == "" and stem != "" and (dir != "" or stem != DdConfig.new().map_rotation_file):
 		# The default name being absent is an install with no maps.yml; a name or a directory
 		# somebody chose that finds nothing is a typo they would otherwise never hear about.
-		DotLog.warn(CHANNEL, "the map rotation file was not found; every mountain rotates", {
+		GSLog.warn(CHANNEL, "the map rotation file was not found; every mountain rotates", {
 			"file": stem, "config_dir": dir,
 		})
 
@@ -200,13 +200,13 @@ func load_rotation() -> DotResult:
 
 	if found != "":
 		# The layers that apply (an operator file replaces the shipped one unless it says merge: true); a named file or the legacy file stands alone.
-		var layers := DotMapRotationFile.find_layers(dir, "mg-dangerous-delivery")
+		var layers := GSMapRotationFile.find_layers(dir, "mg-dangerous-delivery")
 		paths = layers if layers.has(found) else PackedStringArray([found])
 
-	var read := DotMapRotationFile.load_files(paths, "mg-dangerous-delivery")
+	var read := GSMapRotationFile.load_files(paths, "mg-dangerous-delivery")
 
 	if not read.ok:
-		DotLog.error(CHANNEL, "the map rotation file could not be read; every mountain rotates", {
+		GSLog.error(CHANNEL, "the map rotation file could not be read; every mountain rotates", {
 			"why": read.error.message,
 		})
 		rotation_file = null
@@ -215,7 +215,7 @@ func load_rotation() -> DotResult:
 	rotation_file = read.value
 
 	if rotation_file.has_rotations():
-		DotLog.info(CHANNEL, "the map rotation file", {
+		GSLog.info(CHANNEL, "the map rotation file", {
 			"paths": ", ".join(rotation_file.sources), "active": rotation_file.active_name(),
 		})
 
@@ -230,12 +230,12 @@ func rotation_commands() -> Dictionary:
 ## The name a game-specific command answers to: maps.yml's `commands: names:` role (and prefix)
 ## over [param default].
 func command_name(role: String, default: String) -> String:
-	var target := DotCommandNamesHolder.new()
-	DotCommandNames.apply(target, rotation_commands())
-	return DotCommandNames.all_of(target.prefix, target.names, {role: default}, role)[0]
+	var target := GSCommandNamesHolder.new()
+	GSCommandNames.apply(target, rotation_commands())
+	return GSCommandNames.all_of(target.prefix, target.names, {role: default}, role)[0]
 
 
-class DotCommandNamesHolder extends RefCounted:
+class GSCommandNamesHolder extends RefCounted:
 	var prefix: String = ""
 	var names: Dictionary = {}
 
@@ -243,18 +243,18 @@ class DotCommandNamesHolder extends RefCounted:
 ## Rebuilds the world on [param id]'s routes: every trip ends first (trucks go back to the lot),
 ## the rock goes, and [signal mountain_changed] tells the bridge. Already on it changes nothing.
 ## Server side.
-func set_mountain(id: StringName) -> DotResult:
+func set_mountain(id: StringName) -> GSResult:
 	sync_content()
 	var mountain := DdMountains.by_id(id, maps)
 
 	if mountain.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "No mountain '%s'." % id)
+		return GSResult.fail(GSError.CODE_INVALID, "No mountain '%s'." % id)
 
 	if DdMountains.routes_of(mountain, library).is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "This server has none of %s's routes." % mountain["name"])
+		return GSResult.fail(GSError.CODE_INVALID, "This server has none of %s's routes." % mountain["name"])
 
 	if id == mountain_id and not routes.is_empty():
-		return DotResult.success(false)
+		return GSResult.success(false)
 
 	# Every truck goes, on a road or parked: the lot they would be parked in moves too. People
 	# are put on foot on the new lot's spawn below.
@@ -287,9 +287,9 @@ func set_mountain(id: StringName) -> DotResult:
 			_put_on_foot(walker_of, spawn_transform(walker_of))
 
 		_start_flashlight(walker_of)
-	DotLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
+	GSLog.info(CHANNEL, "the mountain changed", {"mountain": String(id), "routes": route_order.size()})
 	mountain_changed.emit(id)
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## The mountain's display name.
@@ -306,7 +306,7 @@ func map_doc() -> Dictionary:
 
 ## Adds (or replaces, by id) one map document, checked. A server's map packs, and a client
 ## being sent the map it is on.
-func add_map(doc: Variant) -> DotResult:
+func add_map(doc: Variant) -> GSResult:
 	var normal := DdMapDoc.normalise(doc)
 
 	if not normal.ok:
@@ -327,7 +327,7 @@ func add_map(doc: Variant) -> DotResult:
 ## Takes the maps subscribed packs provide, for the index's current session only. Opt-in. A
 ## pack's map is a [DdMapDoc] named by the entry's `scene` path, with `map_kind` one of
 ## [param accepted_kinds] ("*" is every kind). Synced on every read: the index filters by session.
-func follow_content(index: DotContentIndex, accepted_kinds: PackedStringArray = PackedStringArray()) -> void:
+func follow_content(index: GSContentIndex, accepted_kinds: PackedStringArray = PackedStringArray()) -> void:
 	content_index = index
 	content_kinds = accepted_kinds
 	sync_content()
@@ -404,7 +404,7 @@ func build_routes() -> void:
 		route_order.append(id)
 
 		if absf(route.position.x) + (hi - lo) > NET_WORLD_EXTENT:
-			DotLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": route.position.x})
+			GSLog.warn(CHANNEL, "a route lies outside what the netcode can place", {"route": String(id), "x": route.position.x})
 
 	_build_lot()
 	DdLoad.mark("lot")
@@ -488,7 +488,7 @@ func join(key: StringName, name_text: String, is_bot: bool = false) -> Driver:
 
 	# A stand-in arrives on foot like anybody, and walks to its truck (see [method _drive_bot]).
 	if is_bot:
-		driver.autopilot = DotVehicleDriver.new()
+		driver.autopilot = GSVehicleDriver.new()
 		driver.autopilot.waypoint_radius = 7.0
 		tune_stand_in(driver.autopilot)
 		driver.idle = STAND_IN_FIRST_WAIT
@@ -519,17 +519,17 @@ func leave(key: StringName) -> void:
 
 
 ## Sets off on [param route_id] in the player's selected truck.
-func start_trip(key: StringName, route_id: StringName) -> DotResult:
+func start_trip(key: StringName, route_id: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	if not routes.has(route_id):
-		return DotResult.fail(DotError.CODE_INVALID, "No route '%s'." % route_id)
+		return GSResult.fail(GSError.CODE_INVALID, "No route '%s'." % route_id)
 
 	if not is_unlocked(key, route_id):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
 
 	var truck_id := StringName(str(bank.account(key)["truck"]))
 
@@ -568,8 +568,8 @@ func start_trip(key: StringName, route_id: StringName) -> DotResult:
 		driver.autopilot.set_route(_global_points(route_id, 0.0))
 
 	trip_started.emit(key, route_id)
-	DotLog.info(CHANNEL, "a trip set off", {"driver": driver.name, "route": String(route_id), "truck": String(truck_id)})
-	return DotResult.success(trip)
+	GSLog.info(CHANNEL, "a trip set off", {"driver": driver.name, "route": String(route_id), "truck": String(truck_id)})
+	return GSResult.success(trip)
 
 
 ## Builds [param driver]'s truck [param truck_id] with [param load_def] (empty for none), and
@@ -582,7 +582,7 @@ func _wire_damage(part: Node, damaged: Signal, on_damaged: Callable, key: String
 	part.breakage.scraping.connect(func(_w: int, at: Vector3, speed: float) -> void: truck_scraping.emit(key, at, speed))
 
 
-func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, with_trailer: bool) -> DotResult:
+func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, with_trailer: bool) -> GSResult:
 	var truck := DdTruck.new()
 	truck.owner_key = driver.key
 	var levels := bank.upgrades_of(driver.key, truck_id)
@@ -624,7 +624,7 @@ func _make_truck(driver: Driver, truck_id: StringName, load_def: Dictionary, wit
 			_wire_damage(trailer, trailer.damaged, _on_trailer_damaged.bind(key), key)
 
 	truck_made.emit(driver.key)
-	return DotResult.success(truck)
+	return GSResult.success(truck)
 
 
 ## Back to the lot: the trip's truck goes. Anybody (a stand-in too) is on foot beside their
@@ -646,132 +646,132 @@ func end_trip(key: StringName) -> void:
 ## T. On a road it starts the trip again. In the lot (or roaming on the land) it teleports to
 ## the start of [param route_id]'s course, or the one last picked: the truck at its gate, as
 ## SET OFF puts it. [method back_to_lot] is the other way.
-func restart(key: StringName, route_id: StringName = &"") -> DotResult:
+func restart(key: StringName, route_id: StringName = &"") -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	if not config.allow_restart:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "This server does not allow restarting a trip.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "This server does not allow restarting a trip.")
 
 	if not driver.on_road():
 		var course := route_id if route_id != &"" else driver.picked_route
 
 		if course == &"" or not gates.has(course):
-			return DotResult.fail(DotError.CODE_STATE, "Pick a course in the lot first.")
+			return GSResult.fail(GSError.CODE_STATE, "Pick a course in the lot first.")
 
 		return _to_course_start(driver, course)
 
 	var trip: DdTrip = driver.trip
 	trip.reset_to_start(config.start_hold_seconds)
 	_put_at(driver, 0)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## [param driver] off a road put at the start of [param route_id]'s course: in the lot as SET
 ## OFF does it; already in a truck out on the land, the truck set down at the gate.
-func _to_course_start(driver: Driver, route_id: StringName) -> DotResult:
+func _to_course_start(driver: Driver, route_id: StringName) -> GSResult:
 	if roaming(driver):
 		if not is_unlocked(driver.key, route_id):
-			return DotResult.fail(DotError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
+			return GSResult.fail(GSError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
 
 		var truck := driver.truck as DdTruck
 		var at := (gates[route_id] as DdGate).waiting_spot(truck.half_length + 6.0)
 		at.origin.y += truck.ride_height() + 0.02
 		truck.place(at)
 		driver.picked_route = route_id
-		return DotResult.success(route_id)
+		return GSResult.success(route_id)
 
 	return go_to_gate(driver.key, route_id)
 
 
 ## The button beside restart: off a road or on one, back to the lot. A trip's truck goes and
 ## they are on foot beside the truck they own, parked in a bay (the trip as it always ended).
-func back_to_lot(key: StringName) -> DotResult:
+func back_to_lot(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	end_trip(key)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Skips to the next checkpoint, at the cost the configuration sets.
-func skip(key: StringName) -> DotResult:
+func skip(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or not driver.on_road():
-		return DotResult.fail(DotError.CODE_STATE, "You are not on a road.")
+		return GSResult.fail(GSError.CODE_STATE, "You are not on a road.")
 
 	if not config.allow_skip:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "This server does not allow skipping.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "This server does not allow skipping.")
 
 	var trip: DdTrip = driver.trip
 
 	if trip.stage >= trip.stages - 1:
-		return DotResult.fail(DotError.CODE_STATE, "This is the last stage.")
+		return GSResult.fail(GSError.CODE_STATE, "This is the last stage.")
 
 	trip.stage += 1
 	trip.skips += 1
 	trip.state = DdTrip.State.DRIVING
 	_put_at(driver, trip.stage)
 	stage_reached.emit(key, trip.stage)
-	return DotResult.success(trip.stage)
+	return GSResult.success(trip.stage)
 
 
 ## Back to the last checkpoint by choice. Costs what a fall costs: otherwise a player about
 ## to go over would press it and lose nothing.
-func respawn(key: StringName) -> DotResult:
+func respawn(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or not driver.on_road():
-		return DotResult.fail(DotError.CODE_STATE, "You are not on a road.")
+		return GSResult.fail(GSError.CODE_STATE, "You are not on a road.")
 
 	_fall(driver, "respawn")
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-func set_solo(key: StringName, on: bool) -> DotResult:
+func set_solo(key: StringName, on: bool) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	if on and not config.allow_solo:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "This server does not allow solo.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "This server does not allow solo.")
 
 	if driver.solo == on:
-		return DotResult.success(on)
+		return GSResult.success(on)
 
 	driver.solo = on
 	_refresh_exceptions()
 	solo_changed.emit(key, on)
-	return DotResult.success(on)
+	return GSResult.success(on)
 
 
-func set_command(key: StringName, command: DotVehicleCommand) -> void:
+func set_command(key: StringName, command: GSVehicleCommand) -> void:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver != null and command != null:
 		driver.command = command
 
 
-func buy_truck(key: StringName, truck_id: StringName) -> DotResult:
+func buy_truck(key: StringName, truck_id: StringName) -> GSResult:
 	var def := trucks.get_truck(truck_id)
 
 	if def.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "No such truck.")
+		return GSResult.fail(GSError.CODE_INVALID, "No such truck.")
 
 	return bank.buy_truck(key, truck_id, int(def.get("price", 0)))
 
 
-func select_truck(key: StringName, truck_id: StringName) -> DotResult:
+func select_truck(key: StringName, truck_id: StringName) -> GSResult:
 	return bank.select_truck(key, truck_id)
 
 
-func buy_upgrade(key: StringName, truck_id: StringName, kind: String) -> DotResult:
+func buy_upgrade(key: StringName, truck_id: StringName, kind: String) -> GSResult:
 	var level := bank.upgrade_level(key, truck_id, kind)
 	return bank.buy_upgrade(key, truck_id, kind, trucks.upgrade_cost(truck_id, kind, level))
 
@@ -1233,7 +1233,7 @@ func use_choice(key: StringName, owns: Callable, money: int, at: Vector3 = Vecto
 
 
 ## The use key: whatever [method use_choice] says it does here, done.
-func use(key: StringName) -> DotResult:
+func use(key: StringName) -> GSResult:
 	var choice := use_choice(key, func(id: StringName) -> bool: return bank.owns(key, id), bank.money(key))
 
 	match str(choice["action"]):
@@ -1248,21 +1248,21 @@ func use(key: StringName) -> DotResult:
 		"buy_truck":
 			return buy_truck(key, StringName(str(choice["truck"])))
 
-	return DotResult.fail(DotError.CODE_STATE, str(choice.get("text", "")) if str(choice.get("text", "")) != "" else "Nothing to use here.")
+	return GSResult.fail(GSError.CODE_STATE, str(choice.get("text", "")) if str(choice.get("text", "")) != "" else "Nothing to use here.")
 
 
 ## The delivery at the gate [param key]'s truck is at, accepted: the route's own loaded truck
 ## (and trailer) on its start line past the barrier, which is the trip as it always began.
-func accept(key: StringName) -> DotResult:
+func accept(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or driver.on_foot or not roaming(driver):
-		return DotResult.fail(DotError.CODE_STATE, "Drive up to a route's gate first.")
+		return GSResult.fail(GSError.CODE_STATE, "Drive up to a route's gate first.")
 
 	var gate := gate_at((driver.truck as Node3D).global_position)
 
 	if gate == null:
-		return DotResult.fail(DotError.CODE_STATE, "Drive up to a route's gate first.")
+		return GSResult.fail(GSError.CODE_STATE, "Drive up to a route's gate first.")
 
 	return start_trip(key, gate.route_id)
 
@@ -1270,7 +1270,7 @@ func accept(key: StringName) -> DotResult:
 ## SET OFF on the lot's panel: [param key]'s truck put on [param route_id]'s road, facing its
 ## gate, with them at the wheel (the quick way across the land; the gate still asks). With
 ## `quick_start` it is the trip itself, as before the lot had roads.
-func go_to_gate(key: StringName, route_id: StringName) -> DotResult:
+func go_to_gate(key: StringName, route_id: StringName) -> GSResult:
 	if config.quick_start:
 		return start_trip(key, route_id)
 
@@ -1278,19 +1278,19 @@ func go_to_gate(key: StringName, route_id: StringName) -> DotResult:
 	var gate: DdGate = gates.get(route_id, null)
 
 	if driver == null or driver.walker == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	if gate == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No route '%s'." % route_id)
+		return GSResult.fail(GSError.CODE_INVALID, "No route '%s'." % route_id)
 
 	if driver.trip != null:
-		return DotResult.fail(DotError.CODE_STATE, "You are on a delivery.")
+		return GSResult.fail(GSError.CODE_STATE, "You are on a delivery.")
 
 	if not is_unlocked(key, route_id):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Deliver a level %d route first." % (int(documents[route_id]["level"]) - 1))
 
 	if not in_lot(key):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Set off from the lot, or drive there.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Set off from the lot, or drive there.")
 
 	var truck_id := StringName(str(bank.account(key)["truck"]))
 
@@ -1312,23 +1312,23 @@ func go_to_gate(key: StringName, route_id: StringName) -> DotResult:
 	driver.on_foot = false
 	driver.command = _held()
 	seated.emit(key)
-	return DotResult.success(route_id)
+	return GSResult.success(route_id)
 
 
 ## [param truck_id] (theirs) brought round to the nearest free bay and [param key] put at its
 ## wheel: a salesperson's E on a truck they own, and the panel's DRIVE. The truck they had
 ## parked goes (one truck each). In the lot only.
-func drive_off(key: StringName, truck_id: StringName) -> DotResult:
+func drive_off(key: StringName, truck_id: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or driver.walker == null:
-		return DotResult.fail(DotError.CODE_STATE, "Nobody by that key.")
+		return GSResult.fail(GSError.CODE_STATE, "Nobody by that key.")
 
 	if driver.trip != null:
-		return DotResult.fail(DotError.CODE_STATE, "You are on a delivery.")
+		return GSResult.fail(GSError.CODE_STATE, "You are on a delivery.")
 
 	if not in_lot(key):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Trucks are handed over in the lot.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Trucks are handed over in the lot.")
 
 	var chosen := bank.select_truck(key, truck_id)
 
@@ -1338,39 +1338,39 @@ func drive_off(key: StringName, truck_id: StringName) -> DotResult:
 	_remove_truck(driver)
 
 	if not _park(driver, true, lot.displays.get(truck_id, Transform3D.IDENTITY).origin if lot != null else Vector3.ZERO):
-		return DotResult.fail(DotError.CODE_STATE, "Every bay in the lot is full.")
+		return GSResult.fail(GSError.CODE_STATE, "Every bay in the lot is full.")
 
-	return DotResult.success(truck_id)
+	return GSResult.success(truck_id)
 
 
 ## Into their own parked truck, from beside it.
-func get_in(key: StringName) -> DotResult:
+func get_in(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or not driver.on_foot or not roaming(driver):
-		return DotResult.fail(DotError.CODE_STATE, "You have no truck parked.")
+		return GSResult.fail(GSError.CODE_STATE, "You have no truck parked.")
 
 	if not _beside(driver.truck as DdTruck, driver.walk_at):
-		return DotResult.fail(DotError.CODE_STATE, "Walk up to your truck first.")
+		return GSResult.fail(GSError.CODE_STATE, "Walk up to your truck first.")
 
 	driver.on_foot = false
 	driver.command = _held()
 	seated.emit(key)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Out of their truck, off a road and nearly stopped: on foot beside the driver's door, the
 ## truck left parked where it is.
-func get_out(key: StringName) -> DotResult:
+func get_out(key: StringName) -> GSResult:
 	var driver: Driver = drivers.get(key, null)
 
 	if driver == null or driver.on_foot or not roaming(driver) or driver.walker == null:
-		return DotResult.fail(DotError.CODE_STATE, "You are not in a truck off the road.")
+		return GSResult.fail(GSError.CODE_STATE, "You are not in a truck off the road.")
 
 	var truck := driver.truck as DdTruck
 
 	if absf(truck.forward_speed()) >= config.get_out_speed:
-		return DotResult.fail(DotError.CODE_STATE, "Stop first.")
+		return GSResult.fail(GSError.CODE_STATE, "Stop first.")
 
 	var door := door_of(truck)
 
@@ -1379,7 +1379,7 @@ func get_out(key: StringName) -> DotResult:
 
 	_put_on_foot(driver, door)
 	seated.emit(key)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Where somebody getting out of [param truck] stands: beside the driver's door (the left),
@@ -1543,7 +1543,7 @@ func _build_toys() -> void:
 	for spot: Array in TOY_SPOTS:
 		var at: Vector3 = lot.global_transform * (spot[1] as Vector3)
 		placements.append({"toy": spot[0], "at": [at.x, at.y, at.z], "yaw": float(placements.size()) * 41.0})
-	toys = DotPropBodyBox.new()
+	toys = GSPropBodyBox.new()
 	toys.name = "Toys"
 	toys.authoritative = authoritative
 	toys.draw = draws
@@ -1558,7 +1558,7 @@ func _build_toys() -> void:
 	add_child(toys)
 	var built := toys.build(placements)
 	if not built.ok:
-		DotLog.warn(CHANNEL, "the lot's toys would not build", {"why": built.error.message})
+		GSLog.warn(CHANNEL, "the lot's toys would not build", {"why": built.error.message})
 	var _sounds := toys.sound.connect(func(id: StringName, at: Vector3, strength: float) -> void: toy_sound.emit(id, at, strength))
 	toys_built.emit()
 
@@ -1597,7 +1597,7 @@ func _step_driver(driver: Driver, delta: float) -> void:
 		return
 
 	trip.seconds += delta
-	truck.drive(DotVehicleCommand.new() if truck.wreck != null and truck.wreck.is_wrecked() else driver.command, delta)
+	truck.drive(GSVehicleCommand.new() if truck.wreck != null and truck.wreck.is_wrecked() else driver.command, delta)
 
 	if driver.trailer != null:
 		(driver.trailer as DdTrailer).set_braking(driver.command.brake, delta)
@@ -1798,8 +1798,8 @@ func _lay_crash_floor(road: DdRoute, at: Vector3) -> void:
 		gone.connect(floor_body.queue_free)
 
 
-func _held() -> DotVehicleCommand:
-	var held := DotVehicleCommand.new()
+func _held() -> GSVehicleCommand:
+	var held := GSVehicleCommand.new()
 	held.brake = 1.0
 	held.handbrake = true
 	return held
@@ -1835,7 +1835,7 @@ func _deliver(driver: Driver) -> void:
 	var road: DdRoute = routes[trip.route_id]
 	bank.note_delivery(driver.key, trip.route_id, trip.paid, road.length(), trip.falls)
 	delivered.emit(driver.key, trip.route_id, trip.paid)
-	DotLog.info(CHANNEL, "a delivery", {
+	GSLog.info(CHANNEL, "a delivery", {
 		"driver": driver.name, "route": String(trip.route_id), "paid": trip.paid,
 		"cargo": "%.0f%%" % (trip.cargo * 100.0), "falls": trip.falls, "seconds": "%.0f" % trip.seconds})
 
@@ -1893,7 +1893,7 @@ func _remove_truck(driver: Driver) -> void:
 
 ## The trucks and cargo as `user://cfg/delivery_trucks.json` / `delivery_cargo.json` (the old place) and then the `truck` / `cargo` profiles (cfg/ tiers, the workbench) hold them.
 ## Trucks already on the road keep what they were built with.
-func reload_catalogues() -> DotResult:
+func reload_catalogues() -> GSResult:
 	trucks.reset()
 	cargo.reset()
 	var _over := trucks.load_overrides("user://cfg/delivery_trucks.json")
@@ -2018,9 +2018,9 @@ const STAND_IN_SUNK := 6.0
 ## How a stand-in drives, from dot-bot's settings (`bot_difficulty` and the `bot_*` cvars), read
 ## at the start of every trip. Skill is pace and when it reacts to a corner, not aim:
 ## `bot_aggression` scales the straight speed and `bot_reaction` the brake gain.
-func tune_stand_in(autopilot: DotVehicleDriver) -> void:
-	var p := DotBotSettings.of(self).profile
-	var medium := DotBotProfile.new()
+func tune_stand_in(autopilot: GSVehicleDriver) -> void:
+	var p := GSBotSettings.of(self).profile
+	var medium := GSBotProfile.new()
 	autopilot.target_speed = config.stand_in_speed * (1.0 + 0.4 * (p.aggression - medium.aggression))
 	autopilot.set_meta("cruise", autopilot.target_speed)
 	autopilot.brake_gain = clampf(STAND_IN_BRAKE * medium.reaction / maxf(p.reaction, 0.05), 0.5, 4.0)
@@ -2165,7 +2165,7 @@ func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 		driver.bot_clock = 0.0
 		tune_stand_in(driver.autopilot)
 		driver.autopilot.set_route(stand_in_road(driver.bot_route, truck.global_position))
-		DotLog.debug(CHANNEL, "a stand-in drives to a gate", {"driver": driver.name, "route": String(driver.bot_route)})
+		GSLog.debug(CHANNEL, "a stand-in drives to a gate", {"driver": driver.name, "route": String(driver.bot_route)})
 
 	var gate := gates[driver.bot_route] as DdGate
 
@@ -2181,7 +2181,7 @@ func _stand_in_to_gate(driver: Driver, delta: float) -> void:
 	var sunk := truck.global_position.y < lot.global_position.y - STAND_IN_SUNK
 
 	if driver.bot_clock > config.stand_in_road_seconds or sunk:
-		DotLog.debug(CHANNEL, "a stand-in lost its way to a gate; back to a bay", {"driver": driver.name, "route": String(driver.bot_route), "sunk": sunk})
+		GSLog.debug(CHANNEL, "a stand-in lost its way to a gate; back to a bay", {"driver": driver.name, "route": String(driver.bot_route), "sunk": sunk})
 		_remove_truck(driver)
 
 		if not _park(driver, true):
@@ -2272,17 +2272,17 @@ func _refresh_weather(force: bool) -> void:
 
 ## Every zone to [param sky] ("clear", "rain", "snow", "storm", "fog") with or without wind;
 ## "" hands the sky back to the draw.
-func force_weather(sky: String, wind: bool = false) -> DotResult:
+func force_weather(sky: String, wind: bool = false) -> GSResult:
 	if sky == "":
 		forced_weather = {}
 	else:
 		forced_weather = DdWeather.forced_from(sky, wind)
 
 		if forced_weather.is_empty():
-			return DotResult.fail(DotError.CODE_INVALID, "The sky is clear, rain, snow, storm or fog.")
+			return GSResult.fail(GSError.CODE_INVALID, "The sky is clear, rain, snow, storm or fog.")
 
 	_refresh_weather(true)
-	return DotResult.success(forced_weather)
+	return GSResult.success(forced_weather)
 
 
 ## The settings a client needs to compute the same weather the server does: sent in HELLO and

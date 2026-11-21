@@ -1,6 +1,6 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
-## DdConfig through DotGameConfigBinder: fields, cvars, strict refusal, the diff, a shipped yml loading back, the truck and cargo profile kinds and the workbench round trip.
+## DdConfig through GSGameConfigBinder: fields, cvars, strict refusal, the diff, a shipped yml loading back, the truck and cargo profile kinds and the workbench round trip.
 ## Run: godot --headless --path . res://examples/headless_config.tscn
 
 const DdConfig := preload("../game/dd_config.gd")
@@ -21,7 +21,7 @@ var _finished := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -57,9 +57,9 @@ func _run() -> void:
 			"get_out_speed", "stand_in_road_seconds", "stand_in_speed", "upgrade_engine_step", "upgrade_cost_scale", "mountain_minutes"]:
 		_check(keys.has(k), "%s is exposed" % k)
 
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	binder.bind_cvars(console.cvar, DotConVar.FLAG_ARCHIVE, console.has_name)
+	binder.bind_cvars(console.cvar, GSConVar.FLAG_ARCHIVE, console.has_name)
 	console.set_cvar("dd_boulder_mass", "5000.0")
 	_check(is_equal_approx(config.boulder_mass, 5000.0) and binder.source_of("boulder_mass") == "cvar", "a cvar writes the field")
 	_check(binder.diff_yaml().contains("boulder_mass: 5000.0"), "the diff names the edit")
@@ -90,17 +90,17 @@ func _run() -> void:
 	_profiles_and_prices(config)
 	_finished += 4
 
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	wb.panel_mode = 1
 	wb.config = {"enabled": false}
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		wb.add_set(set, set.rel_path)
 	add_child(wb)
 	_check(wb.start().ok, "the workbench starts")
 	binder.attach(wb.api.runtime)
 	var listed := PackedStringArray()
 	for kind: String in wb.api.kinds():
-		var lg: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "get", "kind": kind, "id": binder.profile_id})
+		var lg: GSResult = wb.api.handle(GSGameWorkbench.LOCAL_ACTOR, {"op": "get", "kind": kind, "id": binder.profile_id})
 		if lg.ok:
 			listed.append_array(PackedStringArray((lg.value as Dictionary).get("values", {}).keys()))
 	var missing := PackedStringArray()
@@ -108,7 +108,7 @@ func _run() -> void:
 		if not listed.has(k):
 			missing.append(k)
 	_check(missing.is_empty() and binder.profile_sets().size() == 3, "the workbench lists all %d keys over %d files" % [keys.size(), binder.profile_sets().size()], ",".join(missing))
-	var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "config_world", "id": binder.profile_id, "key": "gravity", "value": 12.5})
+	var res: GSResult = wb.api.handle(GSGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": "config_world", "id": binder.profile_id, "key": "gravity", "value": 12.5})
 	_check(res.ok and is_equal_approx(config.gravity, 12.5), "a workbench edit reaches the live config", "" if res.ok else res.error.message)
 	var files: Dictionary = wb.exporter.call("collect")
 	var text: String = files.get("cfg/game/%s/config_world/game.yml" % GAME, "")
@@ -146,9 +146,9 @@ func _profiles_and_prices(config: DdConfig) -> void:
 		"cfg/game/<game>/truck/<id>.yml changes a truck", "" if tapplied.ok else tapplied.error.message)
 	_check(capplied.ok and is_equal_approx(float(cargo.get_load(&"glass")["fragile"]), 4.0), "cfg/game/<game>/cargo/<id>.yml changes a cargo")
 	_check(int(trucks.get_truck(&"box_truck")["price"]) == 0, "the other trucks keep the catalogue")
-	var flatbed: DotProfile = truck_set.load_profile("flatbed").value
+	var flatbed: GSProfile = truck_set.load_profile("flatbed").value
 	_check(int(flatbed.values["price"]) == 1500 and is_equal_approx(float(flatbed.values["pay"]), 1.3), "the workbench shows each truck's own values, not the first entry's")
-	var gravel: DotProfile = cargo_set.load_profile("gravel").value
+	var gravel: GSProfile = cargo_set.load_profile("gravel").value
 	_check(is_equal_approx(float(gravel.values["fill"]), 1.0), "and each cargo's own values")
 	_write("res://cfg/game/%s/truck/hauler.yml" % GAME, "no_such_key: 1\n")
 	truck_set.clear_cache()
@@ -181,9 +181,9 @@ func _probe() -> void:
 	binder.strict = true
 	binder.roots = PackedStringArray([ProjectSettings.globalize_path(ROOT)])
 	var loaded := binder.load_layers()
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	binder.bind_cvars(console.cvar, DotConVar.FLAG_ARCHIVE, console.has_name)
+	binder.bind_cvars(console.cvar, GSConVar.FLAG_ARCHIVE, console.has_name)
 	print("PROBE ok=%s hold=%s hold_src=%s fall=%s fall_src=%s cvar=%s grav=%s grav_src=%s ghost=%s ghost_src=%s" % [
 		loaded.ok, config.start_hold_seconds, binder.source_of("start_hold_seconds"), config.fall_depth, binder.source_of("fall_depth"),
 		console.find_cvar("dd_fall_depth").get_string(), config.gravity, binder.source_of("gravity"),
@@ -212,12 +212,12 @@ func _layers() -> void:
 	OS.unset_environment("DD_FALL_DEPTH")
 	_write_root("game/%s/config_trips/game.yml" % GAME, "gravity: 9.0\n")
 	_check(_child().contains("PROBE ok=false"), "strict: a key in the wrong file is refused")
-	var removed := DotPaths.remove_tree(ProjectSettings.globalize_path(ROOT))
+	var removed := GSPaths.remove_tree(ProjectSettings.globalize_path(ROOT))
 	_check(removed.ok and not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(ROOT)), "the per-process cfg fixture directory is removed", ROOT if removed.ok else str(removed.error))
 
 
 ## The shipped cfg files hold every key, in step with DdConfig, and change nothing as they are.
-func _templates(binder: DotGameConfigBinder) -> void:
+func _templates(binder: GSGameConfigBinder) -> void:
 	_entered += 1
 	var files := binder.template_files()
 	_check(files.size() == 3, "three shipped cfg files", str(files.size()))

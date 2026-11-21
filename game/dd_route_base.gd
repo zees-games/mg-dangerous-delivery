@@ -11,7 +11,7 @@ const BRIDGE_LENGTH := 14.0
 const WASHOUT_LENGTH := 16.0
 const WASHOUT_KEEP := 0.58
 
-## A ledge ([code]DotPropLedge[/code]) leaves this share of the road, for this many metres, as high as this.
+## A ledge ([code]GSPropLedge[/code]) leaves this share of the road, for this many metres, as high as this.
 const LEDGE_KEEP := 0.56
 const LEDGE_LENGTH := 24.0
 const LEDGE_HEIGHT := 4.0
@@ -136,7 +136,7 @@ var gravel: Array = []
 var ledges: Array = []
 
 ## Plank bridges over a gap in the road: [code]{"d", "length", "a": sample index, "b", "rating", "node"}[/code].
-## The road has no floor between `a` and `b`; the deck is dot-props' [code]DotPropBridge[/code].
+## The road has no floor between `a` and `b`; the deck is dot-props' [code]GSPropBridge[/code].
 var bridges: Array = []
 
 ## A side of the road washed away: [code]{"d", "length", "a", "b", "side": -1 left / +1 right}[/code].
@@ -157,7 +157,7 @@ var _car_at := PackedVector3Array()
 ## Per car: the scheduled run it is on, where along the road it is, whether it is on the road.
 var _car_state: Array[Dictionary] = []
 
-## Whether a car's yield ([method _car_blocked]) is asked of dot-sim's `DotSimRoad` when the
+## Whether a car's yield ([method _car_blocked]) is asked of dot-sim's `GSSimRoad` when the
 ## library has it: the samples written once per build, one call per car a tick instead of a
 ## nearest-sample search per truck in script (the whole road for every truck outside the car's
 ## window). Off, or with no library (the web): the script, as before.
@@ -587,10 +587,10 @@ func road_native() -> Variant:
 
 
 func _make_native_road() -> Variant:
-	if points.is_empty() or not DotSim.has(&"road"):
+	if points.is_empty() or not GSSim.has(&"road"):
 		return null
 
-	var road: Object = ClassDB.instantiate(&"DotSimRoad")
+	var road: Object = ClassDB.instantiate(&"GSSimRoad")
 
 	if road == null or not road.call(&"set_samples", points, distances, yaws):
 		return null
@@ -737,7 +737,7 @@ func lowest_point() -> float:
 	return _lowest_y
 
 
-## Waypoints for [DotVehicleDriver], every [param spacing] metres from [param from_d].
+## Waypoints for [GSVehicleDriver], every [param spacing] metres from [param from_d].
 func route_points(from_d: float = 0.0, spacing: float = 8.0) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	var d := from_d

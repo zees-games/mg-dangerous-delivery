@@ -9,7 +9,7 @@ func _hazards_are_fair(d: DdDisasters) -> void:
 
 	for kind: StringName in DdDisasters.KINDS:
 		var s: Dictionary = d.hazards[String(kind)]
-		var ev := DotDisasterEvent.new()
+		var ev := GSDisasterEvent.new()
 		ev.kind = DdDisasters.KINDS[kind]
 		ev.intensity = float(s["intensity"])
 		ev.duration = float(s["duration"])
@@ -22,7 +22,7 @@ func _hazards_are_fair(d: DdDisasters) -> void:
 			var at := ev.origin + Vector3(float(step) - 20.0, 0.0, 0.0) * ev.radius / 20.0
 
 			if kind == &"tornado":
-				var flow := DotDisasterTornado.flow_at(ev, DotDisasterTornado.centre(ev, ev.elapsed) + at)
+				var flow := GSDisasterTornado.flow_at(ev, GSDisasterTornado.centre(ev, ev.elapsed) + at)
 				flat = maxf(flat, Vector2(flow.x, flow.z).length())
 				up = maxf(up, flow.y)
 			elif kind == &"wind":
@@ -93,7 +93,7 @@ func _start_hazard_run(me: DdGame.Driver, road: DdRoute, trip: DdTrip, at: float
 	trip.cargo = 1.0
 	me.assisted = true
 	me.idle = 999.0
-	me.autopilot = DotVehicleDriver.new()
+	me.autopilot = GSVehicleDriver.new()
 	me.autopilot.target_speed = 11.0
 	me.autopilot.set_route(game._global_points(&"dd_foothills", trip.distance))
 
@@ -120,13 +120,13 @@ class CoverHost:
 func _test_solo_in_a_shell() -> void:
 	_section("solo in a shell: the cover lifts and a trip runs to the depot")
 	var host := CoverHost.new()
-	set_meta(DotLoadGate.HOST_META, host)
+	set_meta(GSLoadGate.HOST_META, host)
 	var client: Node = (load("res://game/dd.tscn") as PackedScene).instantiate()
 	add_child(client)
-	remove_meta(DotLoadGate.HOST_META)
+	remove_meta(GSLoadGate.HOST_META)
 	await _uncovered(client)
 	await _seconds(0.2)
-	var gate: DotLoadGate = client.get("gate")
+	var gate: GSLoadGate = client.get("gate")
 	var screen: Variant = client.get("loading")
 	_check(gate != null and gate.is_hosted() and gate.is_open(), "the shell hosts the gate and it opens")
 	_check(not is_instance_valid(screen) or not (screen as Control).is_visible_in_tree() or (screen as Node).is_queued_for_deletion(),
@@ -148,7 +148,7 @@ func _test_solo_in_a_shell() -> void:
 			var _s := world.skip(key)
 		me.assisted = true
 		me.idle = 999.0
-		me.autopilot = DotVehicleDriver.new()
+		me.autopilot = GSVehicleDriver.new()
 		me.autopilot.target_speed = 11.0
 		me.autopilot.set_route(world._global_points(&"dd_foothills", (me.trip as DdTrip).distance))
 		var until := Time.get_ticks_msec() + 40000
@@ -171,7 +171,7 @@ func _test_a_trailer() -> void:
 	_check(trailer != null and trailer.joint != null, "it comes with a trailer, hitched")
 	me.assisted = true
 	me.idle = 999.0
-	me.autopilot = DotVehicleDriver.new()
+	me.autopilot = GSVehicleDriver.new()
 	me.autopilot.target_speed = 10.0
 	me.autopilot.set_route(game._global_points(&"dd_foothills", 4.0))
 	await _seconds(8.0)

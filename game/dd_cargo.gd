@@ -37,26 +37,26 @@ func reset() -> void:
 
 
 ## An owner's changes or new loads, by id; a new one starts from crates.
-func apply_overrides(data: Dictionary) -> DotResult:
+func apply_overrides(data: Dictionary) -> GSResult:
 	for key: Variant in data:
 		var id := StringName(str(key))
 		if not (data[key] is Dictionary):
-			return DotResult.fail(DotError.CODE_INVALID, "cargo '%s' is not an object." % id)
+			return GSResult.fail(GSError.CODE_INVALID, "cargo '%s' is not an object." % id)
 		var def: Dictionary = loads.get(id, (DEFAULTS[0] as Dictionary).duplicate(true))
 		def.merge(data[key], true)
 		def["id"] = String(id)
 		if not loads.has(id):
 			order.append(id)
 		loads[id] = def
-	return DotResult.success(loads.size())
+	return GSResult.success(loads.size())
 
 
-func load_overrides(path: String) -> DotResult:
+func load_overrides(path: String) -> GSResult:
 	if path == "" or not FileAccess.file_exists(path):
-		return DotResult.success(0)
+		return GSResult.success(0)
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not (parsed is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "%s is not a JSON object of cargo id to fields." % path)
+		return GSResult.fail(GSError.CODE_INVALID, "%s is not a JSON object of cargo id to fields." % path)
 	return apply_overrides(parsed)
 
 

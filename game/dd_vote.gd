@@ -1,6 +1,6 @@
-extends DotVoteTimedGame
+extends GSVoteTimedGame
 
-## The players choose the next mountain: dot-vote's [DotVoteTimedGame] over a list of [DdMountains], server side only.
+## The players choose the next mountain: dot-vote's [GSVoteTimedGame] over a list of [DdMountains], server side only.
 ## No rounds, so the ballot runs on dot-vote's own clock (`dd_vote_minutes`); the hauls on the road are the "round" a `finish_round` time limit waits for.
 ## Ballot options, counting, rock the vote and cooldowns are dot-vote's settings; [method _rules] says only which a game with no rounds wants.
 
@@ -39,7 +39,7 @@ func _default_kinds() -> PackedStringArray:
 	return DdMountains.accepted_map_kinds()
 
 
-func _configure_director(d: DotVoteDirector) -> void:
+func _configure_director(d: GSVoteDirector) -> void:
 	# Reports a "round end" (the road clear of people) so FINISH_ROUND has something to wait
 	# for; this game has no other rounds, and no round limit is set.
 	d.round_based = true
@@ -55,21 +55,21 @@ func _configure_director(d: DotVoteDirector) -> void:
 
 ## What a game with no rounds wants from dot-vote by default. Every line is a default an
 ## operator overrides in [member config_path].
-func _rules() -> DotVoteRules:
-	var rules := DotVoteRules.new()
+func _rules() -> GSVoteRules:
+	var rules := GSVoteRules.new()
 	# dot-vote's own clock: the window is the time limit, the ballot opens before it ends.
-	rules.trigger = DotVoteRules.Trigger.TIME_LIMIT
+	rules.trigger = GSVoteRules.Trigger.TIME_LIMIT
 	rules.duration_sec = maxf(minutes, 0.0) * 60.0
 	rules.vote_lead_sec = 60.0
 	rules.vote_duration_sec = 25.0
-	rules.apply = DotVoteRules.Apply.END_OF_TIME
+	rules.apply = GSVoteRules.Apply.END_OF_TIME
 	rules.warn_at_sec = PackedStringArray(["120", "30"])
 	# See the class note: the trucks on the road get to the depot first, for at most three
 	# minutes (a level 5 route is about that long from its last checkpoint).
-	rules.time_up = DotVoteRules.TimeUp.FINISH_ROUND
+	rules.time_up = GSVoteRules.TimeUp.FINISH_ROUND
 	rules.finish_round_max_sec = 180.0
 	# A rocked vote changes the mountain now: the players asked for it.
-	rules.rtv_apply = DotVoteRules.Apply.IMMEDIATE
+	rules.rtv_apply = GSVoteRules.Apply.IMMEDIATE
 	# Two minutes on a mountain before it can be rocked: time to pick a route and see it.
 	rules.rtv_delay_sec = 120.0
 	# "This mountain again" is the current one on the ballot; Extend would be a second

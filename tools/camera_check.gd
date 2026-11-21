@@ -43,7 +43,7 @@ func _ready() -> void:
 		if StringName(mountain["id"]) != client.game.mountain_id:
 			client.set_process(true)
 			client.set_physics_process(true)
-			var moved: DotResult = client.game.set_mountain(StringName(mountain["id"]))
+			var moved: GSResult = client.game.set_mountain(StringName(mountain["id"]))
 			if not moved.ok:
 				print("FAIL  mountain %s: %s" % [mountain["id"], moved.error.message])
 				_failed = true
@@ -129,14 +129,14 @@ func _fly_mountain(client: Node) -> Array:
 			var ray := PhysicsRayQueryParameters3D.create(pivot, wanted, DdRoute.CAMERA_LAYER)
 			var blocked := not space.intersect_ray(ray).is_empty()
 
-			if blocked or DotCameraProbe.is_inside(space, wanted, RADIUS, DdRoute.CAMERA_LAYER):
+			if blocked or GSCameraProbe.is_inside(space, wanted, RADIUS, DdRoute.CAMERA_LAYER):
 				unprotected += 1
 				var depth := wanted.distance_to(at)
 				if depth > worst_depth:
 					worst_depth = depth
 					worst = {"d": d, "wanted": wanted, "at": at, "look": client._look}
 
-			if DotCameraProbe.is_inside(space, at, RADIUS, DdRoute.CAMERA_LAYER):
+			if GSCameraProbe.is_inside(space, at, RADIUS, DdRoute.CAMERA_LAYER):
 				inside += 1
 
 			d += STEP_M

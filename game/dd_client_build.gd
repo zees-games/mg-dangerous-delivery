@@ -4,13 +4,13 @@ extends "dd_client_flashlight.gd"
 
 const CHANNEL := "delivery.client"
 ## Asks a server whether this player may edit it (sv_workbench_remote); null offline.
-var workbench_remote: DotGameWorkbenchRemoteClient = null
+var workbench_remote: GSGameWorkbenchRemoteClient = null
 
 
 ## The platform is the first child, so its cover is the first thing drawn; it knows the link
 ## and whether this is a connected client.
 func _build_platform() -> void:
-	platform = DotGameClient.new()
+	platform = GSGameClient.new()
 	platform.name = "Platform"
 	platform.spawned_text = "Joining"
 	platform.spawned_fn = func() -> bool:
@@ -44,7 +44,7 @@ func _build_audio() -> void:
 		var _c := game.toy_sound.connect(_toy_sound)
 
 	if not ready_now.ok:
-		DotLog.warn(CHANNEL, "no sound", {"why": ready_now.error.message})
+		GSLog.warn(CHANNEL, "no sound", {"why": ready_now.error.message})
 		remove_child(audio)
 		audio.free()
 		audio = null
@@ -60,34 +60,34 @@ func _build_audio() -> void:
 ## Rock coming down near you is a jolt as well as a rumble. An effect, so dot-fx's: its manager
 ## is where the shake slider (down to exactly zero) is applied.
 func _build_effects() -> void:
-	var catalogue := DotFxCatalogue.new()
-	var rock := DotFxDef.new()
+	var catalogue := GSFxCatalogue.new()
+	var rock := GSFxDef.new()
 	rock.id = &"rock"
-	rock.kind = DotFxDef.Kind.SHAKE
+	rock.kind = GSFxDef.Kind.SHAKE
 	rock.shake_trauma = 0.45
 	catalogue.add(rock)
 
 	# What comes off a truck: a burst tyre's puff and its shreds, a hub's sparks on the road, the
 	# dust of a panel or a wheel going. CPU particles, so the browser build shows them too.
 	for spec: Array in [[&"tyre_puff", 1200, 4], [&"tyre_shreds", 2000, 4], [&"sparks", 500, 24], [&"debris_puff", 1200, 6]]:
-		var fx := DotFxDef.new()
+		var fx := GSFxDef.new()
 		fx.id = spec[0]
-		fx.kind = DotFxDef.Kind.SPAWNED
+		fx.kind = GSFxDef.Kind.SPAWNED
 		fx.scene_path = DdPaths.rebase("res://effects/%s.tscn" % spec[0])
 		fx.lifetime_ms = spec[1]
 		fx.max_concurrent = spec[2]
 		catalogue.add(fx)
 
-	effects = DotFxManager.new()
+	effects = GSFxManager.new()
 	effects.name = "Effects"
 	effects.catalogue = catalogue
-	effects.config = DotFxConfig.new()
+	effects.config = GSFxConfig.new()
 	effects.register_as_service = false
 	add_child(effects)
 	var built := effects.setup()
 
 	if not built.ok:
-		DotLog.warn(CHANNEL, "no effects", {"why": built.error.message})
+		GSLog.warn(CHANNEL, "no effects", {"why": built.error.message})
 		remove_child(effects)
 		effects.free()
 		effects = null
@@ -109,7 +109,7 @@ func _on_truck_damaged(_key: StringName, event: Dictionary) -> void:
 		"part":
 			var _c := effects.spawn(&"debris_puff", at)
 		"wrecked":
-			var _boom := DotVehicleExplosion.spawn(game, event["at"] as Vector3, 1.5)
+			var _boom := GSVehicleExplosion.spawn(game, event["at"] as Vector3, 1.5)
 			effects.shake_at(&"rock", event["at"] as Vector3, ROCK_SHAKE_FALLOFF * 2.0)
 			if str(event.get("body", "")) != "trailer":
 				_throw_out_driver(_key, event["at"] as Vector3, event.get("velocity", Vector3.ZERO) as Vector3)
@@ -119,20 +119,20 @@ func _on_truck_damaged(_key: StringName, event: Dictionary) -> void:
 func _start_remote_workbench() -> void:
 	if workbench_remote == null:
 		return
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	wb.name = "Workbench"
 	wb.remote_client = workbench_remote
 	wb.remote_fn = func() -> bool: return true
 	wb.config = {"enabled": false}
 	if game.config_binder != null:
-		for set: DotProfileSet in game.config_binder.profile_sets():
+		for set: GSProfileSet in game.config_binder.profile_sets():
 			wb.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
 	var _fl := game.flashlight_conf()
-	for set: DotProfileSet in game.flashlight_binder.profile_sets():
+	for set: GSProfileSet in game.flashlight_binder.profile_sets():
 		wb.add_set(set, "Flashlight")
 	add_child(wb)
 	var started := wb.start(game.ensure_runtime())
-	DotLog.result(CHANNEL, "the remote workbench", started)
+	GSLog.result(CHANNEL, "the remote workbench", started)
 	if not started.ok:
 		wb.queue_free()
 		return
@@ -144,24 +144,24 @@ func _add_noblock_and_workbench() -> void:
 	if link != null and not _offline:
 		var _solid := game.body_rules.follow_cvars(link)
 		var _ambient := game.ambient_rules.follow_cvars(link)
-		DotLog.result(CHANNEL, "noblock", platform.add_noblock(game, Callable(game, "team_of_side")))
+		GSLog.result(CHANNEL, "noblock", platform.add_noblock(game, Callable(game, "team_of_side")))
 		_start_remote_workbench()
 		return
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	wb.name = "Workbench"
 	wb.lazy_panel = true
 	wb.listen_host_fn = func() -> bool: return true
 	wb.config = {"enabled": false}
-	for set: DotProfileSet in game.config_binder.profile_sets():
+	for set: GSProfileSet in game.config_binder.profile_sets():
 		wb.add_set(set, "Game settings: %s" % set.rel_path.trim_prefix("config_"))
 	var _fl := game.flashlight_conf()
-	for set: DotProfileSet in game.flashlight_binder.profile_sets():
+	for set: GSProfileSet in game.flashlight_binder.profile_sets():
 		wb.add_set(set, "Flashlight")
 	wb.add_set(game.truck_profiles, "Trucks")
 	wb.add_set(game.cargo_profiles, "Cargo")
 	add_child(wb)
 	var started := wb.start()
-	DotLog.result(CHANNEL, "the workbench", started)
+	GSLog.result(CHANNEL, "the workbench", started)
 	if started.ok:
 		game.config_binder.attach(wb.api.runtime)
 		game.flashlight_binder.attach(wb.api.runtime)
@@ -169,7 +169,7 @@ func _add_noblock_and_workbench() -> void:
 		wb.api.runtime.add_set(game.cargo_profiles)
 		wb.api.runtime.profile_changed.connect(func(kind: String, _id: String, _rev: int) -> void:
 			if kind == "truck" or kind == "cargo":
-				DotLog.result(CHANNEL, "the catalogues after an edit", game.reload_catalogues()))
+				GSLog.result(CHANNEL, "the catalogues after an edit", game.reload_catalogues()))
 	platform.add_workbench(wb)
 
 
@@ -182,7 +182,7 @@ func _avatar_figure(peer_id: int) -> Object:
 		key = local_key
 	var driver: DdGame.Driver = game.drivers.get(key, null) if game != null else null
 	if driver != null and not driver.on_foot and driver.truck != null and is_instance_valid(driver.truck):
-		var seated := driver.truck.get_node_or_null("Driver") as DotHumanoidFigure
+		var seated := driver.truck.get_node_or_null("Driver") as GSHumanoidFigure
 		if seated == null:
 			return null
 		# One wrapper per person: the wearables are hung once per figure instance.
@@ -211,13 +211,13 @@ func _build_environment() -> void:
 			"ambient_colour": [0.74, 0.78, 0.92],
 		},
 	}
-	_sun = DotLightRig.apply(lighting, DotLightDocument.from_dictionary(doc), light_profile())
+	_sun = GSLightRig.apply(lighting, GSLightDocument.from_dictionary(doc), light_profile())
 	_sun.rotation_degrees = Vector3(-50.0, 35.0, 0.0)
 	# The rig aimed its fill opposite the sun it was given; the sun is turned here, so the fill
 	# is turned with it, or it lights the faces the sun already does.
 	var fill := lighting.get_node_or_null("Fill") as DirectionalLight3D
 	if fill != null:
-		var aimed := DotLightRig.fill(DotLightDocument.from_dictionary(doc), _sun.rotation, light_profile())
+		var aimed := GSLightRig.fill(GSLightDocument.from_dictionary(doc), _sun.rotation, light_profile())
 		fill.rotation = aimed.rotation
 		aimed.free()
 	_sun.shadow_blur = 1.5
@@ -243,8 +243,8 @@ func _build_environment() -> void:
 ## What this machine draws of the light: dot-lighting's `painted()`. Shadows stay on in the
 ## browser, unlike `web()`: a truck's shadow is how far off the edge it is. The Compatibility
 ## renderer has no headroom above white, so `painted()` lowers exposure and glow starts above it.
-static func light_profile() -> DotLightProfile:
-	var p := DotLightProfile.painted()
+static func light_profile() -> GSLightProfile:
+	var p := GSLightProfile.painted()
 	p.sun_shadows = true
 	p.glow_threshold = 1.0
 	return p

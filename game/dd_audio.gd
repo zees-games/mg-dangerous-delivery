@@ -91,18 +91,18 @@ var weather: Dictionary = {}
 ## Whether anything plays at all: off in the garage.
 var driving: bool = false
 
-var manager: DotAudioManager = null
+var manager: GSAudioManager = null
 
 ## The bed under the weather: dot-audio's stock (generated, CC0), per route and at the lot.
-var ambience: DotAudioAmbience = null
+var ambience: GSAudioAmbience = null
 
 ## Quiet moods under the mountain (dot-audio's stock set); the old bed plays only when none loaded.
-var ambient: DotAmbienceDirector = null
+var ambient: GSAmbienceDirector = null
 
 ## Footsteps for everybody on foot (dot-audio's stock steps, by distance walked): concrete on
 ## the lot's slab and the land's roads, grass on the plain. The ground says which (a `surface`
 ## meta on the lot's slab, a road, the land); anything that names none is the plain.
-var steps: DotAudioFootsteps = null
+var steps: GSAudioFootsteps = null
 
 var _was_braking := false
 ## 0 at the wheel, 1 on foot, eased: how much of [constant FOOT_BED_DB] the bed has.
@@ -118,7 +118,7 @@ static func ids() -> Array[StringName]:
 	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, SQUEAL, BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]
 	# dot-audio's stock beds and footsteps (the lot and the land are walked). Appended:
 	# a typed array plus a typed array is an untyped one.
-	out.append_array(DotAudioStock.ids())
+	out.append_array(GSAudioStock.ids())
 	return out
 
 
@@ -135,15 +135,15 @@ const ROUTE_BED := {
 const LOT_BED := &"amb_outdoor"
 
 
-static func sound_catalogue() -> DotAudioCatalogue:
-	var c := DotAudioCatalogue.new()
-	DotAudioStock.add_to(c)
+static func sound_catalogue() -> GSAudioCatalogue:
+	var c := GSAudioCatalogue.new()
+	GSAudioStock.add_to(c)
 
 	c.add(_def(ENGINE, 1, 90, true))
 	# Heard from 60 m, full at 6: a diesel carries further than a person's footsteps, and a
 	# truck is what is coming round the bend.
 	var other := _def(ENGINE_OTHER, 12, 40, true)
-	other.kind = DotAudioDef.Kind.POSITIONAL_3D
+	other.kind = GSAudioDef.Kind.POSITIONAL_3D
 	other.unit_size = 6.0
 	other.max_distance = 60.0
 	c.add(other)
@@ -157,12 +157,12 @@ static func sound_catalogue() -> DotAudioCatalogue:
 		c.add(shot)
 
 	# The lot's toys: dot-props' stock toy sounds (Kenney, CC0), shipped in the addon.
-	for row: Dictionary in DotPropBodySounds.rows():
-		var toy := DotAudioDef.new()
+	for row: Dictionary in GSPropBodySounds.rows():
+		var toy := GSAudioDef.new()
 		toy.id = row["id"]
 		toy.path = row["path"]
 		toy.variants = row["variants"]
-		toy.kind = DotAudioDef.Kind.POSITIONAL_3D
+		toy.kind = GSAudioDef.Kind.POSITIONAL_3D
 		toy.bus = &"SFX"
 		toy.gain_db = float(row["gain_db"])
 		toy.pitch_min = float(row["pitch_min"])
@@ -177,8 +177,8 @@ static func sound_catalogue() -> DotAudioCatalogue:
 	return c
 
 
-static func _def(id: StringName, concurrent: int, priority: int, looping: bool) -> DotAudioDef:
-	var def := DotAudioDef.new()
+static func _def(id: StringName, concurrent: int, priority: int, looping: bool) -> GSAudioDef:
+	var def := GSAudioDef.new()
 	def.id = id
 	def.path = "%s/%s.ogg" % [SOUND_DIR, String(id)]
 	# All on SFX: the effects slider is "the truck and the mountain", and the UI bus defaults
@@ -190,11 +190,11 @@ static func _def(id: StringName, concurrent: int, priority: int, looping: bool) 
 	return def
 
 
-func setup() -> DotResult:
-	manager = DotAudioManager.new()
+func setup() -> GSResult:
+	manager = GSAudioManager.new()
 	manager.name = "Audio"
 	manager.catalogue = sound_catalogue()
-	manager.mixer = DotAudioMixer.new()
+	manager.mixer = GSAudioMixer.new()
 	# Not published: a client and a server share a process in every suite here.
 	manager.register_as_service = false
 	# Your engine, rain, wind, three one-shots and a dozen trucks.
@@ -206,13 +206,13 @@ func setup() -> DotResult:
 	if not ready_now.ok:
 		return ready_now.wrap("delivery audio")
 
-	ambience = DotAudioAmbience.new()
+	ambience = GSAudioAmbience.new()
 	ambience.name = "Ambience"
 	ambience.manager = manager
 	ambience.fallback_bed = LOT_BED
 	add_child(ambience)
 	ambience.set_map_bed(LOT_BED)
-	ambient = DotAmbienceDirector.new()
+	ambient = GSAmbienceDirector.new()
 	ambient.name = "Ambient"
 	ambient.manager = manager
 	ambient.default_mood = DdAmbience.DEFAULT_MOOD
@@ -223,7 +223,7 @@ func setup() -> DotResult:
 	var _moods := ambient.setup()
 	ambient.follow_settings(null)
 
-	steps = DotAudioFootsteps.new()
+	steps = GSAudioFootsteps.new()
 	steps.name = "Footsteps"
 	steps.manager = manager
 	steps.default_surface = &"grass"
@@ -231,7 +231,7 @@ func setup() -> DotResult:
 	steps.run_speed = 7.0
 	add_child(steps)
 
-	var godot_sink := manager.sink as DotAudioSinkGodot
+	var godot_sink := manager.sink as GSAudioSinkGodot
 
 	if godot_sink != null:
 		var made := stand_ins()
@@ -243,13 +243,13 @@ func setup() -> DotResult:
 			if def != null and not def.path.is_empty():
 				godot_sink.bank[def.path] = made[id]
 
-		DotLog.info(CHANNEL, "no audio files; synthesised stand-ins are in use", {
+		GSLog.info(CHANNEL, "no audio files; synthesised stand-ins are in use", {
 			"ids": made.size(), "dir": SOUND_DIR,
 		})
 	else:
-		DotLog.info(CHANNEL, "no audio device; sounds are resolved and not heard")
+		GSLog.info(CHANNEL, "no audio device; sounds are resolved and not heard")
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## The bed for where the truck is: a route's, or the lot's when [param route] is empty.
@@ -330,7 +330,7 @@ func _process(delta: float) -> void:
 	_foot = move_toward(_foot, 0.0 if driving else 1.0, delta)
 
 	if ambience != null:
-		ambience.drive = db_to_linear(FOOT_BED_DB * _foot) / DotAudioAmbience.DEFAULT_LEVEL
+		ambience.drive = db_to_linear(FOOT_BED_DB * _foot) / GSAudioAmbience.DEFAULT_LEVEL
 
 	# A truck that was not fed this frame has gone (left, or its node was freed).
 	for key: StringName in _loops.keys():
@@ -445,7 +445,7 @@ func describe() -> Dictionary:
 
 	return {
 		"ids": ids().size(),
-		"device": manager != null and manager.sink is DotAudioSinkGodot,
+		"device": manager != null and manager.sink is GSAudioSinkGodot,
 		"loops": _loops.size(),
 		"loops_playing": playing,
 		"driving": driving,
@@ -479,7 +479,7 @@ static func _wav(samples: PackedFloat32Array, loop: bool) -> AudioStreamWAV:
 
 	var wav := AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = DotAudioSynth.RATE
+	wav.mix_rate = GSAudioSynth.RATE
 	wav.data = data
 
 	if loop:
@@ -491,7 +491,7 @@ static func _wav(samples: PackedFloat32Array, loop: bool) -> AudioStreamWAV:
 
 static func _buffer(seconds: float) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
-	out.resize(int(DotAudioSynth.RATE * seconds))
+	out.resize(int(GSAudioSynth.RATE * seconds))
 	return out
 
 
@@ -499,7 +499,7 @@ static func _buffer(seconds: float) -> PackedFloat32Array:
 ## cycles of everything, so it loops without a click; the pitch does the revving.
 static func _engine_loop() -> AudioStreamWAV:
 	var out := _buffer(1.0)
-	var rate := float(DotAudioSynth.RATE)
+	var rate := float(GSAudioSynth.RATE)
 
 	for i in out.size():
 		var t := float(i) / rate
@@ -514,7 +514,7 @@ static func _engine_loop() -> AudioStreamWAV:
 static func _noise_loop(brightness: float, swell: float) -> AudioStreamWAV:
 	var out := _buffer(2.0)
 	var n := out.size()
-	var rate := float(DotAudioSynth.RATE)
+	var rate := float(GSAudioSynth.RATE)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var last := 0.0
@@ -536,7 +536,7 @@ static func _noise_loop(brightness: float, swell: float) -> AudioStreamWAV:
 ## Rubber on tarmac: a thin, wavering tone with grit on it.
 static func _squeal_loop() -> AudioStreamWAV:
 	var out := _buffer(1.0)
-	var rate := float(DotAudioSynth.RATE)
+	var rate := float(GSAudioSynth.RATE)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
 
@@ -554,7 +554,7 @@ static func _hiss_burst() -> AudioStreamWAV:
 	rng.seed = 11
 
 	for i in out.size():
-		var t := float(i) / DotAudioSynth.RATE
+		var t := float(i) / GSAudioSynth.RATE
 		out[i] = rng.randf_range(-1.0, 1.0) * exp(-t * 6.0) * 0.35
 
 	return _wav(out, false)
@@ -567,7 +567,7 @@ static func _rumble_burst() -> AudioStreamWAV:
 	var last := 0.0
 
 	for i in out.size():
-		var t := float(i) / DotAudioSynth.RATE
+		var t := float(i) / GSAudioSynth.RATE
 		last = lerpf(last, rng.randf_range(-1.0, 1.0), 0.05)
 		out[i] = (last * 1.6 + sin(TAU * 38.0 * t) * 0.3) * exp(-t * 1.6) * minf(t * 10.0, 1.0)
 
@@ -580,8 +580,8 @@ static func _siren() -> AudioStreamWAV:
 	var phase := 0.0
 
 	for i in out.size():
-		var t := float(i) / DotAudioSynth.RATE
-		phase += TAU * (620.0 + 260.0 * sin(TAU * t / 1.2 - PI / 2.0)) / DotAudioSynth.RATE
+		var t := float(i) / GSAudioSynth.RATE
+		phase += TAU * (620.0 + 260.0 * sin(TAU * t / 1.2 - PI / 2.0)) / GSAudioSynth.RATE
 		out[i] = (sin(phase) + 0.3 * sin(phase * 2.0)) * 0.3 * clampf(minf(t * 10.0, (2.4 - t) * 6.0), 0.0, 1.0)
 
 	return _wav(out, false)
@@ -592,7 +592,7 @@ static func _chime_tone() -> AudioStreamWAV:
 	var out := _buffer(0.9)
 
 	for i in out.size():
-		var t := float(i) / DotAudioSynth.RATE
+		var t := float(i) / GSAudioSynth.RATE
 		var note := 660.0 if t < 0.25 else 880.0
 		out[i] = sin(TAU * note * t) * exp(-fmod(t, 0.25) * 5.0) * 0.4
 

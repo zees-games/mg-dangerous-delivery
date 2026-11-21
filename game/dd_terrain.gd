@@ -184,7 +184,7 @@ func compute(route: Variant, wall_height: float, slab: float, drop_slope: float,
 
 	await _pause()
 	_normals()
-	DotLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})
+	GSLog.debug(CHANNEL, "terrain built", {"route": _id, "grid": "%dx%d" % [nx, nz], "ms": (Time.get_ticks_usec() - started) / 1000})
 
 
 ## The grid's origin and size: every sample and both pads, plus the margin.

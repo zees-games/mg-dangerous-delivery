@@ -2,7 +2,7 @@ extends Node3D
 
 ## Lightning, thunder and storm visuals from natural-disasters, when it is linked; a Node3D because the addon draws under its manager's parent.
 ## An optional adapter: the storm itself is [DdWeather], a pure function of the tick; this adds bolts, late thunder, and stage hazards a truck sets off.
-## The addon is loaded by path: naming `DotDisasterManager` would not compile in a checkout without it.
+## The addon is loaded by path: naming `GSDisasterManager` would not compile in a checkout without it.
 
 const DdWeather := preload("dd_weather.gd")
 const DdRoute := preload("dd_route.gd")
@@ -44,7 +44,7 @@ static func available() -> bool:
 ## Builds the manager under this node. Returns whether the addon is there.
 func setup(game: Node) -> bool:
 	if not available():
-		DotLog.info(CHANNEL, "natural-disasters is not linked; storms have no lightning")
+		GSLog.info(CHANNEL, "natural-disasters is not linked; storms have no lightning")
 		return false
 
 	_game = game
@@ -73,12 +73,12 @@ func linked() -> bool:
 
 
 ## The client half: a message the server sent.
-func receive(msg: Dictionary) -> DotResult:
+func receive(msg: Dictionary) -> GSResult:
 	if str(msg.get("t", "")) == "dd_warn":
 		return _receive_warning(msg)
 
 	if manager == null:
-		return DotResult.fail(DotError.CODE_STATE, "natural-disasters is not linked")
+		return GSResult.fail(GSError.CODE_STATE, "natural-disasters is not linked")
 
 	return manager.call("receive", msg)
 
@@ -130,7 +130,7 @@ func _on_weather_changed(route_id: StringName, zone: String, weather: Dictionary
 		if road == null:
 			return
 
-		var res: DotResult = manager.call("start", &"thunderstorm", {
+		var res: GSResult = manager.call("start", &"thunderstorm", {
 			"origin": road.position + _zone_middle(road, zone), "radius": 90.0,
 			"duration": _game.config.weather_period_sec, "intensity": 0.8,
 		})
@@ -138,7 +138,7 @@ func _on_weather_changed(route_id: StringName, zone: String, weather: Dictionary
 		if res.ok:
 			_running[key] = (res.value as Object).get("id")
 		else:
-			DotLog.result(CHANNEL, "starting a storm", res)
+			GSLog.result(CHANNEL, "starting a storm", res)
 
 
 ## The middle of the road that is in [param zone], by distance.
@@ -181,11 +181,11 @@ func _damage(target: Object, amount: float, _at: Vector3, _ev: Object) -> void:
 
 
 func _load_hazards() -> void:
-	DotAddonConfig.game = "mg-dangerous-delivery"
-	var res := DotAddonConfig.load_dir("natural-disasters", DEFAULTS)
+	GSAddonConfig.game = "mg-dangerous-delivery"
+	var res := GSAddonConfig.load_dir("natural-disasters", DEFAULTS)
 
 	if not res.ok:
-		DotLog.result(CHANNEL, "reading stage_hazards.yml", res)
+		GSLog.result(CHANNEL, "reading stage_hazards.yml", res)
 		return
 
 	hazards = (res.value as Dictionary).get("hazards", hazards)
@@ -284,7 +284,7 @@ func _warn(route_id: StringName, road: Node3D, kind: StringName, d: float, n: in
 	var heading := atan2(across.x * flip, across.z * flip)
 	var seconds := float(hazards.get("warning_seconds", 6.0))
 	_pending.append({"at": at, "left": seconds, "kind": kind, "route": route_id, "heading": heading})
-	DotLog.info(CHANNEL, "a stage hazard is coming", {"kind": kind, "route": route_id, "at_m": snappedf(d, 1.0), "in_s": seconds})
+	GSLog.info(CHANNEL, "a stage hazard is coming", {"kind": kind, "route": route_id, "at_m": snappedf(d, 1.0), "in_s": seconds})
 	var msg := {"v": 1, "t": "dd_warn", "k": String(kind), "o": [at.x, at.y, at.z], "s": seconds}
 
 	if send_fn.is_valid():
@@ -296,26 +296,26 @@ func _warn(route_id: StringName, road: Node3D, kind: StringName, d: float, n: in
 func _strike(pending: Dictionary) -> void:
 	var kind: StringName = pending["kind"]
 	var s: Dictionary = hazards.get(String(kind), {})
-	var res: DotResult = manager.call("start", KINDS[kind], {
+	var res: GSResult = manager.call("start", KINDS[kind], {
 		"origin": pending["at"], "heading": float(pending["heading"]),
 		"intensity": float(s.get("intensity", 0.2)), "duration": float(s.get("duration", 20.0)),
 		"radius": float(s.get("radius", 50.0)),
 	})
 
 	if not res.ok:
-		DotLog.result(CHANNEL, "starting a stage hazard", res)
+		GSLog.result(CHANNEL, "starting a stage hazard", res)
 
 
-func _receive_warning(msg: Dictionary) -> DotResult:
+func _receive_warning(msg: Dictionary) -> GSResult:
 	var o: Variant = msg.get("o", null)
 	var kind := StringName(str(msg.get("k", "")))
 
 	if not KINDS.has(kind) or not (o is Array) or (o as Array).size() != 3 or not (msg.get("s", null) is float or msg.get("s", null) is int):
-		return DotResult.fail(DotError.CODE_INVALID, "a malformed hazard warning")
+		return GSResult.fail(GSError.CODE_INVALID, "a malformed hazard warning")
 
 	for v: Variant in o:
 		if not (v is float or v is int):
-			return DotResult.fail(DotError.CODE_INVALID, "a malformed hazard warning")
+			return GSResult.fail(GSError.CODE_INVALID, "a malformed hazard warning")
 
 	warned.emit(kind, Vector3(float(o[0]), float(o[1]), float(o[2])), clampf(float(msg["s"]), 0.0, 60.0))
-	return DotResult.success(null)
+	return GSResult.success(null)

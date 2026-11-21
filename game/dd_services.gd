@@ -1,4 +1,4 @@
-extends DotGameServices
+extends GSGameServices
 
 ## Chat, voice and moderation over dot-game's base: what this game decides about them.
 ## Solo does not touch any of it: solo is about trucks, not people.
@@ -22,7 +22,7 @@ func _services_name() -> String:
 
 
 func _chat_rules() -> Object:
-	var rules := DotChatRules.new()
+	var rules := GSChatRules.new()
 	rules.max_length = MAX_LINE
 	rules.refuse_over_length = false
 	rules.allow_newlines = false
@@ -39,22 +39,22 @@ func _chat_rules() -> Object:
 
 
 func _chat_channels() -> Array:
-	var out: Array[DotChatChannel] = []
-	var everyone := DotChatChannel.make(CH_ALL, "All", DotChatChannel.Scope.EVERYONE)
+	var out: Array[GSChatChannel] = []
+	var everyone := GSChatChannel.make(CH_ALL, "All", GSChatChannel.Scope.EVERYONE)
 	everyone.colour = Color(0.93, 0.94, 0.96)
 	# Longer than a round game's: there are no rounds, and somebody arriving mid-conversation
 	# on a server people drive on for an hour wants the last few lines.
 	everyone.backlog = 20
 	everyone.history_limit = 300
 	out.append(everyone)
-	var admin := DotChatChannel.make(CH_ADMIN, "Admin", DotChatChannel.Scope.EVERYONE)
+	var admin := GSChatChannel.make(CH_ADMIN, "Admin", GSChatChannel.Scope.EVERYONE)
 	admin.prefix = "[ADMIN]"
 	admin.colour = Color(0.98, 0.72, 0.35)
 	admin.admin_only = true
 	admin.ignores_gag = true
 	admin.backlog = 0
 	out.append(admin)
-	var whisper := DotChatChannel.make(CH_WHISPER, "Whisper", DotChatChannel.Scope.DIRECT)
+	var whisper := GSChatChannel.make(CH_WHISPER, "Whisper", GSChatChannel.Scope.DIRECT)
 	whisper.prefix = "[w]"
 	whisper.colour = Color(0.78, 0.71, 0.93)
 	whisper.backlog = 0
@@ -67,8 +67,8 @@ func _voice_config() -> Object:
 
 
 ## The voice format both ends must agree on exactly: the client's voice manager reads this too.
-static func voice_format() -> DotVoiceConfig:
-	var config := DotVoiceConfig.new()
+static func voice_format() -> GSVoiceConfig:
+	var config := GSVoiceConfig.new()
 	config.sample_rate = 16000
 	config.frame_ms = 20.0
 	config.codec_id = &"adpcm"

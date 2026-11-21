@@ -74,15 +74,15 @@ func _drop(pair: Array) -> void:
 	await get_tree().physics_frame
 
 
-func _step(pair: Array, c: DotVehicleCommand) -> void:
+func _step(pair: Array, c: GSVehicleCommand) -> void:
 	(pair[0] as DdTruck).drive(c, TICK)
 	if pair[1] != null:
 		(pair[1] as DdTrailer).set_braking(c.brake, TICK)
 	await get_tree().physics_frame
 
 
-func _cmd(throttle: float, steer: float = 0.0, brake: float = 0.0) -> DotVehicleCommand:
-	var c := DotVehicleCommand.new()
+func _cmd(throttle: float, steer: float = 0.0, brake: float = 0.0) -> GSVehicleCommand:
+	var c := GSVehicleCommand.new()
 	c.throttle = throttle
 	c.steer = steer
 	c.brake = brake

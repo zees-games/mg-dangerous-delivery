@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 const DDTestPorts := preload("test_ports.gd")
 
 ## The server, its boot and the shared helpers of dedicated.gd, split out to keep each script under the size gate.
@@ -20,7 +20,7 @@ const TICK_RATE := 60
 var _entered := 0
 var _finished := 0
 
-var server: DotServer = null
+var server: GSServer = null
 var scene: Node = null
 var game: DdGame = null
 
@@ -57,7 +57,7 @@ func _boot() -> void:
 	cfg.store_line("sv_tickrate %d" % TICK_RATE)
 	cfg.close()
 
-	var config := DotServerConfig.new()
+	var config := GSServerConfig.new()
 	config.startup_config = cfg_path
 	config.autoexec_config = ""
 	config.hostname = "dangerous delivery test"
@@ -71,7 +71,7 @@ func _boot() -> void:
 	config.audit_log_path = "%s/audit.jsonl" % SERVER_DIR
 	config.stdin_console_enabled = false
 
-	server = DotServer.new()
+	server = GSServer.new()
 	server.name = "Server"
 	server.config = config
 	add_child(server)
@@ -79,10 +79,10 @@ func _boot() -> void:
 	for _i in range(120):
 		await get_tree().process_frame
 
-		if server.state == DotServer.State.RUNNING:
+		if server.state == GSServer.State.RUNNING:
 			break
 
-	_check(server.state == DotServer.State.RUNNING, "the server boots", DotServer.State.keys()[server.state])
+	_check(server.state == GSServer.State.RUNNING, "the server boots", GSServer.State.keys()[server.state])
 	_check(Engine.physics_ticks_per_second == TICK_RATE, "and sv_tickrate reached the engine")
 	_finished_section()
 
@@ -99,19 +99,19 @@ func _until(condition: Callable, seconds: float) -> bool:
 func _ballot_ids(vote: Node) -> Array:
 	var out: Array = []
 
-	for choice: DotVoteChoice in (vote.get("source") as DotVoteListSource).entries:
+	for choice: GSVoteChoice in (vote.get("source") as GSVoteListSource).entries:
 		out.append(String(choice.id))
 
 	return out
 
 
-func _module() -> DotModule:
+func _module() -> GSModule:
 	return server.modules.get_module("delivery") if server != null and server.modules != null else null
 
 
 func _run_command(line: String) -> PackedStringArray:
 	var captured: Array[String] = []
-	var context := DotCmdContext.console("", PackedStringArray())
+	var context := GSCmdContext.console("", PackedStringArray())
 	context.reply_sink = func(text: String) -> void: captured.append(text)
 	server.console.execute(line, context)
 	return PackedStringArray(captured)

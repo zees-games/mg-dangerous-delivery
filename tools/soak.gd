@@ -3,9 +3,9 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
-## Bot soak on the real game: N stand-ins deliver for M simulated minutes through dot-bot's DotBotSoak and dot-spawn's DotSpawnWatch.
+## Bot soak on the real game: N stand-ins deliver for M simulated minutes through dot-bot's GSBotSoak and dot-spawn's GSSpawnWatch.
 ## A "map" is a route id every stand-in starts on; "all" lets them pick. `./game.sh soak [route|all] [minutes]`, or
-## `godot --headless --fixed-fps 60 --path . res://tools/soak.tscn -- --map dd_foothills --bots 3 --minutes 2` (DotBotSoakConfig flags too).
+## `godot --headless --fixed-fps 60 --path . res://tools/soak.tscn -- --map dd_foothills --bots 3 --minutes 2` (GSBotSoakConfig flags too).
 
 const DEFAULT_MAP := &"all"
 const DEFAULT_MINUTES := 1.0
@@ -16,7 +16,7 @@ var _last_usec := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -30,7 +30,7 @@ func _arg(name: String, fallback: String) -> String:
 
 func _run() -> void:
 	var map_id := StringName(_arg("map", String(DEFAULT_MAP)))
-	var cfg := DotBotSoakConfig.new()
+	var cfg := GSBotSoakConfig.new()
 	cfg.minutes = DEFAULT_MINUTES
 	cfg.bots = DEFAULT_BOTS
 	cfg.max_object_growth_pct = 40.0
@@ -59,11 +59,11 @@ func _run() -> void:
 			_game.start_trip(key, map_id)
 	await get_tree().physics_frame
 
-	var watch := DotSpawnWatch.new()
+	var watch := GSSpawnWatch.new()
 	watch.rules.enabled = true
 	watch.rules.kill_y = -50.0
 
-	var soak := DotBotSoak.new(cfg)
+	var soak := GSBotSoak.new(cfg)
 	soak.watch = watch
 	soak.movers_fn = _movers
 	soak.object_count_fn = func() -> int: return int(Performance.get_monitor(Performance.OBJECT_COUNT))
@@ -73,8 +73,8 @@ func _run() -> void:
 	soak.tick_cost_fn = _frame_ms
 	var report := await soak.run(get_tree())
 	report["map"] = String(map_id)
-	print(DotBotSoak.summary(report))
-	print(DotBotSoak.report_line(report))
+	print(GSBotSoak.summary(report))
+	print(GSBotSoak.report_line(report))
 	var path := ProjectSettings.globalize_path("res://.godot/test-logs/soak-%s.json" % map_id)
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	if soak.write_report(report, path) != OK:
