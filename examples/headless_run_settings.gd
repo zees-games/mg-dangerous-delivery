@@ -140,7 +140,7 @@ func _settings_pointer(client: Node, settings: Variant) -> void:
 		and in_menu == Input.MOUSE_MODE_VISIBLE and client.call("pointer_mode") == Input.MOUSE_MODE_CAPTURED,
 		"the pointer is captured on foot and driving, and back for the lot's panel and the menu",
 		"%d %d %d %d" % [on_foot, at_lot, driving, in_menu])
-	# A ballot (dot_pointer_modal) that freed the mouse holds it: no per-frame capture, no
+	# A ballot (gs_pointer_modal) that freed the mouse holds it: no per-frame capture, no
 	# click-to-capture, no orbit, until it closes.
 	var modal := PointerModalStub.new()
 	client.add_child(modal)

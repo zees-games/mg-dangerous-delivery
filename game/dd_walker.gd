@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-## The player on foot, on their own machine: a body, dot-player-controller's third-person motor, and one of dot-player-char's people.
+## The player on foot, on their own machine: a body, gs-player-controller's third-person motor, and one of gs-player-char's people.
 ## Walked here and reported, never predicted: the server only refuses a step that is too long or a forbidden place (`DdGame.walk`) and answers with [method put].
 ## The controller only moves the body; the client's one camera (owns_camera is off) serves driving, walking and the lot. No `class_name`: delivered as a pack.
 
@@ -40,7 +40,7 @@ func setup(key: StringName, look: GSHumanoidLook, draws: bool = true) -> void:
 	hull.position = Vector3(0.0, HEIGHT * 0.5, 0.0)
 	add_child(hull)
 
-	# The component root dot-player-controller binds through: a component finds its player by
+	# The component root gs-player-controller binds through: a component finds its player by
 	# walking UP (`GSPlayer.of`), so the controller is the player node's child, and the
 	# player finds the body through its ref.
 	player_node = GSPlayer.new()

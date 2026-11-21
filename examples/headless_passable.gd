@@ -3,7 +3,7 @@ extends GSGameCheckSuite
 const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteDoc := preload("res://game/dd_route_doc.gd")
-const Rubble := preload("res://addons/dot_props/runtime/dot_prop_rubble.gd")
+const Rubble := preload("res://addons/gs_props/runtime/gs_prop_rubble.gd")
 
 ## Every road can be driven end to end by a truck, with every bridge standing and with every bridge down (godot --headless --path . res://examples/headless_passable.tscn).
 ## Rays are dropped on a grid across each road every half metre: a lane the width of a truck must hold solid ground at every station,

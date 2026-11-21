@@ -30,7 +30,7 @@ func _widen_fov(speed_ms: float, delta: float) -> void:
 
 ## [param wanted] pulled toward a point over the truck until it is clear of the mountain, the
 ## road, the gates and the debris (all on [constant DdRoute.CAMERA_LAYER]). Swept, not set, by
-## dot-core's [GSCameraProbe]; other trucks are on layer 1 and never stop it.
+## gs-core's [GSCameraProbe]; other trucks are on layer 1 and never stop it.
 func _clear_of_mountain(truck: DdTruck, wanted: Vector3, delta: float) -> Vector3:
 	if _probe == null:
 		_probe = GSCameraProbe.new(camera.get_world_3d(), DdRoute.CAMERA_LAYER)

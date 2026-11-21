@@ -7,7 +7,7 @@ extends Node3D
 const DdWeather := preload("dd_weather.gd")
 const DdRoute := preload("dd_route.gd")
 const CHANNEL := "dd.disasters"
-const MANAGER := "res://addons/natural_disasters/runtime/dot_disaster_manager.gd"
+const MANAGER := "res://addons/natural_disasters/runtime/gs_disaster_manager.gd"
 
 ## A hazard is about to strike: its kind, where, and the seconds of warning. Both ends emit it.
 signal warned(kind: StringName, at: Vector3, seconds: float)

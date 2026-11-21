@@ -56,7 +56,7 @@ const SHIFTS: Array[float] = [0.0, 0.14, 0.32, 0.52, 0.76, 1.0]
 var others_heard: int = 0
 
 ## The levels, in dB before the def's gain: your engine idling and at full throttle, another
-## truck at a crawl (it gains 6 dB at speed), rain and wind. Measured with dot-audio's
+## truck at a crawl (it gains 6 dB at speed), rain and wind. Measured with gs-audio's
 ## loudness.sh over tools/loudness.tscn. Rain sits 5 dB under the wind: broadband, it read louder.
 const OWN_IDLE_DB := -6.0
 const OWN_FULL_DB := 2.0
@@ -65,7 +65,7 @@ const RAIN_DB := -13.0
 const WIND_DB := -5.0
 
 ## On foot there is no engine under the mix, so out of a truck the bed is raised by FOOT_BED_DB
-## (eased over a second, back down at the wheel) and every step is STEP_DB over dot-audio's
+## (eased over a second, back down at the wheel) and every step is STEP_DB over gs-audio's
 ## stock, which measured -17 LUFS on foot against -17.8 on the snow drive.
 const FOOT_BED_DB := 11.0
 const STEP_DB := 8.0
@@ -93,13 +93,13 @@ var driving: bool = false
 
 var manager: GSAudioManager = null
 
-## The bed under the weather: dot-audio's stock (generated, CC0), per route and at the lot.
+## The bed under the weather: gs-audio's stock (generated, CC0), per route and at the lot.
 var ambience: GSAudioAmbience = null
 
-## Quiet moods under the mountain (dot-audio's stock set); the old bed plays only when none loaded.
+## Quiet moods under the mountain (gs-audio's stock set); the old bed plays only when none loaded.
 var ambient: GSAmbienceDirector = null
 
-## Footsteps for everybody on foot (dot-audio's stock steps, by distance walked): concrete on
+## Footsteps for everybody on foot (gs-audio's stock steps, by distance walked): concrete on
 ## the lot's slab and the land's roads, grass on the plain. The ground says which (a `surface`
 ## meta on the lot's slab, a road, the land); anything that names none is the plain.
 var steps: GSAudioFootsteps = null
@@ -116,7 +116,7 @@ var _fed: Dictionary = {}
 
 static func ids() -> Array[StringName]:
 	var out: Array[StringName] = [ENGINE, ENGINE_OTHER, RAIN, WIND, SQUEAL, BRAKE_HISS, ROCKFALL, DELIVERED, HAZARD_WARNING]
-	# dot-audio's stock beds and footsteps (the lot and the land are walked). Appended:
+	# gs-audio's stock beds and footsteps (the lot and the land are walked). Appended:
 	# a typed array plus a typed array is an untyped one.
 	out.append_array(GSAudioStock.ids())
 	return out
@@ -156,7 +156,7 @@ static func sound_catalogue() -> GSAudioCatalogue:
 		shot.gain_db = SHOT_DB
 		c.add(shot)
 
-	# The lot's toys: dot-props' stock toy sounds (Kenney, CC0), shipped in the addon.
+	# The lot's toys: gs-props' stock toy sounds (Kenney, CC0), shipped in the addon.
 	for row: Dictionary in GSPropBodySounds.rows():
 		var toy := GSAudioDef.new()
 		toy.id = row["id"]

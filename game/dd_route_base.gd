@@ -136,7 +136,7 @@ var gravel: Array = []
 var ledges: Array = []
 
 ## Plank bridges over a gap in the road: [code]{"d", "length", "a": sample index, "b", "rating", "node"}[/code].
-## The road has no floor between `a` and `b`; the deck is dot-props' [code]GSPropBridge[/code].
+## The road has no floor between `a` and `b`; the deck is gs-props' [code]GSPropBridge[/code].
 var bridges: Array = []
 
 ## A side of the road washed away: [code]{"d", "length", "a", "b", "side": -1 left / +1 right}[/code].
@@ -157,7 +157,7 @@ var _car_at := PackedVector3Array()
 ## Per car: the scheduled run it is on, where along the road it is, whether it is on the road.
 var _car_state: Array[Dictionary] = []
 
-## Whether a car's yield ([method _car_blocked]) is asked of dot-sim's `GSSimRoad` when the
+## Whether a car's yield ([method _car_blocked]) is asked of gs-sim's `GSSimRoad` when the
 ## library has it: the samples written once per build, one call per car a tick instead of a
 ## nearest-sample search per truck in script (the whole road for every truck outside the car's
 ## window). Off, or with no library (the web): the script, as before.
@@ -536,7 +536,7 @@ func step_traffic(tick: int, tick_rate: int, trucks: PackedVector3Array = Packed
 
 ## Whether a truck stands in the car's lane within [constant TRAFFIC_YIELD] metres ahead of it
 ## (down the road, the way it is going).
-## dot-sim's answer when the library has the road module, the script's otherwise; the same to the
+## gs-sim's answer when the library has the road module, the script's otherwise; the same to the
 ## bit (`headless_native_traffic`).
 func _car_blocked(spec: Dictionary, d: float, trucks: PackedVector3Array) -> bool:
 	var native: Variant = road_native()

@@ -14,7 +14,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("mg-dangerous-delivery: per-mountain cvars from cfg/game/mg-dangerous-delivery/dot_map/map")
+	print("mg-dangerous-delivery: per-mountain cvars from cfg/game/mg-dangerous-delivery/gs_map/map")
 	var entered := 1
 	var module := DdModule.new()
 	var keys := module._map_config_keys()
@@ -29,12 +29,12 @@ func _run() -> void:
 	console.cvar("dd_other", "5", "", GSConVar.FLAG_ARCHIVE)
 	var cfg := GSGameMapConfig.for_console("mg-dangerous-delivery", console, keys)
 
-	var dir := DirAccess.open("res://cfg/game/mg-dangerous-delivery/dot_map/map")
+	var dir := DirAccess.open("res://cfg/game/mg-dangerous-delivery/gs_map/map")
 	_check(dir != null and dir.file_exists("range.yml") and dir.file_exists("long_haul.yml"), "every mountain ships a starter file")
 
 	# A test mountain's file, in an operator root so the shipped starter files stay untouched.
 	var tier := OS.get_cache_dir().path_join("dd_mapcfg_%d" % OS.get_process_id())
-	var map_dir := tier.path_join("server/game/mg-dangerous-delivery/dot_map/map")
+	var map_dir := tier.path_join("server/game/mg-dangerous-delivery/gs_map/map")
 	DirAccess.make_dir_recursive_absolute(map_dir)
 	var f := FileAccess.open(map_dir.path_join("blizzard_pass.yml"), FileAccess.WRITE)
 	f.store_string("dd_weather_storms: 0.9\nmp_forceview: 2\ndd_other: 9\n")

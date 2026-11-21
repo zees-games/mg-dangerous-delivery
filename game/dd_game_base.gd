@@ -80,11 +80,11 @@ signal toys_clearing()
 signal toys_built()
 signal toy_sound(id: StringName, at: Vector3, strength: float)
 
-## The lot's toys (dot-props' loose ones), placed from [constant TOY_SPOTS] on both ends in the
+## The lot's toys (gs-props' loose ones), placed from [constant TOY_SPOTS] on both ends in the
 ## same order; a truck ploughs them, a walker pushes them. Null before a lot.
 var toys: GSPropBodyBox = null
 
-## dot-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
+## gs-props' `sv_toys*`, bound by the module (REPLICATED) and followed by a client.
 var toy_rules: GSPropBodyRules = GSPropBodyRules.new()
 
 ## The collision bit a loose toy is on: nothing else here uses it, a walker's mask (1 and the
@@ -288,7 +288,7 @@ signal world_rebuilt()
 var hold_clock: Callable = Callable()
 
 ## `func(driver_key: StringName) -> bool`: whether a driver may be hurt now (lose load to a knock
-## or a bolt, count a fall), assigned by the module from dot-game's `can_peer_be_harmed`. Unset
+## or a bolt, count a fall), assigned by the module from gs-game's `can_peer_be_harmed`. Unset
 ## offline, and a stand-in is never loading. See [method can_be_harmed].
 var harm_gate: Callable = Callable()
 var _debris: GSVehicleDebris = null
@@ -307,7 +307,7 @@ var body_rules: GSPlayerBodyRules = GSPlayerBodyRules.new()
 ## The ambience cvars (`dd_ambient*`): bound by the module (REPLICATED), followed by a client through its link.
 var ambient_rules: GSAmbienceRules = DdAmbience.make_rules()
 
-## dot-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `GSGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
+## gs-team's block rules (`!block`, `!noblock`, `mp_teamblock`), set by the server module or `GSGameClient.add_noblock`. They feed [member body_rules]'s `pair_fn`.
 var block_rules: Object = null:
 	set(value):
 		if block_rules != null and block_rules.has_signal(&"changed") and block_rules.is_connected(&"changed", body_rules.refresh):

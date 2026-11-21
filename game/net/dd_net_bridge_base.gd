@@ -63,7 +63,7 @@ var local_key: StringName = &""
 var trip_view: Dictionary = {}
 var garage_view: Dictionary = {}
 
-## Set by dot-game: where voice goes once it arrives.
+## Set by gs-game: where voice goes once it arrives.
 var voice_relay_fn: Callable = Callable()
 
 ## Where this client's walker is, sent with every input while on foot: `[Vector3, yaw]`, or

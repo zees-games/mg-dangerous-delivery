@@ -3,7 +3,7 @@ extends Node
 const DdGame := preload("../game/dd_game.gd")
 const DdTrip := preload("../game/dd_trip.gd")
 
-## Bot soak on the real game: N stand-ins deliver for M simulated minutes through dot-bot's GSBotSoak and dot-spawn's GSSpawnWatch.
+## Bot soak on the real game: N stand-ins deliver for M simulated minutes through gs-bot's GSBotSoak and gs-spawn's GSSpawnWatch.
 ## A "map" is a route id every stand-in starts on; "all" lets them pick. `./game.sh soak [route|all] [minutes]`, or
 ## `godot --headless --fixed-fps 60 --path . res://tools/soak.tscn -- --map dd_foothills --bots 3 --minutes 2` (GSBotSoakConfig flags too).
 

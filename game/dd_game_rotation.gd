@@ -4,7 +4,7 @@ extends "dd_game_flashlight.gd"
 
 ## The server's maps.yml, or null when there is none (every mountain rotates, as it always did).
 var rotation_file: GSMapRotationFile = null
-# dot-map's rotation file orders [GSMapDef]s in a [GSMapCatalogue]; this game keeps mountains
+# gs-map's rotation file orders [GSMapDef]s in a [GSMapCatalogue]; this game keeps mountains
 # as documents, so a def per mountain is mirrored. Rebuilt on every ask: the mountains on offer
 # change with the routes a server holds, and a stale mirror would rotate yesterday's set.
 var _rot: GSMapRotation = null

@@ -3,7 +3,7 @@ extends RefCounted
 const DdGame := preload("res://game/dd_game.gd")
 const DdProgress := preload("res://game/dd_progress.gd")
 
-## Stats are filed under dot-game's stable key; the wallet, drivers and awards stay on `uid:...`.
+## Stats are filed under gs-game's stable key; the wallet, drivers and awards stay on `uid:...`.
 
 class _Platform extends RefCounted:
 	func key() -> String:

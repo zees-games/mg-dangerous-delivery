@@ -1,7 +1,7 @@
 extends "dd_module_vote.gd"
 
-## This game, as a module a dedicated server loads, over dot-game: the netcode's numbers, cvars, commands, stand-ins, and where the money is kept.
-## No `class_name`: a module delivered inside a dot-cloud pack cannot have one.
+## This game, as a module a dedicated server loads, over gs-game: the netcode's numbers, cvars, commands, stand-ins, and where the money is kept.
+## No `class_name`: a module delivered inside a gs-cloud pack cannot have one.
 
 const DdNetBridge := preload("net/dd_net_bridge.gd")
 const DdBank := preload("dd_bank.gd")
@@ -14,8 +14,8 @@ const AMBIENT_KIND := "ambience"
 ## Seconds between checks of how many stand-ins there should be.
 const ROSTER_INTERVAL := 2.0
 
-## A SQL driver for the bank (dot-moderation's shape), set by a host before the module loads.
-## Null keeps the money in [member bank_file]. Static for mg-deathrun's reason: dot-server
+## A SQL driver for the bank (gs-moderation's shape), set by a host before the module loads.
+## Null keeps the money in [member bank_file]. Static for mg-deathrun's reason: gs-server
 ## constructs the module from a path, so there is no instance to set a field on first.
 static var bank_driver: Object = null
 
@@ -27,7 +27,7 @@ var progress: DdProgress = null
 
 ## `dd_bots`, the old count, kept only as an alias that sets `bot_quota`. See [method _game_load].
 var _bots: GSConVar = null
-## How many stand-ins, from how many people: dot-server's one rule for every game.
+## How many stand-ins, from how many people: gs-server's one rule for every game.
 var _quota: GSBotQuota = null
 var _bot_keys: Array[StringName] = []
 var _since_roster := 0.0
@@ -50,7 +50,7 @@ func _net_config() -> GSNetConfig:
 	config.tick_rate = (game as DdGame).tick_rate
 	config.snapshot_rate = DdGame.NET_SNAPSHOT_RATE
 	config.world_extent = DdGame.NET_WORLD_EXTENT
-	# Nothing is predicted: a truck is a rigid body (dot-vehicle's decision).
+	# Nothing is predicted: a truck is a rigid body (gs-vehicle's decision).
 	config.enable_prediction = false
 	config.enable_lag_compensation = false
 	config.max_entities_per_snapshot = 0
@@ -88,7 +88,7 @@ func _make_services() -> Node:
 	return DdServices.new()
 
 
-## Profiles and names: dot-platform's identity with no avatar schema (a person on foot is one of the family's people picked from their key).
+## Profiles and names: gs-platform's identity with no avatar schema (a person on foot is one of the family's people picked from their key).
 ## What it gives is the site's name over the session's, and admission; authentication is the host's.
 func _make_identity() -> Node:
 	return GSPlatformIdentity.new()
@@ -129,7 +129,7 @@ func _game_load() -> GSResult:
 	if delivered > 0:
 		world.build_routes()
 
-	# dot-game's "still loading": a driver behind their cover loses no load and counts no fall
+	# gs-game's "still loading": a driver behind their cover loses no load and counts no fall
 	# (DdGame.harm_gate), resolved to a peer through the bridge.
 	world.harm_gate = func(driver_key: StringName) -> bool:
 		if bridge == null:
@@ -140,10 +140,10 @@ func _game_load() -> GSResult:
 
 	_bind_commands(world)
 
-	# Stand-ins: dot-server's GSBotQuota, defaulting to the config's `bots` in fill mode.
+	# Stand-ins: gs-server's GSBotQuota, defaulting to the config's `bots` in fill mode.
 	_quota = GSBotQuota.install(self, world.config.bots)
 
-	# dot-bot's `bot_difficulty` and bundled `bot_*` settings; a road reads `bot_aggression` and `bot_reaction` ([method DdGame.tune_stand_in]).
+	# gs-bot's `bot_difficulty` and bundled `bot_*` settings; a road reads `bot_aggression` and `bot_reaction` ([method DdGame.tune_stand_in]).
 	var _bot_cvars := GSBotSettings.of(game).bind_cvars(add_cvar, GSConVar.FLAG_NOTIFY, add_command)
 
 	_bind_view_cvars(world)
@@ -202,12 +202,12 @@ func _bind_commands(world: DdGame) -> void:
 
 ## The lot's toys, the camera rule and the deprecated dd_bots, all cvars.
 func _bind_view_cvars(world: DdGame) -> void:
-	# The lot's toys: dot-props' sv_toys* set, REPLICATED so a client hides what the server took away.
+	# The lot's toys: gs-props' sv_toys* set, REPLICATED so a client hides what the server took away.
 	var _toys := world.toy_rules.bind_cvars(
 		add_cvar, GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED
 	)
 
-	# `mp_forceview` (dot-player-controller's numbering): 0 any camera, 1 cab only, 2 chase and high only. REPLICATED.
+	# `mp_forceview` (gs-player-controller's numbering): 0 any camera, 1 cab only, 2 chase and high only. REPLICATED.
 	var _view := add_cvar("mp_forceview", "0",
 		"Drivers' camera: 0 their choice (the camera key cycles chase, cab and high), 1 the cab only, 2 chase and high only",
 		GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED)
@@ -240,7 +240,7 @@ func _bind_tunables(world: DdGame) -> void:
 		world._refresh_exceptions())
 
 
-## dot-workbench over the config, the truck and cargo kinds and the block rules; the F9 panel off a dedicated server, the HTTP page only with `workbench.enabled`.
+## gs-workbench over the config, the truck and cargo kinds and the block rules; the F9 panel off a dedicated server, the HTTP page only with `workbench.enabled`.
 var workbench: GSGameWorkbench = null
 
 ## Config fields whose hand-written cvar is not `dd_<field>`; the binder makes no second cvar for them and a workbench edit is pushed through the hand one.
@@ -260,7 +260,7 @@ func _hand_cvar(key: String) -> String:
 	return name if console.has_name(name) else ""
 
 
-## Every config field as a `dd_<field>` cvar (the hand-written ones keep their handlers and follow workbench edits), the cfg/ diff commands, the workbench and dot-team's block rules.
+## Every config field as a `dd_<field>` cvar (the hand-written ones keep their handlers and follow workbench edits), the cfg/ diff commands, the workbench and gs-team's block rules.
 func _bind_config(world: DdGame) -> GSResult:
 	var _fl := world.flashlight_conf()
 	if world.flashlight_binder != null:
@@ -365,7 +365,7 @@ func _on_config_field(key: String, _value: Variant, source: String) -> void:
 	console.set_cvar(hand, str(text))
 
 
-## What a mountain's `cfg/game/mg-dangerous-delivery/dot_map/map/<id>.yml` may set: weather, the view rule and the stand-ins' skill, never a command.
+## What a mountain's `cfg/game/mg-dangerous-delivery/gs_map/map/<id>.yml` may set: weather, the view rule and the stand-ins' skill, never a command.
 func _map_config_keys() -> Dictionary:
 	var keys := {
 		"dd_weather_frequency": {"type": "float", "min": 0.0},
@@ -419,7 +419,7 @@ func _game_unload() -> void:
 	noblock = null
 
 
-## dot-stats and dot-achievements over the world's own signals; told to the driver who earned it.
+## gs-stats and gs-achievements over the world's own signals; told to the driver who earned it.
 func _build_progress(world: DdGame) -> void:
 	if not world.config.keep_progress:
 		return
@@ -540,7 +540,7 @@ func _keep_bots() -> void:
 		bridge.call("remove_bot", _bot_keys.pop_back())
 
 
-## A name for a stand-in from dot-bot's pool that nobody on the mountain has, so the board
+## A name for a stand-in from gs-bot's pool that nobody on the mountain has, so the board
 ## and the feed read like people ("Hauler 2" read like a placeholder in the first play test).
 static func _bot_name(world: DdGame) -> String:
 	var taken: Array = []

@@ -10,7 +10,7 @@ const CHANNEL := "delivery.link"
 ## The node name both ends must use. It is the routing, so it is a constant.
 const NODE_NAME := &"DangerousDelivery"
 
-## Everything here rides [constant GSTransport.Channel.STATE], which dot-server reserves
+## Everything here rides [constant GSTransport.Channel.STATE], which gs-server reserves
 ## for exactly this and uses for nothing itself. Sharing chat's channel would make a burst
 ## of snapshots delay a chat line, and a chat line delay a snapshot.
 const CHANNEL_STATE := 1
@@ -73,7 +73,7 @@ func _live() -> bool:
 
 
 
-## One routed chat line, to one peer. It is an event on this game's own wire, not dot-server's
+## One routed chat line, to one peer. It is an event on this game's own wire, not gs-server's
 ## chat manager: [GSChatRouter] has the rules, and a second path would be a second set of rules.
 func send_chat(peer_id: int, wire: Dictionary) -> void:
 	if bridge != null:

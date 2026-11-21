@@ -21,7 +21,7 @@ jobs:
         with:
             suite-timeout: 900
         secrets:
-            DEPS_TOKEN: ${{ secrets.DOT_DEPS_TOKEN }}
+            DEPS_TOKEN: ${{ secrets.GS_DEPS_TOKEN }}
 
     # pack: true also attaches <repo>-<version>-pack.zip, the imported tree website-city
     # publishes as this game's signed pack; the source tarball alone cannot be one.
@@ -34,7 +34,7 @@ jobs:
         with:
             pack: true
             # The trucks' build scripts and renders: half the pack's bytes, none loaded at runtime.
-            # The same list as dot-server-deploy's content/delivery/pack.json.
+            # The same list as gs-server-deploy's content/delivery/pack.json.
             pack-exclude-dirs: art-src
         secrets:
-            DEPS_TOKEN: ${{ secrets.DOT_DEPS_TOKEN }}
+            DEPS_TOKEN: ${{ secrets.GS_DEPS_TOKEN }}

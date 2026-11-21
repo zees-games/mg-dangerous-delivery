@@ -458,7 +458,7 @@ func _build_lamps() -> void:
 		post.add_child(pole)
 		var lamp := MeshInstance3D.new()
 		# Twelve metres up, out of reach of anything that walks or drives; nothing to collide with.
-		lamp.set_meta(&"dot_no_collision", true)
+		lamp.set_meta(&"gs_no_collision", true)
 		var head := BoxMesh.new()
 		head.size = Vector3(1.4, 0.4, 0.8)
 		lamp.mesh = head

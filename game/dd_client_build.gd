@@ -57,7 +57,7 @@ func _build_audio() -> void:
 			audio.on_map(game.mountain_id, game.map_doc())
 
 
-## Rock coming down near you is a jolt as well as a rumble. An effect, so dot-fx's: its manager
+## Rock coming down near you is a jolt as well as a rumble. An effect, so gs-fx's: its manager
 ## is where the shake slider (down to exactly zero) is applied.
 func _build_effects() -> void:
 	var catalogue := GSFxCatalogue.new()
@@ -139,7 +139,7 @@ func _start_remote_workbench() -> void:
 	platform.add_workbench(wb)
 
 
-## dot-team's block rules followed from the server, and the F9 tuning panel where this process hosts the world.
+## gs-team's block rules followed from the server, and the F9 tuning panel where this process hosts the world.
 func _add_noblock_and_workbench() -> void:
 	if link != null and not _offline:
 		var _solid := game.body_rules.follow_cvars(link)
@@ -196,7 +196,7 @@ func _avatar_figure(peer_id: int) -> Object:
 	return driver.walker.get_node_or_null("Person")
 
 
-## The family's daylight as a dot-lighting document: a warm sun, a pale cool fill, filmic tone
+## The family's daylight as a gs-lighting document: a warm sun, a pale cool fill, filmic tone
 ## map and mild glow, with this game's own mountain sky kept and no palette change. The weather
 ## still drives the light ([method _set_weather]); the fog is exponential, thickened per zone.
 func _build_environment() -> void:
@@ -240,7 +240,7 @@ func _build_environment() -> void:
 	_env.fog_density = FOG_CLEAR
 
 
-## What this machine draws of the light: dot-lighting's `painted()`. Shadows stay on in the
+## What this machine draws of the light: gs-lighting's `painted()`. Shadows stay on in the
 ## browser, unlike `web()`: a truck's shadow is how far off the edge it is. The Compatibility
 ## renderer has no headroom above white, so `painted()` lowers exposure and glow starts above it.
 static func light_profile() -> GSLightProfile:

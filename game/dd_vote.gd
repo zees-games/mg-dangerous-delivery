@@ -1,8 +1,8 @@
 extends GSVoteTimedGame
 
-## The players choose the next mountain: dot-vote's [GSVoteTimedGame] over a list of [DdMountains], server side only.
-## No rounds, so the ballot runs on dot-vote's own clock (`dd_vote_minutes`); the hauls on the road are the "round" a `finish_round` time limit waits for.
-## Ballot options, counting, rock the vote and cooldowns are dot-vote's settings; [method _rules] says only which a game with no rounds wants.
+## The players choose the next mountain: gs-vote's [GSVoteTimedGame] over a list of [DdMountains], server side only.
+## No rounds, so the ballot runs on gs-vote's own clock (`dd_vote_minutes`); the hauls on the road are the "round" a `finish_round` time limit waits for.
+## Ballot options, counting, rock the vote and cooldowns are gs-vote's settings; [method _rules] says only which a game with no rounds wants.
 
 const DdMountains := preload("dd_mountains.gd")
 
@@ -43,7 +43,7 @@ func _configure_director(d: GSVoteDirector) -> void:
 	# Reports a "round end" (the road clear of people) so FINISH_ROUND has something to wait
 	# for; this game has no other rounds, and no round limit is set.
 	d.round_based = true
-	# Set by name, only where it exists: a pack on a shell with dot-vote older than API 3 has no `round_in_progress_fn`, and naming it fails the parse.
+	# Set by name, only where it exists: a pack on a shell with gs-vote older than API 3 has no `round_in_progress_fn`, and naming it fails the parse.
 	# There, note_road_clear still releases the change one tick later.
 	if "round_in_progress_fn" in d:
 		d.set(&"round_in_progress_fn", func() -> bool:
@@ -53,11 +53,11 @@ func _configure_director(d: GSVoteDirector) -> void:
 		return busy_fn.is_valid() and bool(busy_fn.call())
 
 
-## What a game with no rounds wants from dot-vote by default. Every line is a default an
+## What a game with no rounds wants from gs-vote by default. Every line is a default an
 ## operator overrides in [member config_path].
 func _rules() -> GSVoteRules:
 	var rules := GSVoteRules.new()
-	# dot-vote's own clock: the window is the time limit, the ballot opens before it ends.
+	# gs-vote's own clock: the window is the time limit, the ballot opens before it ends.
 	rules.trigger = GSVoteRules.Trigger.TIME_LIMIT
 	rules.duration_sec = maxf(minutes, 0.0) * 60.0
 	rules.vote_lead_sec = 60.0
@@ -82,7 +82,7 @@ func _rules() -> GSVoteRules:
 	return rules
 
 
-## dot-vote speaks of rounds; this game has none, and its "round" is the hauls on the road.
+## gs-vote speaks of rounds; this game has none, and its "round" is the hauls on the road.
 func _in_our_words(line: String) -> String:
 	return line.replace("when this round ends", "when the trucks on the road reach the depot")
 

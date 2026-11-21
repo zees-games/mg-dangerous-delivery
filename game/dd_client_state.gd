@@ -38,7 +38,7 @@ var _spark_at: Dictionary = {}
 ## Route id to set off on at once, skipping the garage. For a screenshot or a quick test.
 @export var auto_route: StringName = &""
 
-## Hand the wheel to dot-vehicle's driver: what a screenshot of a moving truck uses.
+## Hand the wheel to gs-vehicle's driver: what a screenshot of a moving truck uses.
 @export var autopilot: bool = false
 
 ## A command to drive with instead of the keys, when set: what a headless client in a suite has
@@ -58,7 +58,7 @@ var camera: Camera3D = null
 var camera_mode: CameraMode = CameraMode.CHASE
 var command := GSVehicleCommand.new()
 
-## dot-fx's shader weather, one node per kind, round the camera (a mountain's worth of
+## gs-fx's shader weather, one node per kind, round the camera (a mountain's worth of
 ## particles is a browser's whole frame); see [method _build_weather].
 var _weather: GSWeather = null
 var _weather_key := ""
@@ -95,9 +95,9 @@ const FOG_SNOW := 0.0028
 const CUT_DISTANCE := 20.0
 
 var chat: GSGameChatClient = null
-## The truck's and the mountain's sounds, through dot-audio. See [DdAudio].
+## The truck's and the mountain's sounds, through gs-audio. See [DdAudio].
 var audio: DdAudio = null
-## Rock coming down near you, felt as well as heard: a dot-fx shake, so the settings' shake
+## Rock coming down near you, felt as well as heard: a gs-fx shake, so the settings' shake
 ## slider reaches it. See [method _build_effects].
 var effects: GSFxManager = null
 
@@ -184,14 +184,14 @@ func _build_weather() -> void:
 	add_child(_weather)
 
 
-## Mist behind the driver's own tyres on a wet road (dot-vehicle's [code]GSVehicleSpray[/code]).
+## Mist behind the driver's own tyres on a wet road (gs-vehicle's [code]GSVehicleSpray[/code]).
 func _spray(me: DdGame.Driver, weather: Dictionary) -> void:
 	if me == null or me.truck == null or not is_instance_valid(me.truck):
 		return
 	var truck := me.truck as DdTruck
 	var mist := truck.get_node_or_null("Spray") as CPUParticles3D
 	if mist == null:
-		mist = (load("res://addons/dot_vehicle/runtime/dot_vehicle_spray.gd") as GDScript).new()
+		mist = (load("res://addons/gs_vehicle/runtime/gs_vehicle_spray.gd") as GDScript).new()
 		mist.name = "Spray"
 		truck.add_child(mist)
 		mist.position = Vector3(0.0, 0.25, 2.4)

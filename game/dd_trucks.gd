@@ -4,7 +4,7 @@ const DdPaths := preload("dd_paths.gd")
 
 ## Every truck a player can buy, and every upgrade, as data. A harder truck pays more (`pay`). A
 ## server owner overrides any field from `user://cfg/delivery_trucks.json` (by truck id) or adds a
-## truck. Handling is in dot-vehicle's units and applied to a [GSVehicleTunables].
+## truck. Handling is in gs-vehicle's units and applied to a [GSVehicleTunables].
 
 ## Where the driver sits in each model, in the truck's own frame (x right, y up, z back, so the cab is at negative z): `at` is the hips on the seat, `height` how tall the person is drawn, because the Kenney cabs differ in size and a full-size person does not fit behind the glass of the smaller ones. Measured by eye from tools/shot.sh --view=cab_side. The Kenney cabs' glass is painted on the body's one surface; [method DdTruck._open_glass] moves those triangles to a see-through surface at load, so the seat is inside the cab, seen through the windows.
 const SEATS := {
@@ -252,7 +252,7 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 	t.brake_force = float(def.get("brake_force", 40000.0)) * brakes
 	t.handbrake_force = t.brake_force * 0.5
 	# No damping proportional to speed: [DdDrivetrain] pushes back with the air and the tyres.
-	# dot-vehicle writes this onto the body (REPLACE) at bind, over whatever [DdTruck] set,
+	# gs-vehicle writes this onto the body (REPLACE) at bind, over whatever [DdTruck] set,
 	# so it has to be 0 here; at its default 0.1 the Bulk Carrier never reached 50 km/h.
 	t.linear_damp = 0.0
 	t.steering_limit_deg = float(def.get("steering_limit_deg", 32.0))
@@ -272,7 +272,7 @@ func tunables_for(truck_id: StringName, levels: Dictionary = {}, cargo_def: Dict
 		# trailer test crawled and a truck hopped off two wheels. Relaxation damping 1.25 takes the
 		# hop out; 1.5 slowed the semi. Each truck's own (`suspension`) is at or below that.
 	t.suspension_stiffness = float(susp.get("stiffness", 75.0))
-	# Damped near Godot's "typical" values: at dot-vehicle's lighter defaults a loaded truck,
+	# Damped near Godot's "typical" values: at gs-vehicle's lighter defaults a loaded truck,
 	# with nothing proportional to speed damping the body any more (DdTruck), nodded on its
 	# springs after being put down until the front wheels left the road.
 	t.damping_compression = float(susp.get("compression", 0.9))

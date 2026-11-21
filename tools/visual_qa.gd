@@ -1,13 +1,13 @@
 extends GSGameVisualQaCapture
 
-## Dangerous Delivery's visual QA capture (docs/testing.md; the loop is dot-game's docs/visual-qa.md). Each item is
+## Dangerous Delivery's visual QA capture (docs/testing.md; the loop is gs-game's docs/visual-qa.md). Each item is
 ## recorded frame by frame at --fps in three views: f first person, t behind-right, o someone in front.
 ##   truck_<id>   a truck from DdTrucks (the semi with its trailer), crates on board and the driver seated, in clips
 ##                idle, drive, turn, brake and crash (into a wall). f is the game's cab camera; t sits where the chase
 ##                camera would be, off to one side; o is a driver on the road ahead.
 ##   walker       the player on foot (GSHumanoidFigure, as DdWalker draws it): idle, walk, run. f is the eye.
 ##   prop_<id>    a road prop, or a traffic car, on a turntable: one full turn in the clip, at the game's own scale.
-## The outside views and frame saving are dot-game's GSGameVisualQaViews, through GSGameVisualQaCapture.
+## The outside views and frame saving are gs-game's GSGameVisualQaViews, through GSGameVisualQaCapture.
 
 const DdTrucks := preload("res://game/dd_trucks.gd")
 const DdTruck := preload("res://game/dd_truck.gd")

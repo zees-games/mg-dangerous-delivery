@@ -2,7 +2,7 @@
 # travels inside the pack; content_id, version and kind are stamped by the installer.
 #
 # Paths are relative to the pack's mount point, which is also this repository's root.
-# Not yet in dot-server-deploy's content/ (2026-10-06): this game has not been published.
+# Not yet in gs-server-deploy's content/ (2026-10-06): this game has not been published.
 
 content_id: gamemann/mg-dangerous-delivery
 version: 0.0.0
@@ -27,7 +27,7 @@ metadata:
   # Plays with no server (offline mode), so the site may grant the app a direct Play button.
   solo: true
   maps_delivery: server
-  # The players' vote for the next mountain (game/dd_vote.gd), keyed as dot-vote's rules.
+  # The players' vote for the next mountain (game/dd_vote.gd), keyed as gs-vote's rules.
   # Unset keeps the game's defaults: 15 minutes a mountain, the change after the hauls in progress.
   # mountain_vote:
   #   duration_sec: 1200

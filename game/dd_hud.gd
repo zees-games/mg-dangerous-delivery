@@ -28,8 +28,8 @@ var _message_left: float = 0.0
 ## `plate_edge` whenever the theme changes. See [method _restyle].
 var _plates: Array[PanelContainer] = []
 
-## The Escape menu, whose theme this HUD follows (dot-menu's `follow_hud`). Duck-typed and called by name,
-## for a client shell older than dot-menu 7.
+## The Escape menu, whose theme this HUD follows (gs-menu's `follow_hud`). Duck-typed and called by name,
+## for a client shell older than gs-menu 7.
 var _menu: Object = null
 
 
@@ -54,7 +54,7 @@ func _follow() -> void:
 		_menu.call(&"follow_hud", self, piece_theme())
 
 
-## A theme colour on dot-ui's piece type, or the piece's own default without one.
+## A theme colour on gs-ui's piece type, or the piece's own default without one.
 func colour(key: StringName) -> Color:
 	if has_theme_color(key, GSHudPiece.THEME_TYPE):
 		return get_theme_color(key, GSHudPiece.THEME_TYPE)

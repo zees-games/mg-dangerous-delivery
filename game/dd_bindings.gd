@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Every key this game reads, as one dot-menu [GSMenuBindings] table: the action, the setting
+## Every key this game reads, as one gs-menu [GSMenuBindings] table: the action, the setting
 ## that stores it, the words a player sees, the default, and the card it goes on.
 ## The arrows drive through `ui_*`, which no row holds; Escape and G are the lot, H is help, so no row may default to them.
 
@@ -34,7 +34,7 @@ static func make() -> GSMenuBindings:
 	keys.add(USE, &"bind_use", "Use: buy from a salesperson, get in or out, accept a delivery at a gate", "E", "On foot")
 	keys.add(RUN, &"bind_run", "Run (on foot)", "Shift", "On foot")
 	# The wheel jumps on foot only. Space is the handbrake in a truck, so the wheel is two extra
-	# rows on the family's `dot_fps_jump` (which nothing in a truck reads), never on HANDBRAKE:
+	# rows on the family's `gs_fps_jump` (which nothing in a truck reads), never on HANDBRAKE:
 	# a scrolled handbrake would lock the wheels.
 	keys.add_wheel_jump("On foot")
 
@@ -42,7 +42,7 @@ static func make() -> GSMenuBindings:
 	keys.add(RESTART, &"bind_restart", "Restart the trip", "T", "The trip")
 	keys.add(SKIP, &"bind_skip", "Skip a stage (costs part of the pay)", "N", "The trip")
 	# K, not B: B is the family's loadout key in every game where players choose one
-	# (dot-menu's `dot_menu_loadout`), so no game ships anything else on it (first play test).
+	# (gs-menu's `gs_menu_loadout`), so no game ships anything else on it (first play test).
 	keys.add(SOLO, &"bind_solo", "Solo: nobody sees you, and nothing of yours collides", "K", "The trip")
 	keys.add(GARAGE, &"bind_garage", "The lot's panel: trucks, upgrades and routes; from a road, back to the lot (Esc too)", "G", "The trip")
 

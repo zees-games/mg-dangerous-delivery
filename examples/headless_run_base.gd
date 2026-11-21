@@ -93,7 +93,7 @@ func _test_on_foot() -> void:
 	_finished_section()
 
 
-## The lot's toys (dot-props', loose only): all built clear of the slab's fence and the showroom,
+## The lot's toys (gs-props', loose only): all built clear of the slab's fence and the showroom,
 ## still two seconds on, and somebody on foot walking into a beach ball sends it on.
 func _test_the_lot_toys() -> void:
 	_section("the lot's toys")
@@ -417,7 +417,7 @@ func _test_a_delivery() -> void:
 	await get_tree().process_frame
 	var numbers := progress.session_values(&"p1")
 	_check(numbers.get_value(DdProgress.DELIVERIES) == 1.0 and numbers.get_value(DdProgress.EARNED) == float(paid[0]),
-		"dot-stats counts the delivery and what it paid", str(numbers.to_dictionary()))
+		"gs-stats counts the delivery and what it paid", str(numbers.to_dictionary()))
 	_check(_earned.has([&"p1", "First Load"]), "and the first one is an achievement", str(_earned))
 	me.assisted = false
 	me.autopilot = null

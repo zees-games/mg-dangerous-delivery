@@ -550,7 +550,7 @@ func _road_body(id: StringName, faces: PackedVector3Array) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Road_%s" % String(id)
 	body.collision_layer = 1 | DdRoute.CAMERA_LAYER
-	# Asphalt, which dot-audio's stock steps walk as concrete.
+	# Asphalt, which gs-audio's stock steps walk as concrete.
 	body.set_meta(&"surface", "asphalt")
 	body.collision_mask = 0
 	var shape := ConcavePolygonShape3D.new()

@@ -1,6 +1,6 @@
 extends RefCounted
 
-## The truck and cargo catalogues as dot-core profile kinds, so a server tier, the shipped `cfg/game/mg-dangerous-delivery/truck/<id>.yml` and the workbench change them like any profile.
+## The truck and cargo catalogues as gs-core profile kinds, so a server tier, the shipped `cfg/game/mg-dangerous-delivery/truck/<id>.yml` and the workbench change them like any profile.
 ## A file names only the keys it changes; the rest stay what [DdTrucks] / [DdCargo] hold, and a new id starts from the first catalogue entry.
 
 const DdTrucksRef := preload("dd_trucks.gd")

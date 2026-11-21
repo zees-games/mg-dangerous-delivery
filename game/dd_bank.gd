@@ -2,7 +2,7 @@ extends Node
 
 ## What a player has: their money, their trucks, their upgrades, how far they have got.
 ## The server's, always: a client asks to spend and the server checks the price against its balance.
-## The store is duck-typed (`load_account(key)`, `save_account(key, account) -> GSResult`); [JsonStore] is the default and [SqlStore] takes any dot-moderation-shaped driver. Saved on every change that matters, not on a timer.
+## The store is duck-typed (`load_account(key)`, `save_account(key, account) -> GSResult`); [JsonStore] is the default and [SqlStore] takes any gs-moderation-shaped driver. Saved on every change that matters, not on a timer.
 
 const CHANNEL := "delivery.bank"
 
@@ -247,7 +247,7 @@ class JsonStore:
 			_all = parsed
 
 
-## One table over a dot-moderation-shaped SQL driver.
+## One table over a gs-moderation-shaped SQL driver.
 class SqlStore:
 	extends RefCounted
 
@@ -338,7 +338,7 @@ class SqlStore:
 		var deliveries := 0
 		var display := ""
 
-		# A row is a Dictionary by column or an Array in column order: dot-moderation's
+		# A row is a Dictionary by column or an Array in column order: gs-moderation's
 		# drivers return either, and the store reads both rather than trusting one.
 		if row is Dictionary:
 			data_text = str((row as Dictionary).get("data", ""))

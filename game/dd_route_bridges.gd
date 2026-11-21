@@ -18,7 +18,7 @@ func _build_bridges() -> void:
 
 ## The decks work in world space, so they are laid again whenever the route is moved.
 func _lay_bridges() -> void:
-	var Bridge: GDScript = load("res://addons/dot_props/runtime/dot_prop_bridge.gd")
+	var Bridge: GDScript = load("res://addons/gs_props/runtime/gs_prop_bridge.gd")
 	var planks := StandardMaterial3D.new()
 	planks.albedo_color = Color(0.42, 0.3, 0.18)
 	planks.roughness = 0.95
@@ -101,7 +101,7 @@ func apply_bridge(index: int, down: bool, sag_steps: int) -> void:
 
 ## The speed a truck of [param mass] may hold on the bridge [param lookahead] metres ahead of
 ## route distance [param d] (or on it) and not bring it down; INF when none is near or in the way.
-## Strain is [code]mass / (mass + 8000) * (1 + (v / 7)^2)[/code] (dot-props), held to 70% of the rating.
+## Strain is [code]mass / (mass + 8000) * (1 + (v / 7)^2)[/code] (gs-props), held to 70% of the rating.
 func bridge_safe_speed(d: float, mass: float, lookahead: float) -> float:
 	var best := INF
 

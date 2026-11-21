@@ -11,7 +11,7 @@ const CHANNEL := "delivery.maps"
 
 const DEFAULT := &"range"
 
-## The file a game pack states what it takes from subscriptions in (dot-cloud's
+## The file a game pack states what it takes from subscriptions in (gs-cloud's
 ## docs/workshop.md, "What a game accepts"). Read from there so the site and this list cannot drift.
 const PROVIDES_PATH := "res://provides.json"
 const ACCEPTED_MAP_KINDS_FALLBACK := ["delivery"]

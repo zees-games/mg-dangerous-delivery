@@ -1,8 +1,8 @@
-extends "res://addons/dot_vehicle/runtime/dot_vehicle_wheeled.gd"
+extends "res://addons/gs_vehicle/runtime/gs_vehicle_wheeled.gd"
 
 ## A truck's engine, gearbox and the air and road it pushes against: what decides how fast a
 ## truck goes, instead of a ceiling. Torque through the gear, capped by power, against rolling resistance, drag and slope.
-## Extends the wheeled chassis by path (the extension point dot-vehicle names); a delivered pack cannot resolve its own `class_name`.
+## Extends the wheeled chassis by path (the extension point gs-vehicle names); a delivered pack cannot resolve its own `class_name`.
 
 ## The drivetrain's numbers, from the truck catalogue ([DdTrucks]): power, torque, gears.
 var power_w: float = 180000.0
@@ -209,7 +209,7 @@ func _drive(command: GSVehicleCommand, delta: float) -> void:
 
 	super._drive(command, delta)
 
-	# The brakes are dot-vehicle's (super): newtons times the physics step on each wheel.
+	# The brakes are gs-vehicle's (super): newtons times the physics step on each wheel.
 
 	# What pushes back: the tyres rolling, the air, and the engine with the throttle shut. Along
 	# the velocity (air, tyres) or along the truck (the engine), never gravity: the physics

@@ -437,7 +437,7 @@ func _check_footsteps() -> void:
 	# slip through it, which no foot does.
 	var mid := road_line.size() / 2
 	var on_road := (road_line[mid] + road_line[mid + 1]) * 0.5 + (road_line[mid + 1] - road_line[mid]).cross(Vector3.UP).normalized() * 1.5
-	# dot-audio's own footsteps asked what is underfoot, as DdAudio's are on a client: its ray,
+	# gs-audio's own footsteps asked what is underfoot, as DdAudio's are on a client: its ray,
 	# the ground's `surface` meta, and grass (the game's default_surface) for what says nothing.
 	var steps := GSAudioFootsteps.new()
 	steps.default_surface = &"grass"
@@ -798,7 +798,7 @@ func _test_refusals() -> void:
 	# natural-disasters is optional: with it linked a storm brings a thunderstorm, without it
 	# nothing changes but the lightning.
 	var linked := game.disasters != null and game.disasters.linked()
-	_check(linked == FileAccess.file_exists("res://addons/natural_disasters/runtime/dot_disaster_manager.gd"),
+	_check(linked == FileAccess.file_exists("res://addons/natural_disasters/runtime/gs_disaster_manager.gd"),
 		"the disasters adapter is linked exactly when the addon is there", "linked=%s" % linked)
 
 	if linked:
@@ -861,7 +861,7 @@ func _test_ice_and_debris() -> void:
 	_finished_section()
 
 
-## dot-core's [GSCollisionAudit] over the world as a client draws it. The lenient audit is used because
+## gs-core's [GSCollisionAudit] over the world as a client draws it. The lenient audit is used because
 ## a route's drawing sits beside the one trimesh that serves it, not under a body of its own.
 func _test_collision_audit() -> void:
 	_section("nothing drawn is walked through")
@@ -968,7 +968,7 @@ func _test_walking_client() -> void:
 
 ## The wheel and the jump latch on foot and at the wheel, and the seated person's actions.
 func _walking_wheel(client: Node, walker: CharacterBody3D) -> void:
-	# The wheel jumps on foot only (two extra rows on dot_fps_jump; Space stays the handbrake).
+	# The wheel jumps on foot only (two extra rows on gs_fps_jump; Space stays the handbrake).
 	var wheel_keys := DdBindings.make()
 	var wheel_up := wheel_keys.row_for_setting(&"bind_jump_wheel_up")
 	var wheel_down := wheel_keys.row_for_setting(&"bind_jump_wheel_down")
@@ -1028,7 +1028,7 @@ func _walking_wheel(client: Node, walker: CharacterBody3D) -> void:
 		str(key_intent.buttons))
 
 
-## The lot under a ballot: something in dot-ui's `dot_hud_cover` group over it moves the lot to
+## The lot under a ballot: something in gs-ui's `gs_hud_cover` group over it moves the lot to
 ## its left, and the lot goes back when it goes. What it looks like is `tools/shot.sh --ballot`'s.
 func _test_the_lot_makes_room() -> void:
 	_section("the lot makes room for a ballot")
@@ -1047,7 +1047,7 @@ func _test_the_lot_makes_room() -> void:
 	layer.layer = 20
 	add_child(layer)
 	var ballot := Control.new()
-	ballot.add_to_group(&"dot_hud_cover")
+	ballot.add_to_group(&"gs_hud_cover")
 	ballot.position = Vector2(904.0, 110.0)
 	ballot.size = Vector2(360.0, 180.0)
 	layer.add_child(ballot)

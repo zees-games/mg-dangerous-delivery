@@ -1,5 +1,5 @@
 # Per-mountain overrides for "low_country" (the next mountain gets the old values back); uncomment a commented line to add more.
-# An operator overrides it in cfg/server/game/mg-dangerous-delivery/dot_map/map/.
+# An operator overrides it in cfg/server/game/mg-dangerous-delivery/gs_map/map/.
 # Gentle on purpose: short dry-ish weather, rarely a storm, no fog, grip near normal.
 dd_weather_frequency: 0.6
 dd_weather_storms: 0.05

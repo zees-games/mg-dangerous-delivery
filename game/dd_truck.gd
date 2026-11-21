@@ -1,7 +1,7 @@
 extends VehicleBody3D
 
 ## One truck: a VehicleBody3D built in code from a catalogue entry and a Kenney model, driven by
-## dot-vehicle's wheeled chassis bound without the spawner (a player is their truck from lot to
+## gs-vehicle's wheeled chassis bound without the spawner (a player is their truck from lot to
 ## depot). The box and wheels are measured off the model's named nodes.
 
 const DdPaths := preload("dd_paths.gd")
@@ -53,7 +53,7 @@ const SLOSH_REACH := 0.9
 var _model: Node3D = null
 var _wheels: Array[VehicleWheel3D] = []
 
-## What comes off it and what it has lost (dot-vehicle's), and the node that makes it physical.
+## What comes off it and what it has lost (gs-vehicle's), and the node that makes it physical.
 ## Built in [method configure] from [constant DdTrucks.PARTS] (or the truck's own `parts`) on
 ## every machine, so a part's id means the same piece on the server and on every client.
 var damage: GSVehicleDamage = null

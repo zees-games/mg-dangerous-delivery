@@ -1,5 +1,5 @@
 extends Control
-## Stands in for dot-ui's ballot: in the pointer-modal group, with the signal a host listens to.
+## Stands in for gs-ui's ballot: in the pointer-modal group, with the signal a host listens to.
 
 signal pointer_mode_changed(on: bool)
 
@@ -7,7 +7,7 @@ var on := false
 
 
 func _init() -> void:
-	add_to_group(&"dot_pointer_modal")
+	add_to_group(&"gs_pointer_modal")
 
 
 func is_pointer_mode() -> bool:

@@ -552,10 +552,10 @@ func _build_ice() -> void:
 		sheet.transform = Transform3D(at.basis, at.origin + at.basis.x * float(patch["lateral"]))
 
 
-## Fallen rock: a low heap across one lane (dot-props' [code]GSPropRubble[/code]), a bump to
+## Fallen rock: a low heap across one lane (gs-props' [code]GSPropRubble[/code]), a bump to
 ## take slowly or swing round, not a pillar.
 func _build_debris() -> void:
-	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
+	var Rubble: GDScript = load("res://addons/gs_props/runtime/gs_prop_rubble.gd")
 	for k in debris.size():
 		var pile: Dictionary = debris[k]
 		var at := transform_at(float(pile["d"]), 0.0)
@@ -566,9 +566,9 @@ func _build_debris() -> void:
 		heap.transform = Transform3D(at.basis.rotated(Vector3.UP, 0.15), at.origin + at.basis.x * float(pile["lateral"]))
 
 
-## Narrow ledges: dot-props' [code]GSPropLedge[/code], a rock outcrop growing out of the cliff.
+## Narrow ledges: gs-props' [code]GSPropLedge[/code], a rock outcrop growing out of the cliff.
 func _build_ledges() -> void:
-	var Ledge: GDScript = load("res://addons/dot_props/runtime/dot_prop_ledge.gd")
+	var Ledge: GDScript = load("res://addons/gs_props/runtime/gs_prop_ledge.gd")
 	for k in ledges.size():
 		var entry: Dictionary = ledges[k]
 		var d := float(entry["d"])
@@ -621,7 +621,7 @@ func _fray_ledge(entry: Dictionary, d: float, half: float) -> void:
 
 ## Broken road: low heaps of rock ([code]GSPropRubble[/code]) that must be crossed or held to one side of.
 func _build_broken() -> void:
-	var Rubble: GDScript = load("res://addons/dot_props/runtime/dot_prop_rubble.gd")
+	var Rubble: GDScript = load("res://addons/gs_props/runtime/gs_prop_rubble.gd")
 	for k in broken.size():
 		var heap_at: Dictionary = broken[k]
 		var at := transform_at(float(heap_at["d"]), 0.0)

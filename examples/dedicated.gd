@@ -82,17 +82,17 @@ func _test_stats_report() -> void:
 	stub.source_code = "extends Node\nfunc post_integration(_a = null, _b = null, _c = null): return null\n"
 	var _reloaded := stub.reload()
 	client.set_script(stub)
-	GSRegistry.register(&"dot_backbone_client", client)
+	GSRegistry.register(&"gs_backbone_client", client)
 	var _r0 := cv.set_value("0")
 	var _r1 := cv.set_value("1")
 	_check(progress.stats.report_to_backbone, "on with a backbone client makes the tracker report")
 	var _r2 := cv.set_value("0")
 	_check(not progress.stats.report_to_backbone, "off stops it again")
-	GSRegistry.unregister_instance(&"dot_backbone_client", client)
+	GSRegistry.unregister_instance(&"gs_backbone_client", client)
 	client.free()
 
 
-## Config cvars, the workbench, and dot-team's block rules through dot-game's GSGameNoblock.
+## Config cvars, the workbench, and gs-team's block rules through gs-game's GSGameNoblock.
 func _noblock_and_config(module: GSModule) -> void:
 	var teamblock := server.console.find_cvar("mp_teamblock")
 	var enemyblock := server.console.find_cvar("mp_enemyblock")
@@ -201,12 +201,12 @@ func _test_stand_ins() -> void:
 	var bots_after: int = (module.get("_bot_keys") as Array).size()
 	_check(bots_after == bots_before, "and a stand-in comes back when they leave",
 		"%d -> %d" % [bots_with, bots_after])
-	# Named from dot-bot's pool, never a numbered placeholder; driven at `bot_difficulty`.
+	# Named from gs-bot's pool, never a numbered placeholder; driven at `bot_difficulty`.
 	var names: Array = []
 	for k: StringName in game.drivers:
 		names.append((game.drivers[k] as DdGame.Driver).name)
 	_check(names.size() == 2 and names.all(func(n: String) -> bool: return GSBotNames.POOL.has(n)),
-		"stand-ins are named from dot-bot's pool", str(names))
+		"stand-ins are named from gs-bot's pool", str(names))
 	var stand_in: DdGame.Driver = game.drivers[_bot_keys_of(module)[0]]
 	var medium_pace := stand_in.autopilot.target_speed
 	var medium_brake := stand_in.autopilot.brake_gain
@@ -231,7 +231,7 @@ static func _bot_keys_of(module: Object) -> Array:
 
 
 ## The players' vote decides the next mountain, end to end through what a player types, on
-## dot-vote's own clock: nomination, ballot, vote, the change waiting for a hauler, rebuild.
+## gs-vote's own clock: nomination, ballot, vote, the change waiting for a hauler, rebuild.
 ## Commands run at the console and the module's tick is synchronous, so the vote clock cannot run between two checks.
 func _test_the_mountain_vote() -> void:
 	_section("the mountain vote")
@@ -248,7 +248,7 @@ func _test_the_mountain_vote() -> void:
 	for name in ["vote", "rtv", "nominate", "dd_mountain"]:
 		commands_there = commands_there and server.console.find_command(name) != null
 
-	_check(commands_there, "with dot-vote's vote, rtv and nominate, and dd_mountain")
+	_check(commands_there, "with gs-vote's vote, rtv and nominate, and dd_mountain")
 	var director: GSVoteDirector = vote.get("director")
 	_check(server.hibernation_changed.is_connected(director.set_hibernating),
 		"the vote follows the server's hibernation without a line of this game's")
@@ -260,7 +260,7 @@ func _test_the_mountain_vote() -> void:
 		"dd_mountain lists them, and the server reports the one it is on as its map", server.games.current_map())
 	_check(director.current_id() == &"range" and is_equal_approx(director.clock.duration, game.config.mountain_minutes * 60.0) \
 			and director.rules.trigger == GSVoteRules.Trigger.TIME_LIMIT,
-		"on dot-vote's own clock: a time limit of mountain_minutes", "%s, %.0f s" % [director.current_id(), director.clock.duration])
+		"on gs-vote's own clock: a time limit of mountain_minutes", "%s, %.0f s" % [director.current_id(), director.clock.duration])
 
 	_map_menu_half(vote, director)
 
@@ -336,7 +336,7 @@ class CommandHost extends Node:
 
 
 
-## `maps.yml` (dot_map tiers) as the game uses it: a mountain left out is loadable but never on a
+## `maps.yml` (gs_map tiers) as the game uses it: a mountain left out is loadable but never on a
 ## ballot or nominated, a rotation orders the ballot, a switch takes effect, a renamed command
 ## is registered, and no file rotates everything.
 func _test_rotation_file() -> void:
@@ -351,7 +351,7 @@ func _test_rotation_file() -> void:
 
 	var kept: GSMapRotationFile = game.rotation_file
 	var shipped := GSMapRotationFile.find_layers("", "mg-dangerous-delivery")
-	_check(not shipped.is_empty() and str(shipped[0]).ends_with("cfg/game/mg-dangerous-delivery/dot_map/maps.yml"), "the shipped maps.yml is the game tier file", str(shipped))
+	_check(not shipped.is_empty() and str(shipped[0]).ends_with("cfg/game/mg-dangerous-delivery/gs_map/maps.yml"), "the shipped maps.yml is the game tier file", str(shipped))
 	var parsed := GSMapRotationFile.from_trees([{"defaults": {
 		"rotation": "a",
 		"rotations": {
@@ -431,7 +431,7 @@ func _test_rotation_file() -> void:
 	_finished_section()
 
 ## The map menu's server half (M): the owner's flag changes the mountain now, anybody else gets a nomination and a
-## rock-the-vote. Contexts as dot-server makes them for a chat line.
+## rock-the-vote. Contexts as gs-server makes them for a chat line.
 func _map_menu_half(vote: Node, director: GSVoteDirector) -> void:
 	var menu_half: Object = vote.get("commands").get("map_menu")
 	_check(menu_half != null and server.console.find_command("mapmenu") != null
@@ -476,7 +476,7 @@ func _menu_marks_out_of_rotation() -> void:
 
 
 ## [b]`time_up: finish_round` waits for a person mid-haul, never for an empty road.[/b] The
-## game hands dot-vote its own answer (`round_in_progress_fn` is `_anyone_hauling`). Run on a
+## game hands gs-vote its own answer (`round_in_progress_fn` is `_anyone_hauling`). Run on a
 ## director of its own carrying the game's hook, so the real vote's clock is untouched.
 func _test_finish_round_waits_for_a_haul() -> void:
 	_section("finish_round waits for a haul, not an empty road")
@@ -513,7 +513,7 @@ func _test_finish_round_waits_for_a_haul() -> void:
 
 
 ## A director under `time_up: finish_round` carrying [param hook], its clock run out with a
-## winner already decided: what dot-vote's own suite builds, with the game's answer in it.
+## winner already decided: what gs-vote's own suite builds, with the game's answer in it.
 func _finish_round_probe(hook: Callable, applied: Array) -> GSVoteDirector:
 	var source := GSVoteListSource.new()
 	var _a := source.add(GSVoteChoice.of(&"a", "A"))
@@ -560,7 +560,7 @@ func _finish_round_probe(hook: Callable, applied: Array) -> GSVoteDirector:
 
 
 ## A driver whose client has not lifted its loading cover loses nothing, and does once it does
-## (dot-game's "still loading"), over a real ENet socket. Stand-ins never reach this: a bot is never loading.
+## (gs-game's "still loading"), over a real ENet socket. Stand-ins never reach this: a bot is never loading.
 func _test_a_covered_seat_is_not_harmed() -> void:
 	_section("a client behind its loading cover loses nothing, and does once it lifts")
 

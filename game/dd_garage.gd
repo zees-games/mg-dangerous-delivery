@@ -22,9 +22,9 @@ var _view: Dictionary = {}
 ## The lot's panel. Moved and narrowed by [method make_room].
 var _frame: PanelContainer = null
 
-## The lot makes room for a ballot: any visible Control in dot-ui's `dot_hud_cover` group on top of it
+## The lot makes room for a ballot: any visible Control in gs-ui's `gs_hud_cover` group on top of it
 ## slides the lot left and narrows it to end [constant ROOM_GAP] px short, rather than cutting a column or shrinking it centred.
-const COVER_GROUP := &"dot_hud_cover"
+const COVER_GROUP := &"gs_hud_cover"
 
 ## The lot's size when nothing covers it, and the margin it keeps from the frame's edge.
 const LOT_SIZE := Vector2(1120.0, 600.0)

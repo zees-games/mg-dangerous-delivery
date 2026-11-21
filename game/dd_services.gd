@@ -1,6 +1,6 @@
 extends GSGameServices
 
-## Chat, voice and moderation over dot-game's base: what this game decides about them.
+## Chat, voice and moderation over gs-game's base: what this game decides about them.
 ## Solo does not touch any of it: solo is about trucks, not people.
 
 const DdGame := preload("dd_game.gd")

@@ -89,9 +89,9 @@ func _build() -> bool:
 
 	_server_net = _make_manager(true, server_side)
 	_client_net = _make_manager(false, client_side)
-	# This harness stamps every command itself, so the client must not ask for dot-net's
+	# This harness stamps every command itself, so the client must not ask for gs-net's
 	# input-lead report: steered by reports about commands it never stamped, the clock runs away.
-	# By the constant map, so it parses against a dot-net from before the report.
+	# By the constant map, so it parses against a gs-net from before the report.
 	var lead_bit := int((GSNetMessageRegistry as Script).get_script_constant_map().get("FEATURE_INPUT_LEAD", 0))
 	_client_net.messages.features &= ~lead_bit
 

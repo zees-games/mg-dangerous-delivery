@@ -1,7 +1,7 @@
 extends RefCounted
 
 ## Where this game's own files are, wherever this copy of it happens to live.
-## A delivered pack mounts at `res://dot_cloud/<id>/<version>/`, so an absolute `res://` path to its own files would resolve against the host project; see docs/design.md.
+## A delivered pack mounts at `res://gs_cloud/<id>/<version>/`, so an absolute `res://` path to its own files would resolve against the host project; see docs/design.md.
 ## Built in, [method rebase] returns what it was passed. Anything holding one of these paths is a `static var`, not a `const`, since [method root] is not knowable at parse time.
 
 ## This game's content root: `res://` built in, the mount prefix delivered.

@@ -39,7 +39,7 @@ func _ready() -> void:
 
 	OS.remove_logger(errors)
 	# Engine errors go to stderr and change no exit code: a toy pulled out of the tree after a
-	# mid-tick rebuild (dot-net history #30) printed `!is_inside_tree()` on green runs elsewhere.
+	# mid-tick rebuild (gs-net history #30) printed `!is_inside_tree()` on green runs elsewhere.
 	var seen := errors.seen()
 	_check(seen.is_empty(), "the engine reported no error over the whole run",
 		"%d: %s" % [seen.size(), ", ".join(seen.slice(0, 3))])
@@ -85,7 +85,7 @@ func _test_joining() -> void:
 	_check(_client_game.seed_value == _server_game.seed_value, "it has the weather's seed")
 	_check((_client_bridge.garage_view.get("routes", []) as Array).size() == 6 and int(_client_bridge.garage_view.get("money", -1)) == 0,
 		"and its garage")
-	# The site's name, arriving after the seat as dot-platform's admission does.
+	# The site's name, arriving after the seat as gs-platform's admission does.
 	var renamed := _server_bridge.rename(SESSION, "Ada Lovelace")
 	_exchange()
 	await _steps(2)
@@ -538,7 +538,7 @@ func _test_rock_heard() -> void:
 func _test_the_remote_workbench() -> void:
 	_section("[a flagged admin edits the server's profiles, and nobody else can]")
 	if not GSGameWorkbench.available():
-		print("  dot-workbench is not linked: skipped")
+		print("  gs-workbench is not linked: skipped")
 		_passed += 16
 		_finished_section()
 		return

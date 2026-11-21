@@ -1,21 +1,21 @@
 extends "res://examples/headless_run_settings.gd"
 
 ## The sound and effects section of the headless_run suite (headless_run.gd extends this): the truck's sounds through
-## dot-audio's null sink and a rockfall's jolt through dot-fx. Path-based base, no class_name.
+## gs-audio's null sink and a rockfall's jolt through gs-fx. Path-based base, no class_name.
 
 
-## The client's sounds and a rockfall's jolt, through dot-audio and dot-fx. Headless has no
+## The client's sounds and a rockfall's jolt, through gs-audio and gs-fx. Headless has no
 ## sound device, so the manager runs its null sink: the real catalogue and limits with a log in
 ## place of a speaker. tools/audio_probe (xvfb) is what says a sound is heard.
 func _test_sound_and_effects() -> void:
-	_section("the truck's sounds and a rockfall's jolt, through dot-audio and dot-fx")
+	_section("the truck's sounds and a rockfall's jolt, through gs-audio and gs-fx")
 	var DdAudio: GDScript = load("res://game/dd_audio.gd")
 	var catalogue: GSAudioCatalogue = DdAudio.call("sound_catalogue")
 	var stand_ins: Dictionary = DdAudio.call("stand_ins")
 	var ids: Array = DdAudio.call("ids")
 	_check(
 		catalogue.validate().ok and ids.all(func(id: StringName) -> bool:
-			# dot-audio's stock beds and footsteps are files the addon ships: no stand-in needed.
+			# gs-audio's stock beds and footsteps are files the addon ships: no stand-in needed.
 			return catalogue.find(id) != null and (stand_ins.has(id) or GSAudioStock.ids().has(id))),
 		"every sound the game names is in its catalogue, with a stand-in", str(ids))
 
@@ -46,7 +46,7 @@ func _test_sound_and_effects() -> void:
 		sink != null and effects != null and settings != null \
 			and bool(settings.describe().get("audio_bound", false)) \
 			and int(settings.applier.describe().get("fx", 0)) > 0,
-		"the sounds are dot-audio's and the jolt dot-fx's, and the settings reach both",
+		"the sounds are gs-audio's and the jolt gs-fx's, and the settings reach both",
 		str(settings.describe()) if settings != null else "no settings")
 
 	var own: Dictionary = audio.call("loop_state", &"own")

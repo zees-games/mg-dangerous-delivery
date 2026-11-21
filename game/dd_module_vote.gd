@@ -13,7 +13,7 @@ const MOUNTAIN_BALLOT_TOPIC := &"map_ballot"
 var vote: DdVote = null
 
 
-## The players' vote for the next mountain, over dot-vote (`!vote`, `!rtv`, `!nominate`), on its own clock; reshaped in `user://cfg/delivery_vote.json` or `game.yml`'s `metadata: mountain_vote:`. A vote that cannot be built is logged and the server stays put.
+## The players' vote for the next mountain, over gs-vote (`!vote`, `!rtv`, `!nominate`), on its own clock; reshaped in `user://cfg/delivery_vote.json` or `game.yml`'s `metadata: mountain_vote:`. A vote that cannot be built is logged and the server stays put.
 func _build_vote(world: DdGame) -> void:
 	vote = DdVote.new()
 	vote.name = "MountainVote"
@@ -97,7 +97,7 @@ func _wire_vote_callbacks(world: DdGame) -> void:
 
 ## The map menu (M), the vote-minutes cvar and the voter forgetting on disconnect.
 func _wire_vote_menu(world: DdGame) -> void:
-	# The map menu (M), dot-vote's: `sv_map_menu_flag` moves the world now. By name: an older dot-vote has no `map_menu`.
+	# The map menu (M), gs-vote's: `sv_map_menu_flag` moves the world now. By name: an older gs-vote has no `map_menu`.
 	var menu_half: Variant = vote.commands.get(&"map_menu") if vote.commands != null else null
 	if menu_half is Object:
 		(menu_half as Object).set(&"change_fn", _change_mountain)

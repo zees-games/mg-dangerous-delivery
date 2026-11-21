@@ -1,5 +1,5 @@
 # Per-mountain overrides for "long_haul" (the next mountain gets the old values back); uncomment a commented line to add more.
-# An operator overrides it in cfg/server/game/mg-dangerous-delivery/dot_map/map/.
+# An operator overrides it in cfg/server/game/mg-dangerous-delivery/gs_map/map/.
 # Long and exposed: a lot of road, so more weather, and storms that reach it.
 dd_weather_frequency: 1.3
 dd_weather_storms: 0.35

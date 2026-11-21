@@ -1,7 +1,7 @@
 extends GSNetBehaviour
 
 ## A replicated rigid body: a boulder, and the base of a truck's.
-## Server-authoritative and never predicted (dot-vehicle's and dot-props' decision): the server pulls the pose, a client draws it
+## Server-authoritative and never predicted (gs-vehicle's and gs-props' decision): the server pulls the pose, a client draws it
 ## interpolated on a frozen body so its own physics never fights the packets.
 
 var body: Node3D = null

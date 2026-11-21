@@ -279,7 +279,7 @@ extends GSConfig
 @export_range(0.0, 360.0, 1.0, "or_greater") var mountain_minutes: float = 15.0
 
 ## The file that says which mountains a server ROTATES: `maps.yml` in
-## `cfg/game/mg-dangerous-delivery/dot_map/` or `cfg/server/addons/dot_map/` (dot-map's
+## `cfg/game/mg-dangerous-delivery/gs_map/` or `cfg/server/addons/gs_map/` (gs-map's
 ## `GSMapRotationFile`). Empty or absent rotates every mountain; one left out is never balloted.
 @export var map_rotation_file: String = GSMapRotationFile.DEFAULT_STEM
 

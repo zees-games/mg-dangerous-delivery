@@ -153,7 +153,7 @@ func add_player(peer_id: int, session_id: int, display_name: String) -> GSResult
 	return GSResult.success(key)
 
 
-## A name that arrived after the driver was seated (dot-platform admits AFTER the seat) or an
+## A name that arrived after the driver was seated (gs-platform admits AFTER the seat) or an
 ## operator's rename. The driver takes it and everybody is sent the DRIVER again, which a client
 ## already applies to a driver it knows.
 func rename(session_id: int, display_name: String) -> bool:
@@ -283,7 +283,7 @@ func _release_toys() -> void:
 
 
 ## Client, on TOYS: a mirror for every id at once, under the holder, whether this end's toys for
-## the lot exist yet or not. A client must know every entity a snapshot carries: dot-net stops
+## the lot exist yet or not. A client must know every entity a snapshot carries: gs-net stops
 ## reading at the first unknown one. Paired with its toy by index as soon as both are here.
 func _apply_toys(told: Dictionary) -> void:
 	if net == null or net.is_server:
@@ -680,7 +680,7 @@ func _broadcast(kind: int, data: Dictionary) -> void:
 		_tell(int(peer_id), kind, data)
 
 
-## One peer, never zero: `net.send(msg, 0)` is a broadcast in dot-net.
+## One peer, never zero: `net.send(msg, 0)` is a broadcast in gs-net.
 func _tell(peer_id: int, kind: int, data: Dictionary) -> void:
 	if peer_id <= 0 or net == null:
 		return

@@ -1,6 +1,6 @@
 # Community maps for Dangerous Delivery (staging copy)
 
-Three mountains of one road each, generated from community maps by dot-map-convert's `tools/bsp_route.py` (only the road's shape is used; no author geometry, textures or models):
+Three mountains of one road each, generated from community maps by gs-map-convert's `tools/bsp_route.py` (only the road's shape is used; no author geometry, textures or models):
 
 | Mountain | Source | Author |
 | --- | --- | --- |

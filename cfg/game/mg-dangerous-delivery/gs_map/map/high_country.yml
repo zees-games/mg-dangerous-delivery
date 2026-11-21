@@ -1,5 +1,5 @@
 # Per-mountain overrides for "high_country" (the next mountain gets the old values back); uncomment a commented line to add more.
-# An operator overrides it in cfg/server/game/mg-dangerous-delivery/dot_map/map/.
+# An operator overrides it in cfg/server/game/mg-dangerous-delivery/gs_map/map/.
 # The cold end: weather nearly always on, a third of rain periods storms, fog, little grip.
 dd_weather_frequency: 1.8
 dd_weather_storms: 0.5

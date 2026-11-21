@@ -162,7 +162,7 @@ func _select_mountain() -> void:
 
 ## Every mountain this server can play, as the map menu (M) lists them: `{id, name, detail,
 ## current}`, its routes under the name. Solo the client's list, online the server's (the
-## module hands it to dot-vote's map menu), so both say the same.
+## module hands it to gs-vote's map menu), so both say the same.
 func mountain_rows() -> Array:
 	sync_content()
 	var out: Array = []
@@ -1822,7 +1822,7 @@ func _fall(driver: Driver, why: String) -> void:
 
 
 ## Whether [param driver_key] may lose load or count a fall now: false while their client is
-## behind its loading cover (dot-game's "still loading"). True for anybody the gate does not
+## behind its loading cover (gs-game's "still loading"). True for anybody the gate does not
 ## know: offline, and every stand-in, which never loads.
 func can_be_harmed(driver_key: StringName) -> bool:
 	return not harm_gate.is_valid() or bool(harm_gate.call(driver_key))
@@ -2015,7 +2015,7 @@ const STAND_IN_OFF_ROAD := 40.0
 const STAND_IN_SUNK := 6.0
 
 
-## How a stand-in drives, from dot-bot's settings (`bot_difficulty` and the `bot_*` cvars), read
+## How a stand-in drives, from gs-bot's settings (`bot_difficulty` and the `bot_*` cvars), read
 ## at the start of every trip. Skill is pace and when it reacts to a corner, not aim:
 ## `bot_aggression` scales the straight speed and `bot_reaction` the brake gain.
 func tune_stand_in(autopilot: GSVehicleDriver) -> void:

@@ -2,7 +2,7 @@ extends Node
 
 ## Records what the game sounds like to a WAV, for a loudness meter:
 ##   tools/loudness.sh [--squeal=6] [--route=dd_snowline] [--sky=snow|rain|wind|clear] [--seconds=20]
-## Master bus through an AudioEffectRecord under xvfb: headless and Movie Maker run the Dummy driver, where dot-audio plays nothing.
+## Master bus through an AudioEffectRecord under xvfb: headless and Movie Maker run the Dummy driver, where gs-audio plays nothing.
 
 const DdClient := preload("res://game/dd_client.gd")
 

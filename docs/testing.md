@@ -5,8 +5,8 @@
 - `tools/build_routes.py --check`: the routes on disk are what the builder writes.
 - `tools/drive.sh`: a stand-in delivers every route (`TRUCK=semi` or `TRUCK=bulk` to drive another truck).
 - `tools/shot.sh` renders (`--view=drive --route=<id> --sky=snow --seconds=45`, for one; `--people=6`, `--view=far|land|seller|roam|gate|walk_gate`, `--panel`, `--mountain=long_haul` for the lot, the land and the gates).
-- `tools/loudness.sh [--route=..] [--sky=snow|rain|wind|clear] [--company=N]`: the mix's integrated loudness, range and true peak (the Master bus recorded under xvfb; Movie Maker and headless both run the Dummy driver, where dot-audio plays nothing).
-- `xvfb-run -a godot --path . res://tools/audio_probe.tscn`: does a truck make a noise. Headless has the Dummy audio driver and dot-audio's null sink, so only this asks real players (your engine, the truck behind, the chime).
+- `tools/loudness.sh [--route=..] [--sky=snow|rain|wind|clear] [--company=N]`: the mix's integrated loudness, range and true peak (the Master bus recorded under xvfb; Movie Maker and headless both run the Dummy driver, where gs-audio plays nothing).
+- `xvfb-run -a godot --path . res://tools/audio_probe.tscn`: does a truck make a noise. Headless has the Dummy audio driver and gs-audio's null sink, so only this asks real players (your engine, the truck behind, the chime).
 
 | Suite | What it covers |
 | --- | --- |
@@ -24,7 +24,7 @@
 
 ## Visual QA
 
-`tools/visual_qa.gd` is dot-game's visual QA capture (dot-game `docs/visual-qa.md`) for this game. It records every frame at 60 fps from three cameras: f is the game's cab camera, t is behind and to the right, and o is someone on the road ahead.
+`tools/visual_qa.gd` is gs-game's visual QA capture (gs-game `docs/visual-qa.md`) for this game. It records every frame at 60 fps from three cameras: f is the game's cab camera, t is behind and to the right, and o is someone on the road ahead.
 
 - `truck_<id>`: every truck in DdTrucks, with crates on board, the driver seated, and the semi pulling its trailer. Clips are idle, drive, turn, brake and crash (into a wall).
 - `walker`: the player on foot. Clips are idle, walk and run.
@@ -33,11 +33,11 @@
 Run it as gamedev from the checkout or a worktree. It goes to a GPU box when one is free.
 
 ```
-sudo -u gamedev bash addons/dot_game/tools/dot_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh all [-- --only truck_semi --clips crash]
+sudo -u gamedev bash addons/gs_game/tools/gs_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh all [-- --only truck_semi --clips crash]
 ```
 
-The output goes to `screenshots/visual_qa/` (gitignored): `report.md`, then `<item>/<clip>_{fp,tp,op}_sheet.png` and an mp4 per clip. Read the report first, then the sheets. Ask "does this look like a real game?", fix what doesn't, and re-capture only the items you touched. Post the before and after with `addons/dot_game/tools/dot_game_visual_qa_post.sh` to a nightly review.
+The output goes to `screenshots/visual_qa/` (gitignored): `report.md`, then `<item>/<clip>_{fp,tp,op}_sheet.png` and an mp4 per clip. Read the report first, then the sheets. Ask "does this look like a real game?", fix what doesn't, and re-capture only the items you touched. Post the before and after with `addons/gs_game/tools/gs_game_visual_qa_post.sh` to a nightly review.
 
 ## The deployment
 
-dot-server-deploy's `examples/delivery_client` joins a delivered pack (`tmc/delivery`, `content/delivery/`) with a real client over a real socket and drives. Nobody has driven it in the web shell yet.
+gs-server-deploy's `examples/delivery_client` joins a delivered pack (`tmc/delivery`, `content/delivery/`) with a real client over a real socket and drives. Nobody has driven it in the web shell yet.

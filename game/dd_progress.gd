@@ -1,6 +1,6 @@
 extends Node
 
-## What a driver has done, as dot-stats numbers, and what they earned, as achievements, reported to TMC's backbone when the server has one.
+## What a driver has done, as gs-stats numbers, and what they earned, as achievements, reported to TMC's backbone when the server has one.
 ## It listens and nothing calls it: the world's signals are the whole input, and it is server only (a client counting its own deliveries awards itself).
 ## Filed under the same key as the money (`uid:...`); a stand-in is never counted.
 
@@ -17,7 +17,7 @@ const BEST_PAY := &"dd.best_pay"
 const BEST_LEVEL := &"dd.best_level"
 const FALLS := &"dd.falls"
 const SNOW_DELIVERIES := &"dd.snow_deliveries"
-## The published skill figure the site orders by (dot-stats' GSStatsRank).
+## The published skill figure the site orders by (gs-stats' GSStatsRank).
 const RANK_SCORE := &"rank_score"
 
 signal earned(key: StringName, title: String, points: int)
@@ -32,7 +32,7 @@ var link: GSAchievementStatsLink = null
 ## The skill rank, built on lifetime totals: baseline loaded at the first reading, republished after each delivery.
 var rank: GSStatsRank = null
 
-## Only the stats report is filed under dot-game's stable key; the wallet, drivers and awards keep `uid:...`.
+## Only the stats report is filed under gs-game's stable key; the wallet, drivers and awards keep `uid:...`.
 var stats_feed := GSGameStatsFeed.new()
 ## driver key -> [stats key, userid], noted at admission by [method note_session].
 var _stats_keys: Dictionary = {}

@@ -4,7 +4,7 @@ const DdGame := preload("res://game/dd_game.gd")
 const DdRoute := preload("res://game/dd_route.gd")
 const DdRouteBase := preload("res://game/dd_route_base.gd")
 
-## The oncoming cars' yield in dot-sim's `GSSimRoad` answers exactly as the script does
+## The oncoming cars' yield in gs-sim's `GSSimRoad` answers exactly as the script does
 ## (godot --headless --path . res://examples/headless_native_traffic.tscn): seeded asks on every
 ## road of every mountain (trucks near and far, hints in and out of a road), a live bot run with
 ## [member DdRouteBase.traffic_verify] on, and an alternated native/script bench of the traffic
@@ -32,7 +32,7 @@ func _run() -> void:
 	_entered += 1
 	print("the library has the road module")
 	if not GSSim.has(&"road"):
-		print("  dot-sim's road module is not loaded: the native half is skipped")
+		print("  gs-sim's road module is not loaded: the native half is skipped")
 		_check(_require_env() != "1", "the library is loaded (GS_SIM_REQUIRE_NATIVE=1)")
 		_finished += 1
 		_report_sections(_entered, _finished, 1)
@@ -56,7 +56,7 @@ func _run() -> void:
 func _require_env() -> String:
 	if OS.has_environment("GS_SIM_REQUIRE_NATIVE"):
 		return OS.get_environment("GS_SIM_REQUIRE_NATIVE")
-	return OS.get_environment("DOT_SIM_REQUIRE_NATIVE")
+	return OS.get_environment("GS_SIM_REQUIRE_NATIVE")
 
 
 func _test_parity(world: DdGame) -> void:

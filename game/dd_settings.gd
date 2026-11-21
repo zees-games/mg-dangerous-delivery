@@ -3,21 +3,21 @@ extends GSMenuGameSettings
 const DdBindings := preload("dd_bindings.gd")
 
 ## A player's own settings and the menu that changes them: view, loudness, the window and the menu's look. The lot's SETTINGS button and O open it.
-## dot-menu's `GSMenuGameSettings` with this game's spec; `sensitivity` is ACCOUNT scope, `field_of_view` SERVER_CLAMPED, the volumes this machine's.
+## gs-menu's `GSMenuGameSettings` with this game's spec; `sensitivity` is ACCOUNT scope, `field_of_view` SERVER_CLAMPED, the volumes this machine's.
 ## Use: `setup()`, then `bind_look`, `bind_camera`, `bind_audio`, and `open()` (Escape does this in the client).
 
 const SCHEMA_VERSION := 1
 
-## Where this game's own document lives. The shared account document is dot-settings'.
+## Where this game's own document lives. The shared account document is gs-settings'.
 const SETTINGS_DIR := "user://delivery_settings"
 
-## The app's namespace. ACCOUNT settings are shared under dot-menu's `tmc_account`.
+## The app's namespace. ACCOUNT settings are shared under gs-menu's `tmc_account`.
 const APP_NAMESPACE := &"dangerous_delivery"
 
 ## The field of view the camera had before this existed, and still the default.
 const DEFAULT_FOV := 70
 
-## Stock keys nothing here applies: every sound is on dot-audio's SFX bus, nobody turns a view with the mouse,
+## Stock keys nothing here applies: every sound is on gs-audio's SFX bus, nobody turns a view with the mouse,
 ## the one effect is a rockfall's shake, and the chat box has no switch.
 const NOT_APPLIED: Array[StringName] = [
 	&"ui_volume", &"voice_volume", &"sensitivity", &"invert_mouse",

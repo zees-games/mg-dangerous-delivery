@@ -4,9 +4,9 @@ extends "dd_client_camera.gd"
 ## controls, the HUD and the sky. Actions go through [method _act] and [member command], and
 ## everything seen comes from [member game], so nothing here decides a price or a fall.
 
-## Where dot-server's client publishes its link before the game scene loads. Present: this
+## Where gs-server's client publishes its link before the game scene loads. Present: this
 ## client is connected; absent: it is offline and owns its world.
-const LINK_SERVICE := &"dot_client_link"
+const LINK_SERVICE := &"gs_client_link"
 
 func _ready() -> void:
 	DdLoad.begin()
@@ -175,7 +175,7 @@ func _build_gate() -> void:
 	# Mountains are laid over many frames, a browser's several seconds; the gate must not give up
 	# and uncover half of them.
 	gate.timeout_sec = 120.0
-	# Under a shell's cover (solo) a gate before dot-core v0.1.41 never lifts a cover it did not show.
+	# Under a shell's cover (solo) a gate before gs-core v0.1.41 never lifts a cover it did not show.
 	gate.opened.connect(func() -> void:
 		if is_instance_valid(loading) and not loading.is_queued_for_deletion():
 			loading.hide_cover())
@@ -256,7 +256,7 @@ func _on_truck_scraping(key: StringName, at: Vector3, speed: float) -> void:
 	var _s := effects.spawn(&"sparks", Transform3D(Basis(), at), clampf(speed / 15.0, 0.5, 2.0))
 
 
-## Once a frame, after the camera has followed the truck: dot-fx computes the jolt and touches
+## Once a frame, after the camera has followed the truck: gs-fx computes the jolt and touches
 ## no camera, so it is added here and taken off before the next follow.
 func _present_effects(delta: float) -> void:
 	if effects == null:
@@ -992,13 +992,13 @@ func _trip_facts(me: DdGame.Driver) -> Dictionary:
 
 
 ## What the mouse pointer should be now: out of the way while driving, there for the lot, the
-## menu, the console and a chat line. The client owns it every frame (dot-menu's
+## menu, the console and a chat line. The client owns it every frame (gs-menu's
 ## `manage_pointer` is off). Captured on a desktop; hidden in a browser, where capture needs a click.
 func pointer_mode() -> Input.MouseMode:
 	var me := _driver()
 	var menu_open := settings != null and settings.menu != null and settings.menu.any_open()
 	var typing := chat != null and chat.is_typing()
-	# The shell's holds: a ballot in the dot_pointer_modal group or a hold_pointer key. Without
+	# The shell's holds: a ballot in the gs_pointer_modal group or a hold_pointer key. Without
 	# this the per-frame capture below took the mouse back under an open ballot.
 	var held := platform != null and platform.is_input_blocked()
 
@@ -1439,8 +1439,8 @@ func _speed_of_truck(truck: DdTruck) -> float:
 	return _speed_net.speed_ms() if _speed_net != null and is_instance_valid(_speed_net) else 0.0
 
 
-## dot-game's chat box and microphone, with this game's channels and voice format. It also draws
-## dot-server's own lines, which arrive on the shell's client link rather than this bridge.
+## gs-game's chat box and microphone, with this game's channels and voice format. It also draws
+## gs-server's own lines, which arrive on the shell's client link rather than this bridge.
 ## Static so a suite can build the same box the client does.
 static func new_chat() -> GSGameChatClient:
 	var box := GSGameChatClient.new()
@@ -1495,7 +1495,7 @@ func _finish_loading() -> void:
 	_report_load()
 
 
-## Where a roster row's driver is, for dot-game's look-to-gag key (G, K).
+## Where a roster row's driver is, for gs-game's look-to-gag key (G, K).
 func _look_position(row: Dictionary) -> Variant:
 	if game == null:
 		return null

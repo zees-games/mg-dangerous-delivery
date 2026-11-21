@@ -2,7 +2,7 @@ extends GSGameClientBench
 
 const DdModule := preload("../game/dd_module.gd")
 
-## Client prediction bench (dot-game's GSGameClientBench): see that class for the flags.
+## Client prediction bench (gs-game's GSGameClientBench): see that class for the flags.
 ## The lot has no server bots, so `--bots` is ignored; `--play` holds the throttle and steers.
 
 
