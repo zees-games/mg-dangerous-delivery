@@ -19,6 +19,9 @@
 /addons/dot_player
 /addons/dot_player_controller
 /addons/dot_player_char
+/addons/dot_animation
+/addons/dot_save
+/addons/dot_camera
 /addons/dot_props
 /addons/dot_ui
 /addons/dot_settings
