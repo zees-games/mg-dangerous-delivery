@@ -80,5 +80,5 @@
 # mountain: "range"
 # Minutes a mountain is played before the players' ballot picks the next one (the vote's time limit; the ball... [0.0..]
 # mountain_minutes: 15.0
-# The file that says which mountains a server ROTATES: `maps.yml` in `cfg/game/mg-dangerous-delivery/gs_map/...
+# The file that says which mountains a server ROTATES: `maps.yml` in `cfg/game/mg-dangerous-delivery/gs_map/`...
 # map_rotation_file: "cfg/maps.yml"
