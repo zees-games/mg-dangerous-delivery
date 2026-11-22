@@ -54,8 +54,6 @@ func _run() -> void:
 
 
 func _require_env() -> String:
-	if OS.has_environment("GS_SIM_REQUIRE_NATIVE"):
-		return OS.get_environment("GS_SIM_REQUIRE_NATIVE")
 	return OS.get_environment("GS_SIM_REQUIRE_NATIVE")
 
 
