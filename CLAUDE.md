@@ -24,7 +24,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first, and gs-vehicle's docs before
 | `game/dd_route_doc.gd`, `dd_route.gd`, `dd_terrain.gd` | what a route is (segments: length, turn, climb, wall, rail, zone, checkpoint, boulders, ice, debris, works, gravel, ledge, traffic), validated; the route built (meshes, one trimesh, signs, oncoming cars, every query); the mountain under it, drawn only |
 | `game/dd_weather.gd`, `dd_trip.gd`, `dd_bank.gd` | the sky as a pure function of (seed, zone, tick) and `unit()`; one haul and its pay; accounts with JSON and SQL stores |
 | `game/dd_trucks.gd`, `dd_truck.gd`, `dd_drivetrain.gd`, `dd_cargo.gd`, `dd_trailer.gd` | catalogue (engine, gears, capacity) and upgrades as data; a `VehicleBody3D` from a Kenney model, with a tank's slosh; engine, gearbox, air and brakes (the chassis); the loads; the Semi's trailer on a joint |
-| `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths |
+| `game/dd_config.gd`, `dd_paths.gd` | every gameplay number (`DD_*`, `--dd-*`); mount-aware paths (`dd_paths` is a three-line shim over gs-game's GSGamePaths) |
 | `game/dd_map_doc.gd`, `dd_mountains.gd`, `maps/`, `dd_vote.gd` | what a map is (routes and layout), validated; the catalogue (`maps/*.json` and a server's map packs); the players' vote for the next one over gs-vote, on its own clock |
 | `game/dd_module.gd`, `dd_services.gd`, `dd_server.gd`, `net/` | the `GSGameModule`, chat/voice/moderation, the server scene's world, the wire and bridge |
 | `game/dd_lot.gd`, `dd_land.gd`, `dd_gate.gd` | the lot (slab, fence, showroom, sellers, bays, spawn); the land round it and the roads to every route; a route's gate |
